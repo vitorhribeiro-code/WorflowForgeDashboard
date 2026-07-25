@@ -56,6 +56,13 @@ export const noHandler = (m: string, d?: unknown) => new DomainError("no_handler
 export const retryNotAllowed = (m: string, d?: unknown) =>
   new DomainError("retry_not_allowed", m, 409, d);
 export const toolNotOAuth = (m: string, d?: unknown) => new DomainError("tool_not_oauth", m, 422, d);
+// M6 — Conexões: scopes/OAuth/state.
+export const invalidScopes = (m: string, d?: unknown) =>
+  new DomainError("invalid_scopes", m, 422, d);
+export const oauthDenied = (m: string, d?: unknown) => new DomainError("oauth_denied", m, 403, d);
+export const providerError = (m: string, d?: unknown) =>
+  new DomainError("provider_error", m, 502, d);
+export const stateInvalid = (m: string, d?: unknown) => new DomainError("state_invalid", m, 400, d);
 
 // Mapeia qualquer erro para uma resposta HTTP. Ponto único de tradução.
 export function toHttp(err: unknown): HttpError {

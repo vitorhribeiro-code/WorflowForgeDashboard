@@ -11,6 +11,15 @@ import {
   type CloudSdk,
   type StorageConnectionPort,
 } from "./infra/cloud-storage.worker-connection";
+import type { EphemeralStoragePort } from "./service/ports";
+import { db as defaultDb } from "@/db/client";
+import { createDrizzleAudit } from "@/lib/audit.drizzle";
+import { createS3EphemeralStore } from "@/platform/storage/stores";
+import { getS3Bucket, getS3Client } from "@/platform/storage/s3-client";
+import {
+  createM6StorageConnectionBridge,
+  defaultCloudSdkRegistry,
+} from "./infra/storage-connection.m6";
 
 export interface ArtifactContainerDeps {
   db: PgDatabase<any, any, any>;
@@ -19,6 +28,8 @@ export interface ArtifactContainerDeps {
   storageConnections: StorageConnectionPort;
   /** Registo de SDKs de cloud por Tool.key (partilha o registo do M6). */
   sdkByToolKey: (toolKey: string) => CloudSdk | undefined;
+  /** Store efémero; se omitido, escolhe S3 (se configurado) ou memória. */
+  ephemeral?: EphemeralStoragePort;
 }
 
 export interface ArtifactContainer {
@@ -59,7 +70,8 @@ let cached: ArtifactContainer | null = null;
 export function buildArtifactContainer(deps: ArtifactContainerDeps): ArtifactContainer {
   const repo = createArtifactRepository(deps.db);
   const cloud = createCloudStorageAdapter(deps.storageConnections, deps.sdkByToolKey);
-  const ephemeral = createMemoryEphemeralStore(); // trocar por S3/Redis em produção
+  // memory → S3: store injetado, senão S3/R2 se configurado, senão memória.
+  const ephemeral = deps.ephemeral ?? buildEphemeralFromEnv();
   const runs = createRunContextAdapter(deps.db);
 
   const service = createArtifactService({
@@ -75,12 +87,31 @@ export function buildArtifactContainer(deps: ArtifactContainerDeps): ArtifactCon
   return { service, artifactSink: makeSink(service) };
 }
 
-/** Acesso preguiçoso a partir das rotas. Inicializar com initArtifactContainer no bootstrap. */
+// memory → S3: usa o store S3/R2 se o bucket estiver configurado, senão memória.
+function buildEphemeralFromEnv(): EphemeralStoragePort {
+  const s3 = getS3Client();
+  const bucket = getS3Bucket();
+  if (s3 && bucket) return createS3EphemeralStore(s3, bucket);
+  return createMemoryEphemeralStore();
+}
+
+/** Deps reais por defeito: BD, auditoria, ponte de storage do M6, registo de SDKs. */
+function defaultArtifactDeps(): ArtifactContainerDeps {
+  return {
+    db: defaultDb,
+    audit: createDrizzleAudit(defaultDb),
+    storageConnections: createM6StorageConnectionBridge(defaultDb),
+    sdkByToolKey: defaultCloudSdkRegistry,
+  };
+}
+
+/** Override explícito do container (ex.: testes de integração). */
 export function initArtifactContainer(deps: ArtifactContainerDeps): void {
   cached = buildArtifactContainer(deps);
 }
 
+/** Acesso preguiçoso a partir das rotas: auto-inicializa com as deps reais. */
 export function getArtifactContainer(): ArtifactContainer {
-  if (!cached) throw new Error("ArtifactContainer não inicializado — chamar initArtifactContainer");
+  if (!cached) cached = buildArtifactContainer(defaultArtifactDeps());
   return cached;
 }

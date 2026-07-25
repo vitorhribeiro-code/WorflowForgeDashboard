@@ -200,14 +200,15 @@ export const mappingService = createMappingService({
 });
 
 // -------------------------------------------------------------------------- //
-//  Seams pendentes (módulos do handoff — ligar quando integrados)             //
-//  - M6: readinessPort (acima) + StorageConnectionPort (→M8)                   //
-//  - M7: RunQueue (BullMQ/pg-boss), ArtifactSink (M8), ReadinessChecker (M6),  //
-//        AssignmentRead (assignmentReadPort acima)                             //
-//  - M8: EphemeralStore (S3/Redis), CloudStorage (M6); expõe artifactSink,     //
-//        markArchived (→M9)                                                    //
-//  - M9: PeriodSource (M7/M8), ArchiveStorage, ArtifactArchive=m8.markArchived,//
-//        WorkerDirectory (workerDirectory acima)                              //
+//  Tier 1 — M6–M9 (integrados)                                                //
+//  Estes módulos auto-ligam-se pelos seus container.ts (lazy singletons que   //
+//  as rotas consomem via get*Service/get*Container), não por este root:        //
+//  - M6: readinessPort (acima); conexões via getConnectionsService()           //
+//  - M7: getRunsService() — fila pg-boss + readiness + ArtifactSink→M8         //
+//  - M8: getArtifactContainer() — StorageConnectionPort (ponte M6) + S3/memória //
+//  - M9: getArchiveContainer() — artifacts=m8.service (markArchived) + S3       //
+//  memory→S3 é escolhido por env (platform/storage/s3-client); sem S3 cai em    //
+//  memória. Falta só o registo de SDKs de cloud (upload real) — infra Tier-2.   //
 // -------------------------------------------------------------------------- //
 export const services = {
   authService,
