@@ -11,11 +11,12 @@ import { loadEnv } from "@/platform/config/env";
 import { createDrizzleRunsRepository } from "./data/runs.repository";
 import { createRunsService, type RunsService } from "./service/runs.service";
 import { createHandlerRegistry, type RunHandler } from "./service/handlers/handler";
+import { builtinHandlers } from "./service/handlers/builtin";
 import type { ArtifactSink } from "./service/ports";
 import { getArtifactContainer } from "@/modules/artifacts/container";
 
-// Registo de handlers por runtime — preencher com os handlers reais.
-const HANDLERS: RunHandler[] = [];
+// Registo de handlers por runtime (email.digest, report.monthly, assistant.generic).
+const HANDLERS: RunHandler[] = [...builtinHandlers];
 
 let cached: RunsService | null = null;
 
