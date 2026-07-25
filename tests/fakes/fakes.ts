@@ -127,4 +127,112 @@ export class FakeAudit implements AuditPort {
   actions() {
     return this.entries.map((e) => e.action);
   }
+  // Alias para o teste do M6 (usa `audit.events.at(-1)`); mesma lista de `entries`.
+  get events(): AuditEvent[] {
+    return this.entries;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Fakes do M6 — Conexões (usados por tests/connections/*.test.ts)           */
+/* -------------------------------------------------------------------------- */
+
+import type {
+  OAuthProvider,
+  ProviderRegistry,
+} from "@/modules/connections/service/oauth.provider";
+import type {
+  ConnectionStatus,
+  OAuthCredentials,
+} from "@/modules/connections/domain/connection.types";
+import type {
+  ConnectionRow,
+  ConnectionsRepository,
+  RequiredToolRow,
+  ToolRow,
+  UpsertConnectionInput,
+} from "@/modules/connections/data/connections.repository";
+
+/** Provider OAuth em memória: não faz rede, regista o que foi revogado. */
+export class FakeProvider implements OAuthProvider {
+  refreshShouldThrow = false;
+  revoked: string[] = [];
+
+  authorizationUrl(p: { state: string; scopes: string[]; redirectUri: string }): string {
+    const u = new URL("https://fake.oauth/authorize");
+    u.searchParams.set("state", p.state);
+    u.searchParams.set("scope", p.scopes.join(" "));
+    u.searchParams.set("redirect_uri", p.redirectUri);
+    return u.toString();
+  }
+  async exchangeCode(_p: { code: string; redirectUri: string }): Promise<OAuthCredentials> {
+    return { accessToken: "at", refreshToken: "rt", raw: {} };
+  }
+  async refresh(refreshToken: string): Promise<OAuthCredentials> {
+    if (this.refreshShouldThrow) throw new Error("refresh failed");
+    return { accessToken: "new", refreshToken, raw: {} };
+  }
+  async revoke(token: string): Promise<void> {
+    this.revoked.push(token);
+  }
+}
+
+export class FakeRegistry implements ProviderRegistry {
+  constructor(private readonly byKey: Record<string, OAuthProvider>) {}
+  get(toolKey: string): OAuthProvider | undefined {
+    return this.byKey[toolKey];
+  }
+}
+
+/** Repositório de conexões em memória. Chaves: `${workerId}:${toolId}`. */
+export class FakeRepo implements ConnectionsRepository {
+  tools = new Map<string, ToolRow>();
+  /** requiredScopesFor: key = `${workerId}:${toolId}` → scopes exigidos. */
+  required = new Map<string, string[]>();
+  /** listRequiredTools: key = workerId → linhas (tool + scopes). */
+  requiredTools = new Map<string, RequiredToolRow[]>();
+  suspendCalls: Array<{ workerId: string; toolId: string }> = [];
+
+  private conns = new Map<string, ConnectionRow>();
+  private seq = 0;
+
+  async getToolById(toolId: string): Promise<ToolRow | null> {
+    return this.tools.get(toolId) ?? null;
+  }
+  async getConnection(workerId: string, toolId: string): Promise<ConnectionRow | null> {
+    return this.conns.get(`${workerId}:${toolId}`) ?? null;
+  }
+  async listRequiredTools(workerId: string): Promise<RequiredToolRow[]> {
+    return this.requiredTools.get(workerId) ?? [];
+  }
+  async requiredScopesFor(workerId: string, toolId: string): Promise<string[]> {
+    return this.required.get(`${workerId}:${toolId}`) ?? [];
+  }
+  async upsertConnection(input: UpsertConnectionInput): Promise<ConnectionRow> {
+    const key = `${input.workerId}:${input.toolId}`;
+    const existing = this.conns.get(key);
+    const row: ConnectionRow = {
+      id: existing?.id ?? `conn-${++this.seq}`,
+      workerId: input.workerId,
+      toolId: input.toolId,
+      grantedScopes: input.grantedScopes,
+      credentialsEncrypted: input.credentialsEncrypted,
+      status: input.status,
+      connectedAt: input.connectedAt,
+    };
+    this.conns.set(key, row);
+    return row;
+  }
+  async updateStatus(connectionId: string, status: ConnectionStatus): Promise<void> {
+    for (const row of this.conns.values()) {
+      if (row.id === connectionId) {
+        row.status = status;
+        return;
+      }
+    }
+  }
+  async suspendAssignmentsDependingOn(workerId: string, toolId: string): Promise<number> {
+    this.suspendCalls.push({ workerId, toolId });
+    return 2;
+  }
 }
