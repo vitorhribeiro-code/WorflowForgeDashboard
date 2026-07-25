@@ -32,6 +32,9 @@ export function handler(fn: (req: Request) => Promise<Response>) {
       return await fn(req);
     } catch (err) {
       const { status, body } = toHttp(err);
+      // Erros inesperados (5xx) são registados para diagnóstico; os de domínio
+      // (4xx, ex.: credenciais inválidas) são esperados e não fazem ruído.
+      if (status >= 500) console.error("[auth] erro não tratado:", err);
       return Response.json(body, { status });
     }
   };
