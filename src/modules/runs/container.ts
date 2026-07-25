@@ -12,6 +12,7 @@ import { createDrizzleRunsRepository } from "./data/runs.repository";
 import { createRunsService, type RunsService } from "./service/runs.service";
 import { createHandlerRegistry, type RunHandler } from "./service/handlers/handler";
 import type { ArtifactSink } from "./service/ports";
+import { getArtifactContainer } from "@/modules/artifacts/container";
 
 // Registo de handlers por runtime — preencher com os handlers reais.
 const HANDLERS: RunHandler[] = [];
@@ -22,10 +23,18 @@ export function getRunsService(): RunsService {
   if (cached) return cached;
   const env = loadEnv();
 
-  // ArtifactSink → M8 (container.artifactSink). Placeholder best-effort até ligar.
+  // M7 ↔ M8: o log de um run é persistido como artefacto intermédio (JSON) pelo
+  // service do M8. As shapes dos ports diferem (writeLog vs persist), por isso a
+  // ponte é este adaptador, não um drop-in do artifactSink.
   const artifacts: ArtifactSink = {
     async writeLog(input) {
-      console.info(`[artifacts] log do run ${input.runId} (${input.name}) — ligar ao M8`);
+      await getArtifactContainer().service.persist({
+        runId: input.runId,
+        filename: `${input.name}.json`,
+        mimeType: "application/json",
+        tier: "intermediate",
+        bytes: new TextEncoder().encode(JSON.stringify(input.body)),
+      });
     },
   };
 
