@@ -553,23 +553,21 @@ code {
 }
 
 /* ---- Botão de perigo (apagar) ---- */
-.tasks-table button.btn-danger,
-.panel button.btn-danger,
+/* Aparência (cor/borda) comum; o TAMANHO vem do contexto, para o Apagar da
+   tabela ficar igual ao Editar e o do modal maior. */
 button.btn-danger {
   background: transparent;
   color: var(--danger);
   border: 1px solid var(--danger);
   border-radius: 8px;
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 600;
   cursor: pointer;
-  margin-left: 6px;
 }
 
-.panel button.btn-danger {
-  padding: 9px 16px;
-  font-size: 14px;
+/* Na tabela: mesma dimensão do irmão Editar (.tasks-table button). */
+.tasks-table button.btn-danger {
+  padding: 5px 10px;
+  font-size: 12px;
+  margin-left: 6px;
 }
 
 button.btn-danger:hover:not(:disabled) {
