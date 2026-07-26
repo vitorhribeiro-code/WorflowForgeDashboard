@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TASK_TYPES, type JsonSchema, type Task, type TaskType } from "../domain/types";
+import { runtimesForType } from "../domain/runtimes";
 
 type Props = {
   initial?: Task;
@@ -25,6 +26,19 @@ export function TaskForm({ initial, onSubmit }: Props) {
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Opções de runtime para o tipo atual. Runtime legado (fora do catálogo) é
+  // preservado como opção para não ser trocado em silêncio ao editar.
+  const runtimeOptions = runtimesForType(type);
+  const legacyRuntime = runtime && !runtimeOptions.some((o) => o.key === runtime) ? runtime : null;
+
+  // Mantém o runtime válido: em CRIAÇÃO, ao arrancar ou ao mudar o tipo, se o
+  // atual não servir escolhe o primeiro disponível. Em edição não mexe.
+  useEffect(() => {
+    if (editing) return;
+    const keys = runtimesForType(type).map((o) => o.key);
+    setRuntime((cur) => (keys.includes(cur) ? cur : (runtimesForType(type)[0]?.key ?? "")));
+  }, [type, editing]);
 
   async function submit() {
     setBusy(true);
@@ -74,7 +88,19 @@ export function TaskForm({ initial, onSubmit }: Props) {
       </label>
       <label>
         Runtime
-        <input value={runtime} onChange={(e) => setRuntime(e.target.value)} />
+        <select value={runtime} onChange={(e) => setRuntime(e.target.value)}>
+          {runtimeOptions.length === 0 && !legacyRuntime ? (
+            <option value="">— sem runtime para este tipo —</option>
+          ) : null}
+          {legacyRuntime ? (
+            <option value={legacyRuntime}>{legacyRuntime} (atual)</option>
+          ) : null}
+          {runtimeOptions.map((o) => (
+            <option key={o.key} value={o.key}>
+              {o.label} — {o.key}
+            </option>
+          ))}
+        </select>
       </label>
       <label>
         config_schema (JSON Schema)

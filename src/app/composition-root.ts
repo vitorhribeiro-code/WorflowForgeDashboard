@@ -70,9 +70,9 @@ const AUTH_SECRET = requireEnv("AUTH_SECRET", "dev-secret-mudar-em-producao");
 const SESSION_TTL = Number(process.env.SESSION_TTL_SECONDS ?? 60 * 60 * 8);
 const BASE_URL = process.env.APP_BASE_URL ?? "http://localhost:3000";
 
-// Registo de runtimes (fonte partilhada por M4 e M7). Ligar ao registo real.
-const KNOWN_RUNTIMES = new Set(["email.digest", "report.monthly", "assistant.generic"]);
-const isKnownRuntime = (runtime: string): boolean => KNOWN_RUNTIMES.has(runtime);
+// Registo de runtimes com handler — fonte única partilhada por M4 (catálogo) e
+// pela UI (dropdown). Ao ligar o registo real do M7, derivar as duas daqui.
+import { isKnownRuntime } from "@/modules/tasks/domain/runtimes";
 
 // -------------------------------------------------------------------------- //
 //  M2 — não depende de ninguém; produz as directories que M1/M5/M9 consomem   //
