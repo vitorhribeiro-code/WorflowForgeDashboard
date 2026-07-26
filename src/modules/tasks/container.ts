@@ -5,23 +5,16 @@ import { DrizzleTaskRepository } from "./data/task.repository";
 import { createAjvSchemaValidator } from "./infra/ajv-schema-validator";
 import { createDrizzlePublication } from "./infra/publication.drizzle";
 import { createTaskCatalogPort, createTaskService } from "./service/task.service";
-import type { ToolCatalogPort } from "./service/ports";
+// M3: port cross-module real (getAvailableScopes + assertScopesAvailable),
+// estruturalmente compatível com o ToolCatalogPort do M4. Sem import circular:
+// o M3 não depende do M4.
+import { toolCatalogPort } from "@/modules/tools";
 
 const repo = new DrizzleTaskRepository(db);
 const publication = createDrizzlePublication(db);
 
-// --- Wiring cross-module (ligar aos módulos reais no composition root da app) ---
-
-// M3: o toolCatalogPort do M3 é estruturalmente compatível com o do M4.
-// Substituir este stub por `import { toolCatalogPort } from "@/modules/tools"`.
-const toolCatalog: ToolCatalogPort = {
-  async getAvailableScopes() {
-    throw new Error("Ligar ToolCatalogPort ao M3 (toolCatalogPort)");
-  },
-  async assertScopesAvailable() {
-    throw new Error("Ligar ToolCatalogPort ao M3 (toolCatalogPort)");
-  },
-};
+// --- Wiring cross-module ---
+const toolCatalog = toolCatalogPort;
 
 // M7: registo de runtimes com handler. Substituir pela lista/registo real.
 const isKnownRuntime = (runtime: string): boolean =>

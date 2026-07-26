@@ -41,6 +41,9 @@ export function withSession(
       return await fn(session, req, ctx);
     } catch (err) {
       const { status, body } = toHttp(err);
+      // 5xx são falhas inesperadas (dep. em falta, erro de BD): registar para
+      // não ficarem invisíveis. 4xx são de negócio e não poluem o log.
+      if (status >= 500) console.error("[tasks] 5xx", req.method, new URL(req.url).pathname, err);
       return Response.json(body, { status });
     }
   };

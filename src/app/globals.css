@@ -166,3 +166,388 @@ a {
   font-size: 14px;
   cursor: pointer;
 }
+
+/* ------------------------------------------------------------------ */
+/*  Consola do super-utilizador                                        */
+/* ------------------------------------------------------------------ */
+.console {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.console-brand {
+  font-weight: 600;
+  font-size: 16px;
+  margin-right: 10px;
+}
+
+.console-sub {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.console-nav {
+  display: flex;
+  gap: 4px;
+  margin: 16px 0 24px;
+  flex-wrap: wrap;
+}
+
+.console-nav a {
+  text-decoration: none;
+  color: var(--muted);
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  border: 1px solid transparent;
+}
+
+.console-nav a:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.console-nav a.active {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--border);
+}
+
+.console-section > h1 {
+  font-size: 22px;
+  margin: 0 0 4px;
+}
+
+.console-section > .muted {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0 0 24px;
+  max-width: 70ch;
+}
+
+/* Cartões da visão geral */
+.console-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.console-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-decoration: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.console-card:hover {
+  border-color: #4a4a52;
+}
+
+.console-card-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.console-card-desc {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Painéis e formulários */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+.panel h2 {
+  font-size: 15px;
+  margin: 0 0 14px;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.split .panel {
+  margin-bottom: 0;
+}
+
+.inline-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.inline-form input {
+  flex: 1;
+  min-width: 160px;
+}
+
+.panel input,
+.panel select,
+.panel textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.panel input:focus,
+.panel select:focus,
+.panel textarea:focus {
+  outline: none;
+  border-color: #4a4a52;
+}
+
+.panel button {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: none;
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.panel button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.panel button.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* Forms verticais dos módulos (tool-form / task-form) */
+.tool-form,
+.task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tool-form label,
+.task-form label,
+.area-select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.area-select {
+  margin-bottom: 12px;
+}
+
+.task-form-error,
+.tool-form-error,
+.panel-error {
+  margin: 8px 0 0;
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.panel-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Tabelas / listas dos módulos */
+.area-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.area-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.area-list li:last-child {
+  border-bottom: none;
+}
+
+.area-list button {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.user-table,
+.tools-table,
+.tasks-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.user-table th,
+.tools-table th,
+.tasks-table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.user-table td,
+.tools-table td,
+.tasks-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.user-table tr:last-child td,
+.tools-table tr:last-child td,
+.tasks-table tr:last-child td {
+  border-bottom: none;
+}
+
+.user-table button,
+.tools-table button,
+.tasks-table button {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.areas-empty,
+.users-empty,
+.tools-empty,
+.tasks-empty,
+.areas-skeleton,
+.users-skeleton,
+.tools-skeleton,
+.tasks-skeleton {
+  color: var(--muted);
+  font-size: 14px;
+  padding: 8px 0;
+}
+
+code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
+/* Detalhe de tarefa: editor de required-tools */
+.task-detail h2 {
+  margin-bottom: 12px;
+}
+
+.select-hint {
+  margin-top: 4px;
+}
+
+.req-tools {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+}
+
+.req-tools > li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.req-tools > li:last-child {
+  border-bottom: none;
+}
+
+.req-tool-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.req-tool-head input {
+  width: auto;
+}
+
+.req-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 8px 0 0 26px;
+}
+
+.req-scopes label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.req-scopes input {
+  width: auto;
+}
+
+.task-detail-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.publish-blockers {
+  margin-top: 14px;
+  background: var(--danger-bg);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+}
+
+.publish-blockers ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--danger);
+}

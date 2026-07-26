@@ -11,9 +11,10 @@ export default function LoginPage() {
         <h1>Entrar</h1>
         <p className="subtitle">Dashboard de Automações</p>
         <LoginForm
-          onSuccess={() => {
-            // O cookie de sessão já foi definido pelo servidor; vamos ao painel.
-            router.push("/dashboard");
+          onSuccess={(redirect) => {
+            // O cookie de sessão já foi definido pelo servidor. O destino vem
+            // do M1 por role (super_admin → /console, worker → /).
+            router.push(redirect);
             router.refresh();
           }}
         />
