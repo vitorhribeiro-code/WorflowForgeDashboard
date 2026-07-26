@@ -16,7 +16,8 @@ import { DrizzleUserRepository } from "@/modules/org/data/user.repository";
 import { createOrganizationService } from "@/modules/org/service/organization.service";
 import { createAreaService } from "@/modules/org/service/area.service";
 import { createUserService } from "@/modules/org/service/user.service";
-import { createUserDirectory, createWorkerDirectory } from "@/modules/org/infra/directory";
+import { createUserDirectory } from "@/modules/org/infra/directory";
+import { createDrizzleWorkerDirectory } from "@/modules/assignments/infra/worker-directory.drizzle";
 
 /* -- M1 Autenticação ------------------------------------------------------- */
 import { createAuthService } from "@/modules/auth/service/auth.service";
@@ -79,7 +80,7 @@ import { isKnownRuntime } from "@/modules/tasks/domain/runtimes";
 // -------------------------------------------------------------------------- //
 const userRepo = new DrizzleUserRepository(db);
 const userDirectory = createUserDirectory(userRepo); // → M1
-const workerDirectory = createWorkerDirectory(userRepo); // → M5, M9
+const workerDirectory = createDrizzleWorkerDirectory(db); // → M5 (getWorkerOrg + listWorkers)
 
 export const organizationService = createOrganizationService({
   repo: new DrizzleOrganizationRepository(db),

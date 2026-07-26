@@ -8,6 +8,7 @@ const TABS: { href: string; label: string }[] = [
   { href: "/console/areas", label: "Áreas" },
   { href: "/console/ferramentas", label: "Ferramentas" },
   { href: "/console/tarefas", label: "Catálogo" },
+  { href: "/console/atribuicoes", label: "Atribuições" },
 ];
 
 export function ConsoleNav() {

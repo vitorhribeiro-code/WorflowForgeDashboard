@@ -692,3 +692,111 @@ button.btn-danger:disabled {
   font-size: 15px;
   font-weight: 600;
 }
+
+/* ---- Matriz de atribuições (M5) ---- */
+.matrix-skeleton {
+  color: var(--muted);
+  font-size: 14px;
+  padding: 16px 0;
+}
+
+.matrix-wrap {
+  overflow-x: auto;
+}
+
+.matrix-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 100%;
+}
+
+.matrix-table th,
+.matrix-table td {
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.matrix-table thead th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.matrix-corner {
+  background: transparent;
+}
+
+.matrix-task {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+}
+
+.matrix-task-name {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.matrix-task-meta {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.matrix-cell {
+  min-width: 140px;
+}
+
+.matrix-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.matrix-toggle input {
+  cursor: pointer;
+}
+
+.matrix-state {
+  color: var(--muted);
+}
+
+.readiness-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--muted);
+}
+
+.status-green .readiness-dot {
+  background: #7ee08a;
+}
+
+.status-amber .readiness-dot {
+  background: #e8c15a;
+}
+
+.status-red .readiness-dot {
+  background: var(--danger);
+}
+
+.status-grey .readiness-dot {
+  background: var(--muted);
+}
+
+.matrix-missing {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}

@@ -1,6 +1,10 @@
-import type { ConnectionReadiness, RequiredTool } from "../domain/types";
+import type {
+  AssignmentReadiness,
+  ConnectionReadiness,
+  RequiredTool,
+} from "../domain/types";
 
-export type { ConnectionReadiness } from "../domain/types";
+export type { AssignmentReadiness, ConnectionReadiness } from "../domain/types";
 
 /* --- Consumidos (injetados) ----------------------------------------------- */
 
@@ -14,10 +18,20 @@ export type TaskContext = {
   configSchema: Record<string, unknown> | null;
 };
 
+// Resumo de uma Task para a matriz (linhas da grelha).
+export type TaskSummary = {
+  id: string;
+  name: string;
+  type: TaskType;
+  published: boolean;
+  configSchema: Record<string, unknown> | null;
+};
+
 // M4: contexto da Task + as suas required_tools. Interface do CONSUMIDOR.
 export interface TaskDepsPort {
   getTaskContext(taskId: string): Promise<TaskContext | null>;
   getRequiredTools(taskId: string): Promise<RequiredTool[]>;
+  listTasks(orgId: string): Promise<TaskSummary[]>;
 }
 
 // M6: prontidão de conexões do trabalhador para um conjunto de required_tools.
@@ -31,9 +45,13 @@ export interface SchemaValidatorPort {
   validateData(schema: unknown, data: unknown): ValidationResult;
 }
 
-// M2/users: resolve a org de um trabalhador (validar tenant).
+// Trabalhador (coluna da matriz).
+export type WorkerSummary = { id: string; email: string };
+
+// M2/users: resolve a org de um trabalhador (validar tenant) + lista workers.
 export interface WorkerDirectoryPort {
   getWorkerOrg(workerId: string): Promise<string | null>;
+  listWorkers(orgId: string): Promise<WorkerSummary[]>;
 }
 
 /* --- Expostos ------------------------------------------------------------- */
@@ -56,3 +74,19 @@ export type AssignmentForRun = {
 export interface AssignmentReadPort {
   getAssignmentForRun(assignmentId: string): Promise<AssignmentForRun | null>;
 }
+
+/* --- Matriz (Task × Trabalhador) para a consola ---------------------------- */
+
+export type MatrixCell = {
+  taskId: string;
+  workerId: string;
+  assignmentId: string | null; // null = ainda não atribuída
+  enabled: boolean;
+  readiness: AssignmentReadiness;
+};
+
+export type AssignmentMatrix = {
+  tasks: Array<{ id: string; name: string; type: TaskType; published: boolean }>;
+  workers: WorkerSummary[];
+  cells: MatrixCell[];
+};

@@ -14,9 +14,14 @@ function id(ctx: { params: Record<string, string> }): string {
   return v;
 }
 
-// GET /api/assignments — matriz da org (admin).
+// GET /api/assignments — lista simples das atribuições da org (admin).
 export const assignmentsGET = withSession(async (session) => {
   return json(await assignmentService.listByOrg(session));
+});
+
+// GET /api/assignments/matrix — grelha Task × Trabalhador + prontidão (admin).
+export const matrixGET = withSession(async (session) => {
+  return json(await assignmentService.matrix(session));
 });
 
 // POST /api/assignments — cria (enabled=false).

@@ -266,5 +266,18 @@ export function createTaskCatalogPort(
     async getRequiredTools(taskId: string) {
       return repo.listRequiredTools(taskId);
     },
+    // Lista as tarefas da org para a matriz do M5 (nome + estado de publicação).
+    async listTasks(orgId: string) {
+      const tasks = await repo.list(orgId, {});
+      return Promise.all(
+        tasks.map(async (t) => ({
+          id: t.id,
+          name: t.name,
+          type: t.type,
+          published: await publication.isPublished(t.id),
+          configSchema: t.configSchema,
+        })),
+      );
+    },
   };
 }

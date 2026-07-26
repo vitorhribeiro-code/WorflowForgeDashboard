@@ -1,6 +1,8 @@
 // Composition root do M5 — único sítio que instancia deps reais e lê wiring.
 import { db } from "@/db/client";
 import { createDrizzleAudit } from "@/lib/audit.drizzle";
+import { taskCatalogPort } from "@/modules/tasks";
+import { createDrizzleReadiness } from "@/platform/readiness/readiness.drizzle";
 import { DrizzleAssignmentRepository } from "./data/assignment.repository";
 import { createDrizzleWorkerDirectory } from "./infra/worker-directory.drizzle";
 import {
@@ -14,25 +16,13 @@ import { createAjvSchemaValidator } from "./infra/ajv-schema-validator";
 const repo = new DrizzleAssignmentRepository(db);
 const audit = createDrizzleAudit(db);
 
-// --- Wiring cross-module (ligar aos módulos reais no composition root da app) ---
+// --- Wiring cross-module (ports reais; a §4 do handoff avisa: sem stubs que lançam) ---
 
-// M4: adaptador que combina taskCatalogPort.getTaskContext + required_tools.
-// Substituir por um adaptador real sobre `@/modules/tasks` (o M4 já tem ambos).
-const taskDeps: TaskDepsPort = {
-  async getTaskContext() {
-    throw new Error("Ligar TaskDepsPort ao M4 (taskCatalogPort + getRequiredTools)");
-  },
-  async getRequiredTools() {
-    throw new Error("Ligar TaskDepsPort ao M4 (getRequiredTools)");
-  },
-};
+// M4: getTaskContext + getRequiredTools + listTasks, já prontos no catalogPort.
+const taskDeps: TaskDepsPort = taskCatalogPort;
 
-// M6: prontidão de conexões. Substituir pela lógica exportada do M6.
-const readiness: ReadinessPort = {
-  async check() {
-    throw new Error("Ligar ReadinessPort ao M6 (ready/missingScopes)");
-  },
-};
+// M6 (seam): prontidão de conexões sobre worker_connections, sem precisar do M6.
+const readiness: ReadinessPort = createDrizzleReadiness(db);
 
 export const assignmentService = createAssignmentService({
   repo,

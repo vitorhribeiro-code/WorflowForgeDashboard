@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import type { AssignmentReadiness, NewAssignment, TaskAssignment } from "../domain/types";
+import type { AssignmentMatrix, MatrixCell } from "../service/ports";
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -64,4 +65,43 @@ export function useAssignments() {
   );
 
   return { items, loading, error, refetch, create, toggle, readiness };
+}
+
+// Matriz Task × Trabalhador para a consola.
+export function useMatrix() {
+  const [matrix, setMatrix] = useState<AssignmentMatrix | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    api<AssignmentMatrix>("/api/assignments/matrix")
+      .then(setMatrix)
+      .catch((e) => setError(e instanceof Error ? e.message : "Erro"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => refetch(), [refetch]);
+
+  // Ativa/desativa uma célula. Cria a atribuição on-the-fly se ainda não existe.
+  // Em bloqueio de ativação (pré-requisitos em falta) a atribuição fica criada e
+  // desativada; o refetch traz a prontidão a explicar o que falta.
+  const setCell = useCallback(async (cell: MatrixCell, enabled: boolean) => {
+    let assignmentId = cell.assignmentId;
+    if (!assignmentId) {
+      if (!enabled) return; // desativar algo que não existe: nada a fazer
+      const created = await api<{ id: string }>("/api/assignments", {
+        method: "POST",
+        body: JSON.stringify({ taskId: cell.taskId, workerId: cell.workerId }),
+      });
+      assignmentId = created.id;
+    }
+    await api(`/api/assignments/${assignmentId}/toggle`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    });
+  }, []);
+
+  return { matrix, loading, error, refetch, setCell };
 }

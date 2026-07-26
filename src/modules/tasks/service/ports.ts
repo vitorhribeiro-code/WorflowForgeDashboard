@@ -36,9 +36,19 @@ export type TaskContext = {
   configSchema: JsonSchema | null;
 };
 
+export type TaskSummary = {
+  id: string;
+  name: string;
+  type: TaskType;
+  published: boolean;
+  configSchema: JsonSchema | null;
+};
+
 export interface TaskCatalogPort {
   // Contexto mínimo para o M5 criar/validar uma Assignment. null se não existir.
   getTaskContext(taskId: string): Promise<TaskContext | null>;
   // required_tools da Task (para a prontidão do M5).
   getRequiredTools(taskId: string): Promise<Array<{ toolId: string; scopes: string[] }>>;
+  // Tarefas da org (para a matriz do M5). Sem sessão (contexto de sistema).
+  listTasks(orgId: string): Promise<TaskSummary[]>;
 }

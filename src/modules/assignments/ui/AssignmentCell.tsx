@@ -7,7 +7,7 @@ type Props = {
 };
 
 // Semáforo: verde = pronto; âmbar = faltam scopes; vermelho = sem conexão/config.
-function light(r?: AssignmentReadiness): "green" | "amber" | "red" | "grey" {
+export function light(r?: AssignmentReadiness): "green" | "amber" | "red" | "grey" {
   if (!r) return "grey";
   if (r.eligible) return "green";
   const onlyScopes =

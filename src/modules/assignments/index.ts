@@ -9,6 +9,9 @@ export type {
   AssignmentSuspenderPort,
   AssignmentReadPort,
   AssignmentForRun,
+  AssignmentMatrix,
+  MatrixCell,
+  WorkerSummary,
 } from "./service/ports";
 export type {
   TaskAssignment,

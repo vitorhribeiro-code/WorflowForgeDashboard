@@ -12,8 +12,10 @@ import type {
 import { requireAdmin } from "./guards";
 import type {
   AssignmentForRun,
+  AssignmentMatrix,
   AssignmentReadPort,
   AssignmentSuspenderPort,
+  MatrixCell,
   ReadinessPort,
   SchemaValidatorPort,
   TaskContext,
@@ -123,6 +125,53 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
     async listByOrg(session: SessionContext): Promise<TaskAssignment[]> {
       requireAdmin(session);
       return repo.listByOrg(session.orgId);
+    },
+
+    // Matriz Task × Trabalhador para a consola: tarefas (linhas), workers
+    // (colunas) e, por célula, a atribuição (se existir) + a prontidão. A
+    // prontidão calcula-se mesmo em células sem atribuição, para o admin ver o
+    // semáforo antes de tentar ativar.
+    async matrix(session: SessionContext): Promise<AssignmentMatrix> {
+      requireAdmin(session);
+      const [tasks, workerList, assignments] = await Promise.all([
+        taskDeps.listTasks(session.orgId),
+        workers.listWorkers(session.orgId),
+        repo.listByOrg(session.orgId),
+      ]);
+      const byPair = new Map(assignments.map((a) => [`${a.taskId}:${a.workerId}`, a]));
+
+      const cells: MatrixCell[] = [];
+      for (const t of tasks) {
+        // required_tools uma vez por task (não por célula).
+        const required = await taskDeps.getRequiredTools(t.id);
+        for (const w of workerList) {
+          const a = byPair.get(`${t.id}:${w.id}`) ?? null;
+          const connections = await readiness.check(w.id, required);
+          const r = evaluateEligibility({
+            published: t.published,
+            configValid: isConfigValid(schema, t.configSchema, a?.config ?? null),
+            connections,
+          });
+          cells.push({
+            taskId: t.id,
+            workerId: w.id,
+            assignmentId: a?.id ?? null,
+            enabled: a?.enabled ?? false,
+            readiness: r,
+          });
+        }
+      }
+
+      return {
+        tasks: tasks.map((t) => ({
+          id: t.id,
+          name: t.name,
+          type: t.type,
+          published: t.published,
+        })),
+        workers: workerList,
+        cells,
+      };
     },
 
     // Prontidão (verde/âmbar/vermelho da matriz), sem alterar estado.
