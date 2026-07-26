@@ -51,6 +51,12 @@ export const taskPATCH = withSession(async (session, req, ctx) => {
   return json(await taskService.update(session, id(ctx), input));
 });
 
+// DELETE /api/tasks/[id] — apaga (admin). 409 se tiver atribuições.
+export const taskDELETE = withSession(async (session, _req, ctx) => {
+  await taskService.remove(session, id(ctx));
+  return json({ ok: true });
+});
+
 // GET/PUT /api/tasks/[id]/required-tools — lista/substitui required_tools.
 export const requiredToolsGET = withSession(async (session, _req, ctx) => {
   return json(await taskService.listRequiredTools(session, id(ctx)));

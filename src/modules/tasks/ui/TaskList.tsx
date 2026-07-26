@@ -4,9 +4,10 @@ type Props = {
   tasks: Task[] | null;
   loading?: boolean;
   onEdit?: (task: Task) => void;
+  onDelete?: (task: Task) => void;
 };
 
-export function TaskList({ tasks, loading, onEdit }: Props) {
+export function TaskList({ tasks, loading, onEdit, onDelete }: Props) {
   if (loading && !tasks) return <div className="tasks-skeleton">A carregar…</div>;
   if (!tasks || tasks.length === 0) {
     return <div className="tasks-empty">Sem tarefas. Criar a primeira.</div>;
@@ -33,6 +34,11 @@ export function TaskList({ tasks, loading, onEdit }: Props) {
               <button type="button" onClick={() => onEdit?.(t)}>
                 Editar
               </button>
+              {onDelete ? (
+                <button type="button" className="btn-danger" onClick={() => onDelete(t)}>
+                  Apagar
+                </button>
+              ) : null}
             </td>
           </tr>
         ))}

@@ -7,6 +7,9 @@ export interface TaskRepository {
   create(input: NewTask): Promise<Task>;
   update(id: string, orgId: string, patch: TaskPatch): Promise<Task | null>;
   getById(id: string, orgId: string): Promise<Task | null>;
+  // Apaga a Task (escopada por org). Cascade do schema limpa required_tools e
+  // assignments. Devolve true se apagou algo.
+  remove(id: string, orgId: string): Promise<boolean>;
   // Leitura sem escopo de org — SÓ para o port cross-module (M5 valida o tenant).
   findById(id: string): Promise<Task | null>;
   list(orgId: string, filter: { areaId?: string; type?: TaskType }): Promise<Task[]>;
@@ -80,6 +83,14 @@ export class DrizzleTaskRepository implements TaskRepository {
   async findById(id: string): Promise<Task | null> {
     const [row] = await this.db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
     return row ? toTask(row) : null;
+  }
+
+  async remove(id: string, orgId: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(tasks)
+      .where(and(eq(tasks.id, id), eq(tasks.organizationId, orgId)))
+      .returning({ id: tasks.id });
+    return rows.length > 0;
   }
 
   async list(orgId: string, filter: { areaId?: string; type?: TaskType }): Promise<Task[]> {

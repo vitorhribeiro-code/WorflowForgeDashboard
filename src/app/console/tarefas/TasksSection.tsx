@@ -184,14 +184,35 @@ function TaskDetail({
 }
 
 export function TasksSection() {
-  const { tasks, loading, error, createTask, updateTask, refetch } = useTasks();
+  const { tasks, loading, error, createTask, updateTask, refetch, removeTask } = useTasks();
   const { tools } = useTools();
   const { areas } = useAreas();
   const [editing, setEditing] = useState<Task | null>(null);
   const [areaId, setAreaId] = useState<string>("");
+  const [confirmDelete, setConfirmDelete] = useState<Task | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Mantém a Task selecionada em sincronia com a lista após refetch.
   const selected = editing ? tasks?.find((t) => t.id === editing.id) ?? editing : null;
+
+  async function doDelete() {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await removeTask(confirmDelete.id);
+      if (editing?.id === confirmDelete.id) {
+        setEditing(null);
+        setAreaId("");
+      }
+      setConfirmDelete(null);
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Erro ao apagar");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <section className="console-section">
@@ -259,6 +280,10 @@ export function TasksSection() {
               setEditing(t);
               setAreaId(t.areaId ?? "");
             }}
+            onDelete={(t) => {
+              setDeleteError(null);
+              setConfirmDelete(t);
+            }}
           />
         </div>
       </div>
@@ -268,6 +293,37 @@ export function TasksSection() {
       ) : (
         <p className="muted select-hint">Seleciona ou cria uma tarefa para gerir ferramentas e publicar.</p>
       )}
+
+      {confirmDelete ? (
+        <div
+          className="confirm-overlay"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => !deleting && setConfirmDelete(null)}
+        >
+          <div className="confirm-box" onClick={(e) => e.stopPropagation()}>
+            <h3>Apagar tarefa?</h3>
+            <p>
+              Tens a certeza que queres apagar «{confirmDelete.name}»? Esta ação é irreversível e
+              remove também as ferramentas exigidas associadas.
+            </p>
+            {deleteError ? <p className="panel-error">{deleteError}</p> : null}
+            <div className="confirm-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={deleting}
+                onClick={() => setConfirmDelete(null)}
+              >
+                Cancelar
+              </button>
+              <button type="button" className="btn-danger" disabled={deleting} onClick={doDelete}>
+                {deleting ? "A apagar…" : "Apagar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -551,3 +551,79 @@ code {
   padding-left: 18px;
   color: var(--danger);
 }
+
+/* ---- Botão de perigo (apagar) ---- */
+.tasks-table button.btn-danger,
+.panel button.btn-danger,
+button.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 6px;
+}
+
+.panel button.btn-danger {
+  padding: 9px 16px;
+  font-size: 14px;
+}
+
+button.btn-danger:hover:not(:disabled) {
+  background: var(--danger-bg);
+}
+
+button.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Janela de confirmação (modal) ---- */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 50;
+}
+
+.confirm-box {
+  width: 100%;
+  max-width: 420px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+}
+
+.confirm-box h3 {
+  margin: 0 0 10px;
+  font-size: 17px;
+}
+
+.confirm-box p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.confirm-actions button {
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}

@@ -70,5 +70,13 @@ export function useTasks(filter: { areaId?: string; type?: string } = {}) {
     [refetch],
   );
 
-  return { tasks, loading, error, refetch, createTask, updateTask, setRequiredTools, publish };
+  const removeTask = useCallback(
+    async (taskId: string) => {
+      await api<{ ok: boolean }>(`/api/tasks/${taskId}`, { method: "DELETE" });
+      refetch();
+    },
+    [refetch],
+  );
+
+  return { tasks, loading, error, refetch, createTask, updateTask, setRequiredTools, publish, removeTask };
 }
