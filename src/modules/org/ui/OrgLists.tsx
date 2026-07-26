@@ -26,9 +26,11 @@ export function AreaList({
 export function UserList({
   users,
   onToggleSuspended,
+  onGenerateLink,
 }: {
   users: User[] | null;
   onToggleSuspended?: (id: string, suspended: boolean) => void;
+  onGenerateLink?: (id: string) => void;
 }) {
   if (!users) return <div className="users-skeleton">A carregar…</div>;
   if (users.length === 0) return <div className="users-empty">Sem utilizadores.</div>;
@@ -48,7 +50,12 @@ export function UserList({
             <td>{u.email}</td>
             <td>{u.role}</td>
             <td>{u.suspended ? "Suspenso" : "Ativo"}</td>
-            <td>
+            <td className="user-actions">
+              {onGenerateLink ? (
+                <button type="button" onClick={() => onGenerateLink(u.id)}>
+                  Link de acesso
+                </button>
+              ) : null}
               <button type="button" onClick={() => onToggleSuspended?.(u.id, !u.suspended)}>
                 {u.suspended ? "Reativar" : "Desativar"}
               </button>

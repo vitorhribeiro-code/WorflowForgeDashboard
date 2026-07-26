@@ -17,9 +17,16 @@ function requireEnv(name: string): string {
 }
 
 export const SESSION_TTL_SECONDS = Number(process.env.SESSION_TTL_SECONDS ?? 60 * 60 * 8); // 8h
+// Link de convite/onboarding entregue à mão → validade longa (default 7 dias).
+const INVITE_TTL_MINUTES = Number(process.env.INVITE_TTL_MINUTES ?? 7 * 24 * 60);
 const AUTH_SECRET = requireEnv("AUTH_SECRET");
 const BASE_URL = process.env.APP_BASE_URL ?? "http://localhost:3000";
 const now = () => new Date();
+
+// URL público da página de definição de password (convite e reset partilham-na).
+export function buildSetPasswordUrl(token: string): string {
+  return `${BASE_URL}/definir-password?token=${encodeURIComponent(token)}`;
+}
 
 export const authService = createAuthService({
   users: createDrizzleUserDirectory(db),
@@ -29,4 +36,5 @@ export const authService = createAuthService({
   mailer: createConsoleMailer(BASE_URL),
   audit: createDrizzleAudit(db),
   now,
+  inviteTtlMinutes: INVITE_TTL_MINUTES,
 });

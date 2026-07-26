@@ -78,5 +78,24 @@ export function useUsers() {
     },
     [refetch],
   );
-  return { users: items, loading, error, refetch, invite, setSuspended, changeRole };
+  // Gera um link de definição de password (convite manual / reenvio). Não muda a
+  // lista, logo não faz refetch — só devolve o URL para o admin entregar.
+  const generateSetPasswordLink = useCallback(
+    (id: string) =>
+      api<{ url: string; expiresAt: string }>(`/api/users/${id}/set-password-link`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    [],
+  );
+  return {
+    users: items,
+    loading,
+    error,
+    refetch,
+    invite,
+    setSuspended,
+    changeRole,
+    generateSetPasswordLink,
+  };
 }

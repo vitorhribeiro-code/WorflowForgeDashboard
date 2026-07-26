@@ -1,4 +1,5 @@
-import { authService, SESSION_TTL_SECONDS } from "../container";
+import { DomainError } from "@/lib/errors";
+import { authService, buildSetPasswordUrl, SESSION_TTL_SECONDS } from "../container";
 import {
   confirmResetSchema,
   loginSchema,
@@ -10,6 +11,7 @@ import {
   json,
   readJson,
   sessionCookie,
+  withSession,
 } from "./http";
 
 // POST /api/auth/login — cria sessão e devolve cookie HttpOnly + redirect.
@@ -42,4 +44,14 @@ export const confirmResetPOST = handler(async (req) => {
   const { token, password } = await readJson(req, confirmResetSchema);
   await authService.resetPassword(token, password);
   return json({ ok: true });
+});
+
+// POST /api/users/[id]/set-password-link — admin gera um link de acesso (convite
+// manual / reenvio) para um utilizador da sua org. Devolve o URL para entregar
+// à pessoa. Montada sob /api/users/[id] mas servida pelo M1 (dono das credenciais).
+export const setPasswordLinkPOST = withSession(async (session, _req, ctx) => {
+  const userId = ctx.params.id;
+  if (!userId) throw new DomainError("BAD_INPUT", "id em falta", 400);
+  const { token, expiresAt } = await authService.issueSetPasswordToken(session, userId);
+  return json({ url: buildSetPasswordUrl(token), expiresAt });
 });

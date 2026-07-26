@@ -8,7 +8,7 @@ export function createSmtpMailer(
 ): MailerPort {
   return {
     async sendResetLink(email: string, token: string) {
-      const link = `${opts.baseUrl}/reset?token=${encodeURIComponent(token)}`;
+      const link = `${opts.baseUrl}/definir-password?token=${encodeURIComponent(token)}`;
       await transporter.sendMail({
         from: opts.from,
         to: email,

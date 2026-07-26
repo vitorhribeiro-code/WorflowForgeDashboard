@@ -25,7 +25,7 @@ export function createTokenIssuer(
 export function createConsoleMailer(baseUrl: string): MailerPort {
   return {
     async sendResetLink(email: string, token: string): Promise<void> {
-      const link = `${baseUrl}/reset?token=${encodeURIComponent(token)}`;
+      const link = `${baseUrl}/definir-password?token=${encodeURIComponent(token)}`;
       console.info(`[mailer] reset para ${email}: ${link}`);
     },
   };

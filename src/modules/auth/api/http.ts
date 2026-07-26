@@ -1,5 +1,6 @@
 import type { ZodType } from "zod";
 import { DomainError, toHttp } from "@/lib/errors";
+import { getSession, type SessionContext } from "@/lib/session";
 
 // M1 é o produtor de sessões — não usa withSession (essas rotas são públicas).
 // Envolve o handler e mapeia erros de domínio num só sítio.
@@ -34,6 +35,26 @@ export function handler(fn: (req: Request) => Promise<Response>) {
       const { status, body } = toHttp(err);
       // Erros inesperados (5xx) são registados para diagnóstico; os de domínio
       // (4xx, ex.: credenciais inválidas) são esperados e não fazem ruído.
+      if (status >= 500) console.error("[auth] erro não tratado:", err);
+      return Response.json(body, { status });
+    }
+  };
+}
+
+// A maioria das rotas do M1 é pública (produz sessões). Esta variante é para as
+// poucas que EXIGEM sessão (ex.: um admin a gerar um link de acesso). Mesma
+// forma que o withSession do M2, mas mantida aqui para o M1 ficar autónomo.
+export type RouteCtx = { params: Record<string, string> };
+
+export function withSession(
+  fn: (session: SessionContext, req: Request, ctx: RouteCtx) => Promise<Response>,
+) {
+  return async (req: Request, ctx: RouteCtx = { params: {} }): Promise<Response> => {
+    try {
+      const session = await getSession(req);
+      return await fn(session, req, ctx);
+    } catch (err) {
+      const { status, body } = toHttp(err);
       if (status >= 500) console.error("[auth] erro não tratado:", err);
       return Response.json(body, { status });
     }

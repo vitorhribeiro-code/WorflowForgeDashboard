@@ -42,19 +42,52 @@ function AreasBlock() {
 }
 
 function UsersBlock() {
-  const { users, error, invite, setSuspended } = useUsers();
+  const { users, error, invite, setSuspended, generateSetPasswordLink } = useUsers();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("worker");
   const [busy, setBusy] = useState(false);
+  const [link, setLink] = useState<{ url: string; forEmail: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   async function add() {
     if (!email.trim()) return;
     setBusy(true);
+    setLinkError(null);
     try {
-      await invite(email.trim(), role);
+      // Convidar cria o utilizador (M2); logo a seguir geramos o link de acesso
+      // (M1) para o admin o entregar — o convite por email fica para o SMTP.
+      const created = await invite(email.trim(), role);
+      const { url } = await generateSetPasswordLink(created.id);
+      setLink({ url, forEmail: created.email });
+      setCopied(false);
       setEmail("");
+    } catch (e) {
+      setLinkError(e instanceof Error ? e.message : "Erro");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function genLink(id: string) {
+    setLinkError(null);
+    try {
+      const target = users?.find((u) => u.id === id);
+      const { url } = await generateSetPasswordLink(id);
+      setLink({ url, forEmail: target?.email ?? "" });
+      setCopied(false);
+    } catch (e) {
+      setLinkError(e instanceof Error ? e.message : "Erro");
+    }
+  }
+
+  async function copy() {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link.url);
+      setCopied(true);
+    } catch {
+      /* clipboard indisponível — o admin pode selecionar e copiar à mão */
     }
   }
 
@@ -78,7 +111,22 @@ function UsersBlock() {
         </button>
       </div>
       {error ? <p className="panel-error">{error}</p> : null}
-      <UserList users={users} onToggleSuspended={setSuspended} />
+      {linkError ? <p className="panel-error">{linkError}</p> : null}
+      {link ? (
+        <div className="access-link">
+          <p className="access-link-note">
+            Link de acesso para <strong>{link.forEmail}</strong> — entrega-o à pessoa. Só pode
+            ser usado uma vez e expira.
+          </p>
+          <div className="access-link-row">
+            <input readOnly value={link.url} onFocus={(e) => e.currentTarget.select()} />
+            <button type="button" onClick={copy}>
+              {copied ? "Copiado ✓" : "Copiar"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      <UserList users={users} onToggleSuspended={setSuspended} onGenerateLink={genLink} />
     </div>
   );
 }
