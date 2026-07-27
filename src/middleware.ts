@@ -15,5 +15,8 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/console/:path*"],
+  // Nota: o matcher só cobre PÁGINAS. As API-routes (/api/connections/*),
+  // incluindo o callback OAuth, ficam de fora — como devem, pois o callback
+  // autentica-se pelo `state` assinado, não pelo cookie de sessão.
+  matcher: ["/dashboard/:path*", "/console/:path*", "/connections/:path*"],
 };

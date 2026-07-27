@@ -800,3 +800,190 @@ button.btn-danger:disabled {
   font-size: 11px;
   line-height: 1.4;
 }
+
+/* ------------------------------------------------------------------ */
+/*  Painel do trabalhador — As minhas conexões (M6)                    */
+/*  Classes específicas por contexto (conn-*) para evitar vazamento    */
+/*  de especificidade (handoff §4).                                    */
+/* ------------------------------------------------------------------ */
+.worker-shell {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+}
+
+.worker-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.worker-header h1 {
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.worker-sub {
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.worker-section {
+  margin-top: 32px;
+}
+
+.worker-section > h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+/* Banner de resultado do callback OAuth (sucesso / erro). */
+.conn-banner {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+.conn-banner.ok {
+  color: #7ee08a;
+  border-color: #2f5233;
+  background: #16241a;
+}
+.conn-banner.err {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+/* Botão primário (fora de .panel, que tem o seu próprio primário). */
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.conn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.conn-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.conn-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.conn-card-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.conn-scopes {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.conn-missing {
+  color: #e8c15a;
+  font-size: 12px;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.conn-actions {
+  margin-top: 14px;
+}
+
+/* Pill de estado — reaproveita .readiness-dot + os tons do semáforo do M5. */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.status-pill.status-green {
+  color: #7ee08a;
+}
+.status-pill.status-amber {
+  color: #e8c15a;
+}
+.status-pill.status-red {
+  color: var(--danger);
+}
+
+.conn-skeleton {
+  height: 132px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  opacity: 0.5;
+  animation: conn-pulse 1.4s ease-in-out infinite;
+}
+@keyframes conn-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.conn-empty {
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  padding: 40px 24px;
+  text-align: center;
+}
+.conn-empty-title {
+  font-weight: 600;
+}
+.conn-empty-sub {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.conn-error {
+  border: 1px solid var(--danger);
+  background: var(--danger-bg);
+  border-radius: 14px;
+  padding: 16px;
+}
+.conn-error-title {
+  color: var(--danger);
+  font-weight: 600;
+}
+.conn-error-detail {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 6px 0 12px;
+}

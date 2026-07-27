@@ -14,5 +14,6 @@ export type LoginResult = {
 };
 
 export function redirectForRole(role: Role): string {
-  return role === "super_admin" ? "/console" : "/";
+  // Worker aterra no seu painel (M6): "As minhas conexões". Admin → consola.
+  return role === "super_admin" ? "/console" : "/connections";
 }

@@ -57,3 +57,43 @@ export function computeReady(
 ): boolean {
   return status === "connected" && missingScopes.length === 0;
 }
+
+/**
+ * Tom do semáforo de uma conexão (alinhado com a matriz do M5):
+ *  - green  → ligada e sem scopes em falta (pronta)
+ *  - amber  → ligada mas faltam scopes, ou expirada (recuperável)
+ *  - red    → revogada (precisa de religar)
+ *  - grey   → por ligar (pending)
+ * Função pura: a UI só a consome, não decide cores.
+ */
+export type ConnectionTone = "green" | "amber" | "red" | "grey";
+
+export function connectionTone(
+  status: ConnectionStatus,
+  missingScopes: string[],
+): ConnectionTone {
+  switch (status) {
+    case "connected":
+      return missingScopes.length === 0 ? "green" : "amber";
+    case "expired":
+      return "amber";
+    case "revoked":
+      return "red";
+    case "pending":
+    default:
+      return "grey";
+  }
+}
+
+/** Ação primária que o trabalhador pode tomar, dado o estado da conexão. */
+export type ConnectionAction = "connect" | "renew" | "revoke" | "reconnect";
+
+export function connectionAction(
+  status: ConnectionStatus,
+  ready: boolean,
+): ConnectionAction {
+  if (status === "connected") return ready ? "revoke" : "connect"; // ligada sem scopes → completar
+  if (status === "expired") return "renew";
+  if (status === "revoked") return "reconnect";
+  return "connect";
+}
