@@ -37,6 +37,11 @@ export function withSession(
       return await fn(session, req, ctx);
     } catch (err) {
       const { status, body } = toHttp(err);
+      // 5xx eram engolidos (handoff §4): sem log, o 500 da matriz era invisível.
+      // Logamos a causa real (com stack) para diagnóstico nos runtime logs.
+      if (status >= 500) {
+        console.error("[assignments] 5xx:", err);
+      }
       return Response.json(body, { status });
     }
   };
