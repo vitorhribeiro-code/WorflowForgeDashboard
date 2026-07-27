@@ -17,7 +17,7 @@ import {
  * Configuração OAuth2 por Tool.key. Não é uma classe por ferramenta: o provider
  * genérico é movido a config. Só se registam as que têm client id + secret.
  */
-function buildProviderConfigs(env: ReturnType<typeof loadEnv>): Record<string, OAuthProviderConfig> {
+export function buildProviderConfigs(env: ReturnType<typeof loadEnv>): Record<string, OAuthProviderConfig> {
   const configs: Record<string, OAuthProviderConfig> = {};
 
   if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
