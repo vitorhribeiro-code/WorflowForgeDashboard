@@ -1,6 +1,7 @@
 import type {
   AssignmentReadiness,
   ConnectionReadiness,
+  MissingDep,
   RequiredTool,
 } from "../domain/types";
 
@@ -89,4 +90,20 @@ export type AssignmentMatrix = {
   tasks: Array<{ id: string; name: string; type: TaskType; published: boolean }>;
   workers: WorkerSummary[];
   cells: MatrixCell[];
+};
+
+/* --- Vista worker-facing (painel "As minhas tarefas") --------------------- */
+
+// Uma atribuição do próprio trabalhador, com o mínimo para a UI decidir o que
+// mostrar: nome/tipo da Task, se está ativa, o schedule (automáticas) e a
+// prontidão (para sinalizar conexões em falta sem depender da consola do admin).
+export type WorkerAssignmentView = {
+  assignmentId: string;
+  taskId: string;
+  taskName: string;
+  taskType: TaskType;
+  enabled: boolean;
+  schedule: string | null;
+  ready: boolean;
+  missing: MissingDep[];
 };

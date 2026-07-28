@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSession, type SessionContext } from "@/lib/session";
 import { ConnectionsPanel } from "@/modules/connections/ui/ConnectionsPanel";
+import { WorkerTasksPanel } from "@/modules/assignments/ui/WorkerTasksPanel";
 import { LogoutButton } from "../dashboard/logout-button";
 
 // Server Component: verifica a sessão (como /dashboard) e monta o painel do
@@ -42,7 +43,17 @@ export default async function ConnectionsPage({
       {banner && <div className={`conn-banner ${banner.tone}`}>{banner.text}</div>}
 
       {session.role === "worker" ? (
-        <ConnectionsPanel />
+        <>
+          <ConnectionsPanel />
+          <section className="worker-section">
+            <h2>As minhas tarefas</h2>
+            <p className="worker-sub">
+              Executa as automáticas quando precisares e acompanha o histórico; inicia as
+              assistidas para acompanhares o progresso em direto.
+            </p>
+            <WorkerTasksPanel />
+          </section>
+        </>
       ) : (
         <div className="conn-empty">
           <p className="conn-empty-title">Esta área é do trabalhador</p>

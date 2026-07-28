@@ -33,3 +33,15 @@ export const runGET = withSession(async (session, _req, ctx) => {
   const run = await getRunsService().getRun(session, runId);
   return json(run);
 });
+
+// POST /api/runs/[id]/cancel — cancela um Run em queued/running (worker dono ou admin).
+export const runCancelPOST = withSession(async (session, _req, ctx) => {
+  const runId = param(ctx, "id");
+  return json(await getRunsService().cancel(session, runId));
+});
+
+// POST /api/runs/[id]/retry — repete um Run falhado (transitório), devolve o novo Run.
+export const runRetryPOST = withSession(async (session, _req, ctx) => {
+  const runId = param(ctx, "id");
+  return json(await getRunsService().retry(session, runId), { status: 201 });
+});

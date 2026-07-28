@@ -987,3 +987,154 @@ button.btn-danger:disabled {
   font-size: 13px;
   margin: 6px 0 12px;
 }
+
+/* ------------------------------------------------------------------ */
+/*  Painel do trabalhador — As minhas tarefas (M5 worker-facing)       */
+/*  Reaproveita .status-pill, .btn-*, .conn-grid; prefixos task- e run-       */
+/*  para não vazar especificidade (handoff §4).                        */
+/* ------------------------------------------------------------------ */
+.task-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.task-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.task-card-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.task-cron {
+  font-variant-numeric: tabular-nums;
+}
+
+.task-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Variante compacta dos botões, para caber nos cartões/linhas de run. */
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+/* Botão-texto discreto (ver/atualizar histórico). */
+.task-link {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+.task-link:hover:not(:disabled) {
+  color: var(--text);
+}
+.task-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.task-hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.task-ok {
+  color: #7ee08a;
+  font-size: 12px;
+}
+.task-error {
+  color: var(--danger);
+  font-size: 12px;
+}
+
+/* Histórico de execuções (automáticas). */
+.run-list {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.run-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.run-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.run-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.run-when {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.run-attempt {
+  color: var(--muted);
+  font-size: 11px;
+}
+.run-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Consola de stream (assistidas). */
+.assisted {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.stream-console {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stream-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+  word-break: break-word;
+}

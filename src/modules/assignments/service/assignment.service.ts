@@ -20,6 +20,7 @@ import type {
   SchemaValidatorPort,
   TaskContext,
   TaskDepsPort,
+  WorkerAssignmentView,
   WorkerDirectoryPort,
 } from "./ports";
 
@@ -172,6 +173,42 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
         workers: workerList,
         cells,
       };
+    },
+
+    // Atribuições do PRÓPRIO trabalhador (painel "As minhas tarefas").
+    // Worker-facing: NÃO requireAdmin. Devolve só as do session.userId e
+    // restringe às Tasks da org da sessão (isolamento tenant), reaproveitando
+    // a mesma avaliação de prontidão da matriz do admin.
+    async listForWorker(session: SessionContext): Promise<WorkerAssignmentView[]> {
+      const [assignments, orgTasks] = await Promise.all([
+        repo.listByWorker(session.userId),
+        taskDeps.listTasks(session.orgId),
+      ]);
+      const taskById = new Map(orgTasks.map((t) => [t.id, t]));
+
+      const views: WorkerAssignmentView[] = [];
+      for (const a of assignments) {
+        const t = taskById.get(a.taskId);
+        if (!t) continue; // atribuição fora da org da sessão → não a expõe
+        const required = await taskDeps.getRequiredTools(a.taskId);
+        const connections = await readiness.check(a.workerId, required);
+        const r = evaluateEligibility({
+          published: t.published,
+          configValid: isConfigValid(schema, t.configSchema, a.config),
+          connections,
+        });
+        views.push({
+          assignmentId: a.id,
+          taskId: t.id,
+          taskName: t.name,
+          taskType: t.type,
+          enabled: a.enabled,
+          schedule: a.schedule,
+          ready: r.eligible,
+          missing: r.connections.missing,
+        });
+      }
+      return views;
     },
 
     // Prontidão (verde/âmbar/vermelho da matriz), sem alterar estado.

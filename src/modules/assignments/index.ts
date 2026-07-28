@@ -12,6 +12,7 @@ export type {
   AssignmentMatrix,
   MatrixCell,
   WorkerSummary,
+  WorkerAssignmentView,
 } from "./service/ports";
 export type {
   TaskAssignment,

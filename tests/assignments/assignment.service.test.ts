@@ -204,3 +204,34 @@ describe("enable", () => {
     expect(off.enabled).toBe(false);
   });
 });
+
+describe("listForWorker", () => {
+  it("devolve as atribuições do próprio worker com nome/tipo e prontidão", async () => {
+    const { service } = setup(true);
+    await service.create(ADMIN, { taskId: "t1", workerId: "w1" });
+    const mine = await service.listForWorker(WORKER);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({
+      taskId: "t1",
+      taskName: "Resumo diário",
+      taskType: "automation",
+      enabled: false,
+      ready: true,
+    });
+  });
+
+  it("marca ready=false e lista o que falta quando não há conexões", async () => {
+    const { service } = setup(false); // conexões em falta para t1
+    await service.create(ADMIN, { taskId: "t1", workerId: "w1" });
+    const mine = await service.listForWorker(WORKER);
+    expect(mine[0]!.ready).toBe(false);
+    expect(mine[0]!.missing.length).toBeGreaterThan(0);
+  });
+
+  it("não expõe atribuições de outro trabalhador (isolamento)", async () => {
+    const { service } = setup(true);
+    await service.create(ADMIN, { taskId: "t1", workerId: "w1" });
+    const other: SessionContext = { userId: "w2", orgId: "o1", role: "worker" };
+    expect(await service.listForWorker(other)).toHaveLength(0);
+  });
+});

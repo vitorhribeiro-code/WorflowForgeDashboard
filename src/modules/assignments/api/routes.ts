@@ -24,6 +24,12 @@ export const matrixGET = withSession(async (session) => {
   return json(await assignmentService.matrix(session));
 });
 
+// GET /api/assignments/mine — atribuições do próprio trabalhador (worker-facing).
+// Sem requireAdmin: o serviço já escopa por session.userId + org da sessão.
+export const myAssignmentsGET = withSession(async (session) => {
+  return json(await assignmentService.listForWorker(session));
+});
+
 // POST /api/assignments — cria (enabled=false).
 export const assignmentsPOST = withSession(async (session, req) => {
   const input = await readJson(req, createAssignmentSchema);
