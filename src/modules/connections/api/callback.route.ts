@@ -46,6 +46,9 @@ export async function connectionsCallbackGET(req: Request): Promise<Response> {
   } catch (err) {
     // Traduz o erro de domínio só para dar um código legível no redirect.
     const { body } = toHttp(err);
+    // Loga o detalhe real (a Google devolve o motivo em `data`: invalid_grant,
+    // redirect_uri_mismatch, invalid_client, ...). Sem isto o motivo era invisível.
+    console.error("[connections] callback falhou:", body.error, JSON.stringify((err as { data?: unknown })?.data ?? null));
     panel.searchParams.set("error", body.error);
     return redirect(panel.toString());
   }
