@@ -1,0 +1,35 @@
+// App-routes do M7 (motor de execução). Handlers finos: validam, chamam o
+// serviço e serializam. A autorização (admin na org / worker dono) vive no
+// serviço (assertCanActOnRun), não aqui.
+import { getRunsService } from "@/modules/runs/container";
+import { manualRunSchema } from "@/modules/runs/validation/runs.schema";
+import { json, param, readJson, withSession } from "./http";
+
+// POST /api/assignments/[assignmentId]/run — dispara manualmente uma automática.
+// enfileira um Run (trigger=manual, sem deduplicação) se a atribuição estiver
+// ativa e as conexões prontas; devolve a vista do Run (201).
+export const runAssignmentPOST = withSession(async (session, req, ctx) => {
+  const assignmentId = param(ctx, "assignmentId");
+  const { input } = await readJson(req, manualRunSchema);
+  const run = await getRunsService().enqueue({
+    session,
+    assignmentId,
+    trigger: "manual",
+    input,
+  });
+  return json(run, { status: 201 });
+});
+
+// GET /api/assignments/[assignmentId]/runs — histórico de Runs da atribuição.
+export const assignmentRunsGET = withSession(async (session, _req, ctx) => {
+  const assignmentId = param(ctx, "assignmentId");
+  const runs = await getRunsService().listRuns(session, assignmentId);
+  return json(runs);
+});
+
+// GET /api/runs/[id] — detalhe de um Run.
+export const runGET = withSession(async (session, _req, ctx) => {
+  const runId = param(ctx, "id");
+  const run = await getRunsService().getRun(session, runId);
+  return json(run);
+});

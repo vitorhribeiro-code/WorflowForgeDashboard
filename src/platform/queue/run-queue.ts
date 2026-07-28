@@ -10,9 +10,26 @@ export interface RunQueuePort {
 const QUEUE = "runs.process";
 
 // Adaptador pg-boss (usa o próprio Postgres como broker — dispensa Redis).
+//
+// CRÍTICO (lado do enqueue, processo web): no pg-boss v10+ um `send` exige que a
+// instância esteja `start()`-ada E que a fila exista (`createQueue`). O container
+// do M7 constrói o PgBoss mas não pode chamar `start()` (getRunsService é síncrono),
+// por isso arrancamos preguiçosamente aqui, UMA vez, antes do primeiro envio.
 export function createPgBossQueue(boss: PgBoss): RunQueuePort {
+  let ready: Promise<void> | null = null;
+  const ensureReady = (): Promise<void> => {
+    if (!ready) {
+      ready = (async () => {
+        await boss.start();
+        await boss.createQueue(QUEUE);
+      })();
+    }
+    return ready;
+  };
+
   return {
     async enqueue(runId, opts) {
+      await ensureReady();
       await boss.send(
         QUEUE,
         { runId },
