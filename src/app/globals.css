@@ -8,6 +8,9 @@
   --accent-fg: #17171a;
   --danger: #f2b8b5;
   --danger-bg: #3a1f22;
+  /* Estado selecionado (reutilizável): verde claro coerente com o semáforo. */
+  --sel-bg: #7ee08a;
+  --sel-fg: #123021;
 }
 
 * {
@@ -852,19 +855,19 @@ button.btn-danger:disabled {
 .sched-builder {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  min-width: 240px;
-  max-width: 340px;
+  gap: 9px;
+  min-width: 220px;
+  max-width: 300px;
 }
 
 .sched-freq {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
 }
 
 .sched-freq-btn {
-  padding: 4px 9px;
+  padding: 3px 8px;
   font-size: 11px;
   font-family: inherit;
   border: 1px solid var(--border);
@@ -875,9 +878,9 @@ button.btn-danger:disabled {
 }
 
 .sched-freq-btn.is-on {
-  background: var(--accent);
-  color: var(--accent-fg);
-  border-color: var(--accent);
+  background: var(--sel-bg);
+  color: var(--sel-fg);
+  border-color: var(--sel-bg);
 }
 
 .sched-freq-btn:disabled {
@@ -888,17 +891,17 @@ button.btn-danger:disabled {
 .sched-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .sched-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 }
 
 .sched-lbl {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
 }
 
@@ -908,8 +911,8 @@ button.btn-danger:disabled {
 }
 
 .sched-num {
-  width: 62px;
-  padding: 4px 6px;
+  width: 52px;
+  padding: 3px 6px;
   font-size: 12px;
   font-family: inherit;
   border: 1px solid var(--border);
@@ -920,7 +923,7 @@ button.btn-danger:disabled {
 
 .sched-raw {
   width: 100%;
-  padding: 6px 8px;
+  padding: 5px 8px;
   font-size: 12px;
   font-family: ui-monospace, monospace;
   border: 1px solid var(--border);
@@ -937,13 +940,13 @@ button.btn-danger:disabled {
 .sched-days {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
 }
 
 .sched-day {
-  width: 42px;
-  height: 32px;
-  font-size: 12px;
+  padding: 3px 7px;
+  min-width: 34px;
+  font-size: 11px;
   font-family: inherit;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -953,9 +956,9 @@ button.btn-danger:disabled {
 }
 
 .sched-day.is-on {
-  background: var(--accent);
-  color: var(--accent-fg);
-  border-color: var(--accent);
+  background: var(--sel-bg);
+  color: var(--sel-fg);
+  border-color: var(--sel-bg);
 }
 
 .sched-day:disabled {
@@ -963,64 +966,63 @@ button.btn-danger:disabled {
   cursor: not-allowed;
 }
 
-/* Caixa de tempo segmentada (reutilizável) */
 .sched-time {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .sched-time-unit {
   display: flex;
-  gap: 4px;
-  border-radius: 8px;
+  gap: 3px;
+  border-radius: 6px;
   outline: none;
 }
 
 .sched-time-unit:focus-visible {
-  box-shadow: 0 0 0 2px var(--accent);
+  box-shadow: 0 0 0 2px var(--sel-bg);
 }
 
 .sched-tile {
-  width: 30px;
-  height: 42px;
+  width: 22px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--accent);
   color: var(--accent-fg);
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
 .sched-time-colon {
-  font-size: 22px;
+  font-size: 16px;
   color: var(--muted);
 }
 
 .sched-time-steppers {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  margin-left: 4px;
+  gap: 4px;
+  margin-left: 3px;
 }
 
 .sched-step-row {
   display: flex;
-  gap: 5px;
+  gap: 4px;
 }
 
 .sched-step {
-  width: 28px;
-  height: 22px;
+  width: 22px;
+  height: 17px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 10px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 5px;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -1035,8 +1037,8 @@ button.btn-danger:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: transparent;
@@ -1044,23 +1046,23 @@ button.btn-danger:disabled {
 
 .sched-preview-lbl {
   display: block;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--muted);
   margin-bottom: 2px;
 }
 
 .sched-preview-text {
-  font-size: 13px;
+  font-size: 12px;
   color: inherit;
 }
 
 .sched-cron {
   font-family: ui-monospace, monospace;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 8px;
+  border-radius: 5px;
+  padding: 3px 7px;
   white-space: nowrap;
 }
 
