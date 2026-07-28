@@ -823,34 +823,6 @@ button.btn-danger:disabled {
   font-variant-numeric: tabular-nums;
 }
 
-.matrix-cron-edit {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.matrix-cron-input {
-  width: 100%;
-  min-width: 130px;
-  padding: 4px 6px;
-  font-size: 12px;
-  font-family: inherit;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
-}
-
-.matrix-cron-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.matrix-cron-hint {
-  font-size: 11px;
-  color: var(--danger);
-}
-
 .btn-mini {
   padding: 3px 8px;
   font-size: 11px;
@@ -870,6 +842,231 @@ button.btn-danger:disabled {
 .btn-mini:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Construtor de recorrência (sched-*) — prefixo próprio para não      */
+/*  vazar especificidade para outras zonas (cilada de CSS do handoff).  */
+/*  Bordas sempre completas + radius; sem seletores de elemento nus.    */
+/* ------------------------------------------------------------------ */
+.sched-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 240px;
+  max-width: 340px;
+}
+
+.sched-freq {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.sched-freq-btn {
+  padding: 4px 9px;
+  font-size: 11px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sched-freq-btn.is-on {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+.sched-freq-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sched-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sched-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sched-lbl {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sched-utc {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.sched-num {
+  width: 62px;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+}
+
+.sched-raw {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+}
+
+.sched-hint {
+  font-size: 11px;
+  color: var(--danger);
+}
+
+.sched-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.sched-day {
+  width: 42px;
+  height: 32px;
+  font-size: 12px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sched-day.is-on {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+.sched-day:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Caixa de tempo segmentada (reutilizável) */
+.sched-time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sched-time-unit {
+  display: flex;
+  gap: 4px;
+  border-radius: 8px;
+  outline: none;
+}
+
+.sched-time-unit:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.sched-tile {
+  width: 30px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 22px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.sched-time-colon {
+  font-size: 22px;
+  color: var(--muted);
+}
+
+.sched-time-steppers {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-left: 4px;
+}
+
+.sched-step-row {
+  display: flex;
+  gap: 5px;
+}
+
+.sched-step {
+  width: 28px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.sched-step:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sched-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+}
+
+.sched-preview-lbl {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.sched-preview-text {
+  font-size: 13px;
+  color: inherit;
+}
+
+.sched-cron {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.sched-actions {
+  display: flex;
+  gap: 6px;
 }
 
 /* ------------------------------------------------------------------ */

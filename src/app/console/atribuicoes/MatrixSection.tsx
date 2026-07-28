@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { light } from "@/modules/assignments/ui/AssignmentCell";
 import { useMatrix } from "@/modules/assignments/ui/hooks";
-import { isValidCron } from "@/modules/assignments/domain/cron";
+import { RecurrenceBuilder } from "@/modules/assignments/ui/RecurrenceBuilder";
 import type { AssignmentReadiness, MatrixCell } from "@/modules/assignments/service/ports";
 
 const REASON_PT: Record<string, string> = {
@@ -28,9 +28,10 @@ export function MatrixSection() {
   const { matrix, loading, error, refetch, setCell, setSchedule } = useMatrix();
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  // Edição de cron: qual célula está aberta e o rascunho do input.
+  // Edição de agenda: qual célula tem o construtor aberto. O rascunho vive
+  // DENTRO do RecurrenceBuilder (montado com key=cellKey), por isso não há
+  // estado de agenda partilhado entre células — nada vaza de uma para outra.
   const [editKey, setEditKey] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
 
   async function onToggle(cell: MatrixCell, enabled: boolean) {
     const key = `${cell.taskId}:${cell.workerId}`;
@@ -48,13 +49,11 @@ export function MatrixSection() {
     }
   }
 
-  // Guarda um cron válido na atribuição. O servidor revalida (só automáticas,
+  // Guarda o cron gerado pelo construtor. O servidor revalida (só automáticas,
   // cron válido) — um erro sobe e mostra-se junto à matriz.
-  async function onSaveSchedule(cell: MatrixCell) {
+  async function onSaveSchedule(cell: MatrixCell, cron: string) {
     if (!cell.assignmentId) return;
     const key = `${cell.taskId}:${cell.workerId}`;
-    const cron = draft.trim();
-    if (!isValidCron(cron)) return;
     setBusyKey(key);
     setActionError(null);
     try {
@@ -161,7 +160,6 @@ export function MatrixSection() {
                       const status = light(cell.readiness);
                       const blocked = !cell.readiness.eligible;
                       const busy = busyKey === key;
-                      const draftCron = draft.trim();
                       return (
                         <td key={w.id} className={`matrix-cell status-${status}`}>
                           <label className="matrix-toggle">
@@ -182,37 +180,13 @@ export function MatrixSection() {
                           {isAuto && cell.assignmentId ? (
                             <div className="matrix-cron">
                               {editKey === key ? (
-                                <div className="matrix-cron-edit">
-                                  <input
-                                    className="matrix-cron-input"
-                                    value={draft}
-                                    placeholder="min hora dia mês dds"
-                                    disabled={busy}
-                                    onChange={(e) => setDraft(e.target.value)}
-                                    aria-label="expressão cron"
-                                  />
-                                  <div className="matrix-cron-actions">
-                                    <button
-                                      type="button"
-                                      className="btn-mini"
-                                      disabled={busy || !isValidCron(draftCron)}
-                                      onClick={() => onSaveSchedule(cell)}
-                                    >
-                                      Guardar
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="btn-mini ghost"
-                                      disabled={busy}
-                                      onClick={() => setEditKey(null)}
-                                    >
-                                      Cancelar
-                                    </button>
-                                  </div>
-                                  {draftCron && !isValidCron(draftCron) ? (
-                                    <span className="matrix-cron-hint">cron inválido (5 campos)</span>
-                                  ) : null}
-                                </div>
+                                <RecurrenceBuilder
+                                  key={key}
+                                  initial={cell.schedule}
+                                  busy={busy}
+                                  onSave={(cron) => onSaveSchedule(cell, cron)}
+                                  onCancel={() => setEditKey(null)}
+                                />
                               ) : (
                                 <div className="matrix-cron-view">
                                   <span className="matrix-cron-label">
@@ -222,10 +196,7 @@ export function MatrixSection() {
                                     type="button"
                                     className="btn-mini ghost"
                                     disabled={busy}
-                                    onClick={() => {
-                                      setEditKey(key);
-                                      setDraft(cell.schedule ?? "");
-                                    }}
+                                    onClick={() => setEditKey(key)}
                                   >
                                     {cell.schedule ? "Editar" : "Agendar"}
                                   </button>
