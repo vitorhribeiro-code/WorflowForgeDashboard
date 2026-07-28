@@ -96,6 +96,13 @@ describe("report.monthly", () => {
     await expect(h.execute!(c)).rejects.toBeInstanceOf(PermanentError);
   });
 
+  it("sem period usa o mês corrente (do now injetado)", async () => {
+    const h = createReportMonthlyHandler(now);
+    const { ctx: c } = ctx({});
+    const out = (await h.execute!(c)) as any;
+    expect(out.period).toBe("2026-07"); // FIXED = 2026-07-25 (UTC)
+  });
+
   it("sem secções produz resumo vazio", async () => {
     const h = createReportMonthlyHandler(now);
     const { ctx: c } = ctx({ period: "2026-01" });

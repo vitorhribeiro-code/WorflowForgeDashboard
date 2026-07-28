@@ -1114,6 +1114,36 @@ button.btn-danger:disabled {
   gap: 6px;
 }
 
+.run-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.run-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.run-error-class {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.run-error-permanent {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
 /* Consola de stream (assistidas). */
 .assisted {
   display: flex;

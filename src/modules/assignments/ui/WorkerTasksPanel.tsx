@@ -51,6 +51,17 @@ function canCancel(run: RunRow): boolean {
   return run.status === "queued" || run.status === "running";
 }
 
+// Só mostramos texto de erro para falhas reais (um cancelamento é terminal
+// `error` mas com outcome "cancelled" — não é um erro a diagnosticar).
+function failureText(run: RunRow): string | null {
+  if (run.status !== "error" || run.outcome !== "failed") return null;
+  return run.error ?? "Falhou sem detalhe.";
+}
+
+function errorClassLabel(c: NonNullable<RunRow["errorClass"]>): string {
+  return c === "transient" ? "transitório" : "permanente";
+}
+
 function canRetry(run: RunRow): boolean {
   return run.status === "error" && run.outcome === "failed" && run.errorClass === "transient";
 }
@@ -160,25 +171,38 @@ function AutomationHistory({ assignmentId }: { assignmentId: string }) {
       ) : (
         runs.map((run) => {
           const pill = runPill(run);
+          const failure = failureText(run);
           return (
-            <div key={run.id} className="run-row">
-              <div className="run-row-main">
-                <Pill tone={pill.tone} label={pill.label} />
-                <span className="run-when">{formatWhen(run.createdAt)}</span>
-                {run.attempt > 1 && <span className="run-attempt">tentativa {run.attempt}</span>}
+            <div key={run.id} className="run-entry">
+              <div className="run-row">
+                <div className="run-row-main">
+                  <Pill tone={pill.tone} label={pill.label} />
+                  <span className="run-when">{formatWhen(run.createdAt)}</span>
+                  {run.attempt > 1 && <span className="run-attempt">tentativa {run.attempt}</span>}
+                </div>
+                <div className="run-actions">
+                  {canCancel(run) && (
+                    <button type="button" className="btn-danger btn-sm" onClick={() => void onCancel(run.id)}>
+                      Cancelar
+                    </button>
+                  )}
+                  {canRetry(run) && (
+                    <button type="button" className="btn-secondary btn-sm" onClick={() => void onRetry(run.id)}>
+                      Repetir
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="run-actions">
-                {canCancel(run) && (
-                  <button type="button" className="btn-danger btn-sm" onClick={() => void onCancel(run.id)}>
-                    Cancelar
-                  </button>
-                )}
-                {canRetry(run) && (
-                  <button type="button" className="btn-secondary btn-sm" onClick={() => void onRetry(run.id)}>
-                    Repetir
-                  </button>
-                )}
-              </div>
+              {failure && (
+                <p className="run-error" title={failure}>
+                  {run.errorClass && (
+                    <span className={`run-error-class run-error-${run.errorClass}`}>
+                      {errorClassLabel(run.errorClass)}
+                    </span>
+                  )}
+                  {failure}
+                </p>
+              )}
             </div>
           );
         })

@@ -105,12 +105,22 @@ export function createEmailDigestHandler(now: Now = defaultNow): RunHandler {
 
 const PERIOD_RE = /^\d{4}-\d{2}$/;
 
+// Mês corrente em UTC (YYYY-MM), determinístico com o `now` injetado.
+function periodOf(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
+
 export function createReportMonthlyHandler(now: Now = defaultNow): RunHandler {
   return {
     runtime: "report.monthly",
     async execute(ctx: ExecContext) {
-      const period = asString(ctx.input.period);
-      if (!period || !PERIOD_RE.test(period)) {
+      // 'period' em falta ⇒ usa o mês corrente (deixa a automática ficar verde
+      // sem exigir config). Presente mas malformado ⇒ erro permanente.
+      const rawPeriod = asString(ctx.input.period);
+      const period = rawPeriod && rawPeriod.length > 0 ? rawPeriod : periodOf(now());
+      if (!PERIOD_RE.test(period)) {
         throw new PermanentError("report.monthly: 'period' deve ter o formato YYYY-MM.");
       }
       const rawSections = asArray(ctx.input.sections) ?? [];
