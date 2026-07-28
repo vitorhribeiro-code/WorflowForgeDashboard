@@ -12,8 +12,11 @@ import { createDrizzleRunsRepository } from "./data/runs.repository";
 import { createRunsService, type RunsService } from "./service/runs.service";
 import { createHandlerRegistry, type RunHandler } from "./service/handlers/handler";
 import { builtinHandlers } from "./service/handlers/builtin";
-import type { ArtifactSink } from "./service/ports";
+import type { ArtifactSink, InputProvider } from "./service/ports";
 import { getArtifactContainer } from "@/modules/artifacts/container";
+import { getWorkerTokenPort } from "@/modules/connections";
+import { createGmailAcquisition } from "@/platform/acquisition/gmail";
+import { createGmailInputProvider } from "@/platform/acquisition/gmail-input-provider";
 
 // Registo de handlers por runtime (email.digest, report.monthly, assistant.generic).
 const HANDLERS: RunHandler[] = [...builtinHandlers];
@@ -41,6 +44,18 @@ export function getRunsService(): RunsService {
 
   const boss = new PgBoss({ connectionString: env.DATABASE_URL });
 
+  // Aquisição a montante (Gmail → email.digest). Só liga se houver
+  // ENCRYPTION_KEY (necessária para decifrar o token do M6). Sem ela, o motor
+  // fica em pass-through — o comportamento de antes desta fatia.
+  let inputProvider: InputProvider | undefined;
+  if (env.ENCRYPTION_KEY) {
+    const gmail = createGmailAcquisition();
+    inputProvider = createGmailInputProvider({
+      tokens: getWorkerTokenPort(),
+      fetchRecentEmails: (token, opts) => gmail.fetchRecentEmails(token, opts),
+    });
+  }
+
   cached = createRunsService({
     repo: createDrizzleRunsRepository(db),
     queue: createPgBossQueue(boss),
@@ -48,6 +63,7 @@ export function getRunsService(): RunsService {
     handlers: createHandlerRegistry(HANDLERS),
     artifacts,
     audit: createDrizzleAudit(db),
+    inputProvider,
   });
   return cached;
 }

@@ -18,6 +18,23 @@ export interface ReadinessChecker {
   check(workerId: string, taskId: string): Promise<ReadinessResult>;
 }
 
+/**
+ * Aquisição de input a montante do handler. Corre no processRun ANTES do
+ * dispatch, com o contexto do run (runtime + worker + config). Resolve o input
+ * final que o handler recebe. O default (sem provider) é passar o `base` tal e
+ * qual — os handlers continuam puros; só runtimes que precisam de dados
+ * externos (ex.: email.digest → Gmail) enriquecem aqui.
+ */
+export interface InputAcquisitionContext {
+  runtime: string;
+  workerId: string;
+  config: Record<string, unknown> | null;
+  base: Record<string, unknown>;
+}
+export interface InputProvider {
+  resolve(ctx: InputAcquisitionContext): Promise<Record<string, unknown>>;
+}
+
 /** Escrita de artefactos de log (ligado ao M8). */
 export interface ArtifactSink {
   writeLog(input: {

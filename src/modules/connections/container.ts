@@ -1,12 +1,18 @@
 // Composition root do M6. Lê o env (via loadEnv), instancia os adaptadores
 // reais (repo Drizzle, cifra, providers OAuth, state signer, auditoria) e
 // injeta-os na service. Lazy singleton, como o container do M7.
+import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
+import { tools } from "@/db/schema";
 import { createDrizzleAudit } from "@/lib/audit.drizzle";
 import { loadEnv } from "@/platform/config/env";
 import { createDrizzleConnectionsRepository } from "./data/connections.repository";
 import { createConnectionsService, type ConnectionsService } from "./service/connections.service";
 import { createCipher } from "./service/crypto";
+import {
+  createWorkerTokenAdapter,
+  type WorkerTokenPort,
+} from "./service/worker-token";
 import {
   createProviderRegistry,
   createStateSigner,
@@ -76,4 +82,33 @@ export function getConnectionsService(): ConnectionsService {
     redirectUri: `${env.APP_BASE_URL}/api/connections/callback`,
   });
   return cached;
+}
+
+/**
+ * Porto de token do trabalhador (system-context) para a aquisição do M7.
+ * Reutiliza os mesmos adaptadores (repo, cifra, providers) da service. Lazy
+ * singleton. Exige ENCRYPTION_KEY (decifra credenciais) — se faltar, quem o
+ * consome deve tratar a ausência (o motor cai em pass-through).
+ */
+let cachedToken: WorkerTokenPort | null = null;
+
+export function getWorkerTokenPort(): WorkerTokenPort {
+  if (cachedToken) return cachedToken;
+  const env = loadEnv();
+  if (!env.ENCRYPTION_KEY) {
+    throw new Error("ENCRYPTION_KEY em falta: necessária para ler tokens do worker (aquisição).");
+  }
+  const keyBase64 = Buffer.from(env.ENCRYPTION_KEY, "hex").toString("base64");
+
+  cachedToken = createWorkerTokenAdapter({
+    repo: createDrizzleConnectionsRepository(db),
+    cipher: createCipher(keyBase64),
+    providers: createProviderRegistry(buildProviderConfigs(env)),
+    async resolveToolIdByKey(key) {
+      const [row] = await db.select({ id: tools.id }).from(tools).where(eq(tools.key, key)).limit(1);
+      return row?.id ?? null;
+    },
+    now: () => new Date(),
+  });
+  return cachedToken;
 }

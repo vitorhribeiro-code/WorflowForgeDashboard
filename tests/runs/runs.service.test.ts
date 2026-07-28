@@ -300,3 +300,51 @@ describe("runAssisted", () => {
     await expect(gen.next()).rejects.toMatchObject({ code: "conflict" });
   });
 });
+
+describe("processRun + inputProvider (aquisição a montante)", () => {
+  it("passa ao handler o input resolvido pelo provider", async () => {
+    const repo = new FakeRunsRepo();
+    const inputProvider = {
+      resolve: async (c: { runtime: string; base: Record<string, unknown> }) => ({
+        ...c.base,
+        acquired: true,
+        runtime: c.runtime,
+      }),
+    };
+    const service = createRunsService({
+      repo,
+      queue: new FakeQueue(),
+      readiness: new FakeReadiness(),
+      handlers: createHandlerRegistry([echoHandler]),
+      artifacts: new FakeArtifacts(),
+      audit: new FakeAudit(),
+      now,
+      inputProvider,
+    });
+    repo.seedContext(ctx());
+    const run = await service.enqueue({
+      session: WORKER,
+      assignmentId: "asg-1",
+      trigger: "manual",
+      input: { x: 1 },
+    });
+    const done = await service.processRun(run.id);
+    expect(done.status).toBe("success");
+    const stored = await repo.getRun(run.id);
+    expect((stored!.output as any).result.echo).toMatchObject({ x: 1, acquired: true, runtime: "echo" });
+  });
+
+  it("sem inputProvider, o handler recebe o input original (pass-through)", async () => {
+    const { repo, service } = setup();
+    repo.seedContext(ctx());
+    const run = await service.enqueue({
+      session: WORKER,
+      assignmentId: "asg-1",
+      trigger: "manual",
+      input: { x: 2 },
+    });
+    await service.processRun(run.id);
+    const stored = await repo.getRun(run.id);
+    expect((stored!.output as any).result.echo).toEqual({ x: 2 });
+  });
+});

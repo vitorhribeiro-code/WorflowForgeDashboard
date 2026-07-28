@@ -22,7 +22,7 @@ import {
 import { assertTransition, canCancel } from "../domain/state-machine";
 import { backoffMs, buildIdempotencyKey } from "../domain/idempotency";
 import type { RunRow, RunsRepository } from "../data/runs.repository";
-import type { ArtifactSink, ReadinessChecker, RunQueue } from "./ports";
+import type { ArtifactSink, InputProvider, ReadinessChecker, RunQueue } from "./ports";
 import type { HandlerRegistry, RunEvent } from "./handlers/handler";
 import { classify, messageOf } from "./exec-errors";
 import type { AuditPort } from "@/lib/audit";
@@ -43,6 +43,9 @@ export interface RunsServiceDeps {
   handlers: HandlerRegistry;
   artifacts: ArtifactSink;
   audit: AuditPort;
+  // Aquisição de input a montante do handler (ex.: Gmail → email.digest).
+  // Opcional: sem ele, o input do run passa tal e qual (pass-through).
+  inputProvider?: InputProvider;
   maxAttempts?: number; // default 3
   now?: () => Date;
 }
@@ -190,8 +193,18 @@ export function createRunsService(deps: RunsServiceDeps) {
     const controller = new AbortController();
     const events: RunEvent[] = [];
     try {
+      // Aquisição a montante (ex.: Gmail → emails). Sem provider = pass-through.
+      // Falhas aqui são classificadas como as do handler (transitório/permanente).
+      const input = deps.inputProvider
+        ? await deps.inputProvider.resolve({
+            runtime: task.runtime,
+            workerId: assignment.workerId,
+            config: assignment.config,
+            base: row.input ?? {},
+          })
+        : row.input ?? {};
       const result = await handler.execute({
-        input: row.input ?? {},
+        input,
         config: assignment.config,
         signal: controller.signal,
         emit: (e) => events.push(e),

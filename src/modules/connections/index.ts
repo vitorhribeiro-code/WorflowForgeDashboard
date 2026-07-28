@@ -1,6 +1,7 @@
 // Superfície pública do M6 — Conexões do Trabalhador.
-export { getConnectionsService } from "./container";
+export { getConnectionsService, getWorkerTokenPort } from "./container";
 export type { ConnectionsService } from "./service/connections.service";
+export type { WorkerTokenPort } from "./service/worker-token";
 
 // Portos e adaptadores (para o composition root e o cruzamento com M5/M8).
 export { createConnectionsService } from "./service/connections.service";
