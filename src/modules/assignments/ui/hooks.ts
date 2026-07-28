@@ -103,5 +103,15 @@ export function useMatrix() {
     });
   }, []);
 
-  return { matrix, loading, error, refetch, setCell };
+  // Define/limpa o cron de uma atribuição existente (null limpa). Só automáticas
+  // aceitam schedule; o serviço rejeita assistidas e cron inválido (o erro
+  // sobe com .message para a UI mostrar junto à célula).
+  const setSchedule = useCallback(async (assignmentId: string, schedule: string | null) => {
+    await api(`/api/assignments/${assignmentId}/schedule`, {
+      method: "PUT",
+      body: JSON.stringify({ schedule }),
+    });
+  }, []);
+
+  return { matrix, loading, error, refetch, setCell, setSchedule };
 }

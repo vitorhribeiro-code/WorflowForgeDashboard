@@ -158,6 +158,7 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
             workerId: w.id,
             assignmentId: a?.id ?? null,
             enabled: a?.enabled ?? false,
+            schedule: a?.schedule ?? null,
             readiness: r,
           });
         }

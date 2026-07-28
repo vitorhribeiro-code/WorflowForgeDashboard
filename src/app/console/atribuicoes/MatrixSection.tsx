@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { light } from "@/modules/assignments/ui/AssignmentCell";
 import { useMatrix } from "@/modules/assignments/ui/hooks";
+import { isValidCron } from "@/modules/assignments/domain/cron";
 import type { AssignmentReadiness, MatrixCell } from "@/modules/assignments/service/ports";
 
 const REASON_PT: Record<string, string> = {
@@ -24,9 +25,12 @@ function missingText(r: AssignmentReadiness): string {
 }
 
 export function MatrixSection() {
-  const { matrix, loading, error, refetch, setCell } = useMatrix();
+  const { matrix, loading, error, refetch, setCell, setSchedule } = useMatrix();
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Edição de cron: qual célula está aberta e o rascunho do input.
+  const [editKey, setEditKey] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
 
   async function onToggle(cell: MatrixCell, enabled: boolean) {
     const key = `${cell.taskId}:${cell.workerId}`;
@@ -38,6 +42,44 @@ export function MatrixSection() {
       // Bloqueio de ativação (pré-requisitos): a célula fica criada/desativada;
       // o refetch mostra o porquê no próprio semáforo.
       setActionError(e instanceof Error ? e.message : "Não foi possível concluir");
+    } finally {
+      setBusyKey(null);
+      refetch();
+    }
+  }
+
+  // Guarda um cron válido na atribuição. O servidor revalida (só automáticas,
+  // cron válido) — um erro sobe e mostra-se junto à matriz.
+  async function onSaveSchedule(cell: MatrixCell) {
+    if (!cell.assignmentId) return;
+    const key = `${cell.taskId}:${cell.workerId}`;
+    const cron = draft.trim();
+    if (!isValidCron(cron)) return;
+    setBusyKey(key);
+    setActionError(null);
+    try {
+      await setSchedule(cell.assignmentId, cron);
+      setEditKey(null);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Não foi possível guardar a agenda");
+    } finally {
+      setBusyKey(null);
+      refetch();
+    }
+  }
+
+  // Limpa a agenda (null). A automática deixa de disparar sozinha; continua
+  // executável manualmente.
+  async function onClearSchedule(cell: MatrixCell) {
+    if (!cell.assignmentId) return;
+    const key = `${cell.taskId}:${cell.workerId}`;
+    setBusyKey(key);
+    setActionError(null);
+    try {
+      await setSchedule(cell.assignmentId, null);
+      setEditKey(null);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Não foi possível limpar a agenda");
     } finally {
       setBusyKey(null);
       refetch();
@@ -71,7 +113,8 @@ export function MatrixSection() {
       <h1>Atribuições</h1>
       <p className="muted">
         Ativa uma tarefa para um trabalhador. O ponto mostra a prontidão das ligações:
-        verde = pronto, âmbar = faltam permissões, vermelho = sem ligação.
+        verde = pronto, âmbar = faltam permissões, vermelho = sem ligação. Numa tarefa
+        automática já atribuída podes definir uma agenda (cron) para correr sozinha.
       </p>
 
       {actionError ? <p className="panel-error">{actionError}</p> : null}
@@ -100,41 +143,112 @@ export function MatrixSection() {
               </tr>
             </thead>
             <tbody>
-              {matrix!.tasks.map((t) => (
-                <tr key={t.id}>
-                  <th scope="row" className="matrix-task">
-                    <span className="matrix-task-name">{t.name}</span>
-                    <span className="matrix-task-meta">
-                      {t.type === "automation" ? "automática" : "assistida"}
-                      {t.published ? "" : " · rascunho"}
-                    </span>
-                  </th>
-                  {matrix!.workers.map((w) => {
-                    const key = `${t.id}:${w.id}`;
-                    const cell = cellByKey.get(key);
-                    if (!cell) return <td key={w.id} />;
-                    const status = light(cell.readiness);
-                    const blocked = !cell.readiness.eligible;
-                    return (
-                      <td key={w.id} className={`matrix-cell status-${status}`}>
-                        <label className="matrix-toggle">
-                          <input
-                            type="checkbox"
-                            checked={cell.enabled}
-                            disabled={busyKey === key}
-                            onChange={(e) => onToggle(cell, e.target.checked)}
-                          />
-                          <span className="readiness-dot" aria-label={status} title={status} />
-                          <span className="matrix-state">{cell.enabled ? "Ativa" : "Inativa"}</span>
-                        </label>
-                        {blocked ? (
-                          <span className="matrix-missing">{missingText(cell.readiness)}</span>
-                        ) : null}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+              {matrix!.tasks.map((t) => {
+                const isAuto = t.type === "automation";
+                return (
+                  <tr key={t.id}>
+                    <th scope="row" className="matrix-task">
+                      <span className="matrix-task-name">{t.name}</span>
+                      <span className="matrix-task-meta">
+                        {isAuto ? "automática" : "assistida"}
+                        {t.published ? "" : " · rascunho"}
+                      </span>
+                    </th>
+                    {matrix!.workers.map((w) => {
+                      const key = `${t.id}:${w.id}`;
+                      const cell = cellByKey.get(key);
+                      if (!cell) return <td key={w.id} />;
+                      const status = light(cell.readiness);
+                      const blocked = !cell.readiness.eligible;
+                      const busy = busyKey === key;
+                      const draftCron = draft.trim();
+                      return (
+                        <td key={w.id} className={`matrix-cell status-${status}`}>
+                          <label className="matrix-toggle">
+                            <input
+                              type="checkbox"
+                              checked={cell.enabled}
+                              disabled={busy}
+                              onChange={(e) => onToggle(cell, e.target.checked)}
+                            />
+                            <span className="readiness-dot" aria-label={status} title={status} />
+                            <span className="matrix-state">{cell.enabled ? "Ativa" : "Inativa"}</span>
+                          </label>
+
+                          {blocked ? (
+                            <span className="matrix-missing">{missingText(cell.readiness)}</span>
+                          ) : null}
+
+                          {isAuto && cell.assignmentId ? (
+                            <div className="matrix-cron">
+                              {editKey === key ? (
+                                <div className="matrix-cron-edit">
+                                  <input
+                                    className="matrix-cron-input"
+                                    value={draft}
+                                    placeholder="min hora dia mês dds"
+                                    disabled={busy}
+                                    onChange={(e) => setDraft(e.target.value)}
+                                    aria-label="expressão cron"
+                                  />
+                                  <div className="matrix-cron-actions">
+                                    <button
+                                      type="button"
+                                      className="btn-mini"
+                                      disabled={busy || !isValidCron(draftCron)}
+                                      onClick={() => onSaveSchedule(cell)}
+                                    >
+                                      Guardar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn-mini ghost"
+                                      disabled={busy}
+                                      onClick={() => setEditKey(null)}
+                                    >
+                                      Cancelar
+                                    </button>
+                                  </div>
+                                  {draftCron && !isValidCron(draftCron) ? (
+                                    <span className="matrix-cron-hint">cron inválido (5 campos)</span>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <div className="matrix-cron-view">
+                                  <span className="matrix-cron-label">
+                                    {cell.schedule ? `⏱ ${cell.schedule}` : "sem agenda"}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="btn-mini ghost"
+                                    disabled={busy}
+                                    onClick={() => {
+                                      setEditKey(key);
+                                      setDraft(cell.schedule ?? "");
+                                    }}
+                                  >
+                                    {cell.schedule ? "Editar" : "Agendar"}
+                                  </button>
+                                  {cell.schedule ? (
+                                    <button
+                                      type="button"
+                                      className="btn-mini ghost"
+                                      disabled={busy}
+                                      onClick={() => onClearSchedule(cell)}
+                                    >
+                                      Limpar
+                                    </button>
+                                  ) : null}
+                                </div>
+                              )}
+                            </div>
+                          ) : null}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

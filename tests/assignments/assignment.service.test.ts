@@ -163,6 +163,7 @@ describe("matrix", () => {
     expect(m.cells).toHaveLength(2); // 2 tasks × 1 worker
     const t1cell = m.cells.find((c) => c.taskId === "t1")!;
     expect(t1cell.assignmentId).toBeNull(); // ainda não atribuída
+    expect(t1cell.schedule).toBeNull(); // sem atribuição → sem agenda
     expect(t1cell.readiness.eligible).toBe(true); // publicada + conexões OK
   });
 

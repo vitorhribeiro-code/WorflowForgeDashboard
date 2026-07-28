@@ -83,6 +83,7 @@ export type MatrixCell = {
   workerId: string;
   assignmentId: string | null; // null = ainda não atribuída
   enabled: boolean;
+  schedule: string | null; // cron da atribuição (só relevante em automáticas)
   readiness: AssignmentReadiness;
 };
 

@@ -802,6 +802,77 @@ button.btn-danger:disabled {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Editor de agenda (cron) por célula — só automáticas atribuídas     */
+/* ------------------------------------------------------------------ */
+.matrix-cron {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.matrix-cron-view {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.matrix-cron-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.matrix-cron-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.matrix-cron-input {
+  width: 100%;
+  min-width: 130px;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+}
+
+.matrix-cron-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.matrix-cron-hint {
+  font-size: 11px;
+  color: var(--danger);
+}
+
+.btn-mini {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  cursor: pointer;
+}
+
+.btn-mini.ghost {
+  background: transparent;
+  color: var(--muted);
+}
+
+.btn-mini:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Painel do trabalhador — As minhas conexões (M6)                    */
 /*  Classes específicas por contexto (conn-*) para evitar vazamento    */
 /*  de especificidade (handoff §4).                                    */
