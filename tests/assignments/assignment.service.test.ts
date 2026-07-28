@@ -52,6 +52,11 @@ class FakeRepo implements AssignmentRepository {
   async listByWorker(workerId: string) {
     return this.rows.filter((a) => a.workerId === workerId);
   }
+  async listScheduledActive() {
+    return this.rows
+      .filter((a) => a.enabled && a.schedule)
+      .map((a) => ({ assignmentId: a.id, schedule: a.schedule as string }));
+  }
   async setEnabled(id: string, patch: EnablePatch) {
     const a = this.rows.find((x) => x.id === id);
     if (!a) return null;

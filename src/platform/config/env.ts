@@ -21,6 +21,9 @@ const envSchema = z.object({
   MAIL_FROM: z.string().default("no-reply@localhost"),
   // Segredo partilhado que protege os endpoints de cron (§cron).
   CRON_SECRET: z.string().min(16).optional(),
+  // Janela de catch-up do scheduler (min). Deve cobrir a folga entre disparos
+  // do cron do host (ex.: cron do Railway com mínimo de 5 min → 5). 1..60.
+  SCHEDULER_LOOKBACK_MINUTES: z.coerce.number().int().min(1).max(60).optional(),
   // OAuth por provider (M6). Opcionais até o M6 ser integrado.
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),

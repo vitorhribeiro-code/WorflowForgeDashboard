@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { taskAssignments, tasks } from "@/db/schema";
 import type { NewAssignment, TaskAssignment } from "../domain/types";
@@ -17,6 +17,9 @@ export interface AssignmentRepository {
   getById(id: string): Promise<TaskAssignment | null>; // sem escopo (port p/ M7)
   listByOrg(orgId: string): Promise<TaskAssignment[]>;
   listByWorker(workerId: string): Promise<TaskAssignment[]>;
+  // Candidatas do scheduler: ativas, automáticas e com cron. Contexto de
+  // SISTEMA (cross-tenant) — o scheduler corre para toda a plataforma.
+  listScheduledActive(): Promise<{ assignmentId: string; schedule: string }[]>;
   setEnabled(id: string, patch: EnablePatch): Promise<TaskAssignment | null>;
   updateConfig(id: string, config: Record<string, unknown> | null): Promise<TaskAssignment | null>;
   updateSchedule(id: string, schedule: string | null): Promise<TaskAssignment | null>;
@@ -128,6 +131,24 @@ export class DrizzleAssignmentRepository implements AssignmentRepository {
       .where(eq(taskAssignments.id, id))
       .returning();
     return row ? toAssignment(row) : null;
+  }
+
+  async listScheduledActive(): Promise<{ assignmentId: string; schedule: string }[]> {
+    const rows = await this.db
+      .select({ assignmentId: taskAssignments.id, schedule: taskAssignments.schedule })
+      .from(taskAssignments)
+      .innerJoin(tasks, eq(taskAssignments.taskId, tasks.id))
+      .where(
+        and(
+          eq(taskAssignments.enabled, true),
+          eq(tasks.type, "automation"),
+          isNotNull(taskAssignments.schedule),
+        ),
+      );
+    // O isNotNull já filtra no SQL; o guard tipa `schedule` como string.
+    return rows.flatMap((r) =>
+      r.schedule ? [{ assignmentId: r.assignmentId, schedule: r.schedule }] : [],
+    );
   }
 
   async suspendForTask(taskId: string): Promise<number> {
