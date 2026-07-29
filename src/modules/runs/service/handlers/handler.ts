@@ -12,10 +12,25 @@ export interface ExecContext {
   emit: (event: RunEvent) => void;
 }
 
+/**
+ * Rascunho de um entregável final (work_document): bytes prontos para a cloud
+ * do trabalhador. É uma função PURA do output do handler — testável sem rede.
+ */
+export interface DeliverableDraft {
+  filename: string;
+  mimeType: string | null;
+  bytes: Uint8Array;
+}
+
 export interface RunHandler {
   runtime: string;
   execute?(ctx: ExecContext): Promise<Record<string, unknown>>;
   stream?(ctx: ExecContext): AsyncIterable<RunEvent>;
+  /**
+   * Opcional: transforma o output num entregável para a cloud do worker
+   * (tier work_document). Devolver null = este run não produz entregável.
+   */
+  deliverable?(result: Record<string, unknown>): DeliverableDraft | null;
 }
 
 export interface HandlerRegistry {

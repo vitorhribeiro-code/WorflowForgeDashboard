@@ -14,23 +14,31 @@ export interface StorageConnectionPort {
   /**
    * Devolve a conexão de storage do worker, ou null se não existir.
    * writeScope indica se os granted_scopes incluem escrita.
+   * accessToken é o token OAuth válido do worker para esta cloud (ou null se
+   * não resolúvel — conexão expirada/revogada: precisa de reautorização).
    */
   getStorageConnection(workerId: string): Promise<{
     toolKey: string;
     rootFolderRef: string | null;
     writeScope: boolean;
+    accessToken: string | null;
   } | null>;
 }
 
-/** SDK genérico de cloud, registado por toolKey (padrão do M6: sem classe por ferramenta). */
+/**
+ * SDK genérico de cloud, registado por toolKey (padrão do M6: sem classe por
+ * ferramenta). Cada chamada recebe o access token do worker — o SDK é stateless
+ * por-worker (o token é resolvido na fronteira, pela ponte M6).
+ */
 export interface CloudSdk {
   upload(args: {
+    accessToken: string;
     rootFolderRef: string | null;
     filename: string;
     mimeType: string | null;
     bytes: Uint8Array;
   }): Promise<{ fileId: string }>;
-  signedUrl(fileId: string): Promise<DownloadTarget>;
+  signedUrl(accessToken: string, fileId: string): Promise<DownloadTarget>;
 }
 
 export function createCloudStorageAdapter(
@@ -56,13 +64,21 @@ export function createCloudStorageAdapter(
         toolKey: conn.toolKey,
       });
     }
-    return { conn, sdk };
+    if (!conn.accessToken) {
+      // Conexão ligada mas sem token válido (expirou/revogado e o refresh falhou).
+      throw new DomainError("CLOUD_CONNECTION_MISSING", "Cloud sem token válido — reautorizar", {
+        workerId,
+        toolKey: conn.toolKey,
+      });
+    }
+    return { conn, sdk, accessToken: conn.accessToken };
   }
 
   return {
     async write(workerId: string, content: ArtifactContent): Promise<StoredBlob> {
-      const { conn, sdk } = await resolve(workerId);
+      const { conn, sdk, accessToken } = await resolve(workerId);
       const { fileId } = await sdk.upload({
+        accessToken,
         rootFolderRef: conn.rootFolderRef,
         filename: content.filename,
         mimeType: content.mimeType,
@@ -72,8 +88,8 @@ export function createCloudStorageAdapter(
     },
 
     async getDownload(workerId: string, storageRef: string): Promise<DownloadTarget> {
-      const { sdk } = await resolve(workerId);
-      return sdk.signedUrl(storageRef);
+      const { sdk, accessToken } = await resolve(workerId);
+      return sdk.signedUrl(accessToken, storageRef);
     },
   };
 }

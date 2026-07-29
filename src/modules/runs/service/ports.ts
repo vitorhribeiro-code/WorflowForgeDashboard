@@ -35,11 +35,23 @@ export interface InputProvider {
   resolve(ctx: InputAcquisitionContext): Promise<Record<string, unknown>>;
 }
 
-/** Escrita de artefactos de log (ligado ao M8). */
+/** Escrita de artefactos (ligado ao M8). */
 export interface ArtifactSink {
+  /** Log de execução → artefacto intermédio (efémero, JSON). */
   writeLog(input: {
     runId: string;
     name: string;
     body: Record<string, unknown>;
   }): Promise<void>;
+  /**
+   * Entregável final → tier work_document (cloud do worker). O M8 resolve o
+   * worker a partir do runId. Pode lançar CLOUD_* (sem cloud/scope/token) —
+   * o motor classifica como permanente.
+   */
+  writeDocument(input: {
+    runId: string;
+    filename: string;
+    mimeType: string | null;
+    bytes: Uint8Array;
+  }): Promise<{ id: string; storageRef: string }>;
 }

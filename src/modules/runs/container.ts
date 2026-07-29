@@ -40,6 +40,17 @@ export function getRunsService(): RunsService {
         bytes: new TextEncoder().encode(JSON.stringify(input.body)),
       });
     },
+    // Entregável final → tier work_document (cloud do worker via M6/M8).
+    async writeDocument(input) {
+      const a = await getArtifactContainer().service.persist({
+        runId: input.runId,
+        filename: input.filename,
+        mimeType: input.mimeType,
+        tier: "work_document",
+        bytes: input.bytes,
+      });
+      return { id: a.id, storageRef: a.storageRef };
+    },
   };
 
   const boss = new PgBoss({ connectionString: env.DATABASE_URL });

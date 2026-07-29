@@ -20,6 +20,7 @@ import {
   createM6StorageConnectionBridge,
   defaultCloudSdkRegistry,
 } from "./infra/storage-connection.m6";
+import { getWorkerTokenPort } from "@/modules/connections";
 
 export interface ArtifactContainerDeps {
   db: PgDatabase<any, any, any>;
@@ -100,7 +101,7 @@ function defaultArtifactDeps(): ArtifactContainerDeps {
   return {
     db: defaultDb,
     audit: createDrizzleAudit(defaultDb),
-    storageConnections: createM6StorageConnectionBridge(defaultDb),
+    storageConnections: createM6StorageConnectionBridge(defaultDb, getWorkerTokenPort()),
     sdkByToolKey: defaultCloudSdkRegistry,
   };
 }

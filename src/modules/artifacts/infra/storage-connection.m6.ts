@@ -1,14 +1,15 @@
 // Ponte M6 → M8. O M8 define o port (StorageConnectionPort); aqui liga-se às
-// worker_connections do M6 para descobrir a cloud de storage do trabalhador.
-// O registo de SDKs de cloud (upload real para Google Drive/Dropbox/...) é
-// infra Tier-2 e ainda não existe — fica um registo vazio, documentado.
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+// worker_connections do M6 para descobrir a cloud de storage do trabalhador e
+// resolver o access token válido (via WorkerTokenPort — refresh silencioso).
+// O registo de SDKs de cloud (upload real) devolve o SDK do Google Drive.
+import { and, desc, eq } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core";
 import { tools, workerConnections } from "@/db/schema";
 import type { CloudSdk, StorageConnectionPort } from "./cloud-storage.worker-connection";
+import { createGoogleDriveSdk } from "@/platform/cloud/google-drive";
 
 // Scopes de escrita conhecidos por ferramenta. Heurística até os SDKs reais
-// aterrarem (aí a decisão de writeScope passa a ser do próprio SDK/provider).
+// cobrirem todas (aí a decisão de writeScope passa a ser do próprio provider).
 const WRITE_SCOPES: Record<string, string[]> = {
   google: [
     "https://www.googleapis.com/auth/drive",
@@ -18,6 +19,9 @@ const WRITE_SCOPES: Record<string, string[]> = {
   dropbox: ["files.content.write"],
 };
 
+/** Ferramentas que sabemos usar como storage (têm SDK ou heurística de escrita). */
+const KNOWN_CLOUD_KEYS = new Set(Object.keys(WRITE_SCOPES));
+
 function hasWriteScope(toolKey: string, granted: string[]): boolean {
   const known = WRITE_SCOPES[toolKey];
   if (known && known.some((s) => granted.includes(s))) return true;
@@ -25,17 +29,24 @@ function hasWriteScope(toolKey: string, granted: string[]): boolean {
   return granted.some((s) => s.toLowerCase().includes("write"));
 }
 
+/** Resolve um access token do worker para uma ferramenta (por Tool.key). */
+export interface TokenResolver {
+  getAccessToken(workerId: string, toolKey: string): Promise<string | null>;
+}
+
 /**
- * Resolve a conexão de storage do trabalhador: a worker_connection ligada que
- * tem uma pasta raiz definida (root_folder_ref). Se houver mais que uma, a mais
- * recentemente ligada.
+ * Resolve a conexão de storage do trabalhador: a worker_connection LIGADA para
+ * uma cloud conhecida (a mais recentemente ligada). Já NÃO exige rootFolderRef
+ * — quando ele falta, o SDK do Drive garante uma pasta-app própria. O token é
+ * resolvido aqui (fronteira), nunca sai para HTTP/UI.
  */
 export function createM6StorageConnectionBridge(
   db: PgDatabase<any, any, any>,
+  tokens: TokenResolver,
 ): StorageConnectionPort {
   return {
     async getStorageConnection(workerId: string) {
-      const [row] = await db
+      const rows = await db
         .select({
           toolKey: tools.key,
           rootFolderRef: workerConnections.rootFolderRef,
@@ -47,29 +58,35 @@ export function createM6StorageConnectionBridge(
           and(
             eq(workerConnections.workerId, workerId),
             eq(workerConnections.status, "connected"),
-            isNotNull(workerConnections.rootFolderRef),
           ),
         )
-        .orderBy(desc(workerConnections.connectedAt))
-        .limit(1);
+        .orderBy(desc(workerConnections.connectedAt));
 
+      // A cloud é a conexão ligada mais recente cuja ferramenta sabemos usar
+      // como storage. (No caso Google, é a mesma conexão do Gmail — a união de
+      // scopes inclui drive.file.)
+      const row = rows.find((r) => KNOWN_CLOUD_KEYS.has(r.toolKey)) ?? null;
       if (!row) return null;
+
+      const accessToken = await tokens.getAccessToken(workerId, row.toolKey);
       return {
         toolKey: row.toolKey,
         rootFolderRef: row.rootFolderRef,
         writeScope: hasWriteScope(row.toolKey, row.grantedScopes ?? []),
+        accessToken,
       };
     },
   };
 }
 
 /**
- * Registo de SDKs de cloud por Tool.key. VAZIO por agora: os SDKs de upload
- * (Google Drive, Dropbox, OneDrive) são infra Tier-2 — dependem da verificação
- * das consolas OAuth, que demora semanas (ver handoff §5). Enquanto não
- * existirem, o tier `work_document` (docs na cloud do trabalhador) lança
- * CLOUD_CONNECTION_MISSING; os tiers `intermediate`/logs (S3 efémero) funcionam.
+ * Registo de SDKs de cloud por Tool.key. O Google Drive já está ligado; as
+ * restantes (Dropbox/OneDrive) aterram quando as suas consolas OAuth estiverem
+ * verificadas. Para uma cloud sem SDK, o adapter lança CLOUD_CONNECTION_MISSING.
  */
-export function defaultCloudSdkRegistry(_toolKey: string): CloudSdk | undefined {
+const googleDrive = createGoogleDriveSdk();
+
+export function defaultCloudSdkRegistry(toolKey: string): CloudSdk | undefined {
+  if (toolKey === "google") return googleDrive;
   return undefined;
 }

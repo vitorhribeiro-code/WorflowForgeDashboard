@@ -6,7 +6,7 @@
 // ex.: buscar emails ao Gmail — é a montante, não aqui). Input inválido =>
 // PermanentError (não se repete); falhas de serviços externos (quando existirem)
 // => TransientError.
-import type { ExecContext, RunEvent, RunHandler } from "./handler";
+import type { DeliverableDraft, ExecContext, RunEvent, RunHandler } from "./handler";
 import { PermanentError } from "../exec-errors";
 
 type Now = () => Date;
@@ -52,9 +52,57 @@ function toEmailItem(v: unknown): EmailItem | null {
   };
 }
 
+/**
+ * Renderiza o output do email.digest num documento Markdown legível — o
+ * entregável que vai para a cloud do trabalhador. PURO (output → bytes).
+ */
+export function renderEmailDigestMarkdown(result: Record<string, unknown>): DeliverableDraft {
+  const period = asString(result.period) ?? null;
+  const total = typeof result.total === "number" ? result.total : 0;
+  const sendersRaw = asArray(result.senders) ?? [];
+  const senders = sendersRaw
+    .map((s) => {
+      const r = asRecord(s);
+      if (!r) return null;
+      const sender = asString(r.sender);
+      if (!sender) return null;
+      const count = typeof r.count === "number" ? r.count : 0;
+      const subjects = (asArray(r.subjects) ?? [])
+        .map(asString)
+        .filter((x): x is string => x !== undefined);
+      return { sender, count, subjects };
+    })
+    .filter((x): x is { sender: string; count: number; subjects: string[] } => x !== null);
+
+  const lines: string[] = [];
+  lines.push(`# Resumo de emails${period ? ` — ${period}` : ""}`);
+  lines.push("");
+  lines.push(`**${total}** emails de **${senders.length}** remetentes.`);
+  lines.push("");
+  for (const s of senders) {
+    lines.push(`## ${s.sender} (${s.count})`);
+    if (s.subjects.length === 0) {
+      lines.push("_sem assuntos registados_");
+    } else {
+      for (const subj of s.subjects) lines.push(`- ${subj}`);
+    }
+    lines.push("");
+  }
+  const generatedAt = asString(result.generatedAt);
+  if (generatedAt) lines.push(`_Gerado em ${generatedAt}._`);
+
+  const stamp = (period ?? generatedAt ?? "").slice(0, 10) || "sem-data";
+  return {
+    filename: `resumo-emails-${stamp}.md`,
+    mimeType: "text/markdown",
+    bytes: new TextEncoder().encode(lines.join("\n")),
+  };
+}
+
 export function createEmailDigestHandler(now: Now = defaultNow): RunHandler {
   return {
     runtime: "email.digest",
+    deliverable: renderEmailDigestMarkdown,
     async execute(ctx: ExecContext) {
       const rawEmails = asArray(ctx.input.emails);
       if (!rawEmails) {

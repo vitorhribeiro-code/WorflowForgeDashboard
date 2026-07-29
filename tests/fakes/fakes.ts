@@ -114,8 +114,21 @@ export class FakeReadiness implements ReadinessChecker {
 
 export class FakeArtifacts implements ArtifactSink {
   logs: Array<{ runId: string; name: string; body: Record<string, unknown> }> = [];
+  docs: Array<{ runId: string; filename: string; mimeType: string | null; bytes: Uint8Array }> = [];
+  /** Se definido, writeDocument lança-o (para testar falhas de cloud). */
+  failDocument?: Error;
   async writeLog(x: { runId: string; name: string; body: Record<string, unknown> }) {
     this.logs.push(x);
+  }
+  async writeDocument(x: {
+    runId: string;
+    filename: string;
+    mimeType: string | null;
+    bytes: Uint8Array;
+  }) {
+    if (this.failDocument) throw this.failDocument;
+    this.docs.push(x);
+    return { id: `doc:${this.docs.length}`, storageRef: `cloud:${this.docs.length}` };
   }
 }
 

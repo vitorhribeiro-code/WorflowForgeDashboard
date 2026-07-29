@@ -209,6 +209,28 @@ export function createRunsService(deps: RunsServiceDeps) {
         signal: controller.signal,
         emit: (e) => events.push(e),
       });
+
+      // Entregável final (work_document) → cloud do worker, quando o handler o
+      // declara. Fica DENTRO do try: uma falha de cloud (CLOUD_*/rede) classifica
+      // o run (permanente/transitório) — o entregável é o objetivo da tarefa.
+      if (handler.deliverable) {
+        const draft = handler.deliverable(result);
+        if (draft) {
+          const doc = await artifacts.writeDocument({
+            runId,
+            filename: draft.filename,
+            mimeType: draft.mimeType,
+            bytes: draft.bytes,
+          });
+          events.push({ type: "log", data: { message: `entregável: ${draft.filename}` } });
+          (result as Record<string, unknown>)._deliverable = {
+            artifactId: doc.id,
+            storageRef: doc.storageRef,
+            filename: draft.filename,
+          };
+        }
+      }
+
       const output = withEngine({ result }, { ...meta });
       await repo.markSuccess(runId, output, now());
       await artifacts.writeLog({
