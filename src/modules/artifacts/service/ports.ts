@@ -17,6 +17,8 @@ export interface ArtifactContent {
   filename: string;
   mimeType: string | null;
   bytes: Uint8Array;
+  /** Chave de upsert para work_document (ignorada pelo store efémero). */
+  idempotencyKey?: string;
 }
 
 export interface StoredBlob {

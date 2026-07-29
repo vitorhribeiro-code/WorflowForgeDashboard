@@ -31,6 +31,8 @@ export interface PersistInput {
   mimeType: string | null;
   tier: ArtifactTier;
   bytes: Uint8Array;
+  /** Upsert do work_document na cloud (mesmo (tarefa, período) → mesmo ficheiro). */
+  idempotencyKey?: string;
 }
 
 export interface ArtifactService {
@@ -63,6 +65,7 @@ export function createArtifactService(deps: ArtifactServiceDeps): ArtifactServic
         filename: input.filename,
         mimeType: input.mimeType,
         bytes: input.bytes,
+        idempotencyKey: input.idempotencyKey,
       };
 
       // Escreve no store do tier. A app guarda a REFERÊNCIA, não o ficheiro.

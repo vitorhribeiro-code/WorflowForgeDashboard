@@ -96,6 +96,8 @@ export function renderEmailDigestMarkdown(result: Record<string, unknown>): Deli
     filename: `resumo-emails-${stamp}.md`,
     mimeType: "text/markdown",
     bytes: new TextEncoder().encode(lines.join("\n")),
+    // Mesmo período → mesmo documento: o storage reescreve em vez de duplicar.
+    idempotencyKey: `email.digest:${period ?? "sem-periodo"}`,
   };
 }
 

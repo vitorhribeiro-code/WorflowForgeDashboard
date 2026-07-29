@@ -141,3 +141,68 @@ describe("createGoogleDriveSdk.upload", () => {
     expect(target.url).toBe("https://drive.google.com/file/d/abc123/view");
   });
 });
+
+describe("createGoogleDriveSdk.upload · idempotência (upsert por appProperties)", () => {
+  it("reescreve o ficheiro existente (PATCH) quando a chave já existe", async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchFake = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      const u = String(url);
+      calls.push({ url: u, init });
+      // Busca por appProperties → encontra o ficheiro anterior.
+      if (u.includes("/drive/v3/files") && !u.includes("/upload/") && init?.method === "GET") {
+        return jsonRes({ files: [{ id: "file-antigo" }] });
+      }
+      return jsonRes({ id: "file-antigo" }); // upload PATCH
+    });
+    const sdk = createGoogleDriveSdk({ httpFetch: fetchFake as unknown as typeof fetch });
+    const out = await sdk.upload({
+      accessToken: "tok",
+      rootFolderRef: null,
+      filename: "resumo-emails-2026-07.md",
+      mimeType: "text/markdown",
+      bytes: new TextEncoder().encode("novo"),
+      idempotencyKey: "email.digest:2026-07",
+    });
+
+    expect(out).toEqual({ fileId: "file-antigo" });
+    const uploadCall = calls.find((c) => c.url.includes("/upload/drive/"))!;
+    // Atualiza o ficheiro existente por id, via PATCH, sem re-parentar.
+    expect(uploadCall.url).toContain("/upload/drive/v3/files/file-antigo");
+    expect(uploadCall.init?.method).toBe("PATCH");
+    expect(bodyText(uploadCall.init?.body)).not.toContain('"parents"');
+    // A chave de busca deve conter o wffKey.
+    const searchCall = calls.find(
+      (c) => c.url.includes("appProperties") && (c.init?.method ?? "GET") === "GET",
+    )!;
+    expect(decodeURIComponent(searchCall.url)).toContain("email.digest:2026-07");
+    // Não deve ter havido ensure de pasta (não é preciso no update).
+    expect(calls.some((c) => c.init?.method === "POST")).toBe(false);
+  });
+
+  it("cria com appProperties quando a chave ainda não existe", async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchFake = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      const u = String(url);
+      calls.push({ url: u, init });
+      if (u.includes("appProperties")) return jsonRes({ files: [] }); // não existe
+      if (u.includes("/upload/drive/")) return jsonRes({ id: "file-novo" });
+      if (init?.method === "POST") return jsonRes({ id: "folder-1" }); // criar pasta
+      return jsonRes({ files: [] }); // list pasta vazio
+    });
+    const sdk = createGoogleDriveSdk({ httpFetch: fetchFake as unknown as typeof fetch });
+    const out = await sdk.upload({
+      accessToken: "tok",
+      rootFolderRef: null,
+      filename: "resumo-emails-2026-07.md",
+      mimeType: "text/markdown",
+      bytes: new Uint8Array([1]),
+      idempotencyKey: "email.digest:2026-07",
+    });
+    expect(out).toEqual({ fileId: "file-novo" });
+    const uploadCall = calls.find((c) => c.url.includes("/upload/drive/"))!;
+    expect(uploadCall.init?.method).toBe("POST");
+    const md = bodyText(uploadCall.init?.body);
+    expect(md).toContain('"appProperties":{"wffKey":"email.digest:2026-07"}');
+    expect(md).toContain('"parents":["folder-1"]');
+  });
+});

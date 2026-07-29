@@ -20,6 +20,12 @@ export interface DeliverableDraft {
   filename: string;
   mimeType: string | null;
   bytes: Uint8Array;
+  /**
+   * Chave estável que identifica "o mesmo documento" entre execuções (ex.:
+   * `email.digest:2026-07`). Quando presente, o storage faz UPSERT: reescreve o
+   * ficheiro anterior em vez de criar um novo. Ausente = cria sempre.
+   */
+  idempotencyKey?: string;
 }
 
 export interface RunHandler {

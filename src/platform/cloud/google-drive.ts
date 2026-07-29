@@ -94,6 +94,11 @@ function asFileId(v: unknown): string | null {
   return r && typeof r.id === "string" ? r.id : null;
 }
 
+/** Escapa aspas simples para embutir num valor de query do Drive. */
+function esc(v: string): string {
+  return v.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
 export interface GoogleDriveSdkOptions {
   httpFetch?: FetchLike;
   /** Nome da pasta-app quando não há rootFolderRef. */
@@ -107,8 +112,7 @@ export function createGoogleDriveSdk(opts: GoogleDriveSdkOptions = {}): CloudSdk
   /** Procura a pasta-app (criada por esta app) ou cria-a. Devolve o id. */
   async function ensureAppFolder(accessToken: string): Promise<string> {
     const q =
-      `mimeType='${FOLDER_MIME}' and name='${appFolderName.replace(/'/g, "\\'")}'` +
-      ` and trashed=false`;
+      `mimeType='${FOLDER_MIME}' and name='${esc(appFolderName)}'` + ` and trashed=false`;
     const listUrl = new URL(DRIVE_API);
     listUrl.searchParams.set("q", q);
     listUrl.searchParams.set("spaces", "drive");
@@ -137,27 +141,71 @@ export function createGoogleDriveSdk(opts: GoogleDriveSdkOptions = {}): CloudSdk
     return id;
   }
 
-  return {
-    async upload({ accessToken, rootFolderRef, filename, mimeType, bytes }) {
-      const parentId = rootFolderRef ?? (await ensureAppFolder(accessToken));
-      const { body, contentType } = buildMultipartBody(
-        { name: filename, parents: [parentId] },
-        mimeType ?? "application/octet-stream",
-        bytes,
-      );
-      const uploadUrl = new URL(DRIVE_UPLOAD);
-      uploadUrl.searchParams.set("uploadType", "multipart");
-      uploadUrl.searchParams.set("fields", "id");
+  /** Encontra um ficheiro anterior marcado com esta chave de idempotência. */
+  async function findByKey(accessToken: string, key: string): Promise<string | null> {
+    const q =
+      `appProperties has { key='wffKey' and value='${esc(key)}' } and trashed=false`;
+    const url = new URL(DRIVE_API);
+    url.searchParams.set("q", q);
+    url.searchParams.set("spaces", "drive");
+    url.searchParams.set("fields", "files(id)");
+    url.searchParams.set("pageSize", "1");
+    const res = await driveFetch(httpFetch, accessToken, url.toString(), { method: "GET" });
+    const files = Array.isArray(res.files) ? res.files : [];
+    return files.length > 0 ? asFileId(files[0]) : null;
+  }
 
-      const res = await driveFetch(httpFetch, accessToken, uploadUrl.toString(), {
-        method: "POST",
-        headers: { "content-type": contentType },
-        // Uint8Array é um BufferSource válido; o cast evita o atrito do split
-        // ArrayBuffer/SharedArrayBuffer introduzido no TS 5.7.
-        body: body as unknown as BodyInit,
-      });
-      const fileId = asFileId(res);
-      if (!fileId) throw withStatus("Google Drive não devolveu o id do ficheiro.", 502);
+  /** Grava media (multipart) num ficheiro — cria (POST) ou atualiza (PATCH). */
+  async function putMedia(
+    accessToken: string,
+    args: {
+      fileId?: string;
+      metadata: Record<string, unknown>;
+      mimeType: string | null;
+      bytes: Uint8Array;
+    },
+  ): Promise<string> {
+    const { body, contentType } = buildMultipartBody(
+      args.metadata,
+      args.mimeType ?? "application/octet-stream",
+      args.bytes,
+    );
+    const base = args.fileId ? `${DRIVE_UPLOAD}/${args.fileId}` : DRIVE_UPLOAD;
+    const url = new URL(base);
+    url.searchParams.set("uploadType", "multipart");
+    url.searchParams.set("fields", "id");
+    const res = await driveFetch(httpFetch, accessToken, url.toString(), {
+      method: args.fileId ? "PATCH" : "POST",
+      headers: { "content-type": contentType },
+      body: body as unknown as BodyInit,
+    });
+    const id = asFileId(res) ?? args.fileId ?? null;
+    if (!id) throw withStatus("Google Drive não devolveu o id do ficheiro.", 502);
+    return id;
+  }
+
+  return {
+    async upload({ accessToken, rootFolderRef, filename, mimeType, bytes, idempotencyKey }) {
+      // UPSERT: se já existe um ficheiro com esta chave, reescreve-o (media +
+      // nome) em vez de criar um novo — mata os duplicados por (tarefa, período).
+      if (idempotencyKey) {
+        const existing = await findByKey(accessToken, idempotencyKey);
+        if (existing) {
+          // No update NÃO se manda `parents` no corpo (usaria addParents/removeParents).
+          const fileId = await putMedia(accessToken, {
+            fileId: existing,
+            metadata: { name: filename, appProperties: { wffKey: idempotencyKey } },
+            mimeType,
+            bytes,
+          });
+          return { fileId };
+        }
+      }
+
+      const parentId = rootFolderRef ?? (await ensureAppFolder(accessToken));
+      const metadata: Record<string, unknown> = { name: filename, parents: [parentId] };
+      if (idempotencyKey) metadata.appProperties = { wffKey: idempotencyKey };
+      const fileId = await putMedia(accessToken, { metadata, mimeType, bytes });
       return { fileId };
     },
 

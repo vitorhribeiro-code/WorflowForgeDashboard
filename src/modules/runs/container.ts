@@ -48,6 +48,7 @@ export function getRunsService(): RunsService {
         mimeType: input.mimeType,
         tier: "work_document",
         bytes: input.bytes,
+        idempotencyKey: input.idempotencyKey,
       });
       return { id: a.id, storageRef: a.storageRef };
     },

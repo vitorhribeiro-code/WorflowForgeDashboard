@@ -37,6 +37,8 @@ export interface CloudSdk {
     filename: string;
     mimeType: string | null;
     bytes: Uint8Array;
+    /** Se presente, faz upsert por esta chave (reescreve em vez de duplicar). */
+    idempotencyKey?: string;
   }): Promise<{ fileId: string }>;
   signedUrl(accessToken: string, fileId: string): Promise<DownloadTarget>;
 }
@@ -83,6 +85,7 @@ export function createCloudStorageAdapter(
         filename: content.filename,
         mimeType: content.mimeType,
         bytes: content.bytes,
+        idempotencyKey: content.idempotencyKey,
       });
       return { storageRef: fileId };
     },

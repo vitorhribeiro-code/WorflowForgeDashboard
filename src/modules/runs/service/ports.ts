@@ -53,5 +53,6 @@ export interface ArtifactSink {
     filename: string;
     mimeType: string | null;
     bytes: Uint8Array;
+    idempotencyKey?: string;
   }): Promise<{ id: string; storageRef: string }>;
 }

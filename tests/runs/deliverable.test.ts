@@ -20,6 +20,7 @@ describe("renderEmailDigestMarkdown", () => {
     const md = new TextDecoder().decode(d.bytes);
     expect(d.mimeType).toBe("text/markdown");
     expect(d.filename).toBe("resumo-emails-2026-07.md");
+    expect(d.idempotencyKey).toBe("email.digest:2026-07"); // mesmo período → mesmo doc
     expect(md).toContain("# Resumo de emails — 2026-07");
     expect(md).toContain("**3** emails de **2** remetentes.");
     expect(md).toContain("## cliente@x.pt (2)");

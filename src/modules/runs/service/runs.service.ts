@@ -221,6 +221,7 @@ export function createRunsService(deps: RunsServiceDeps) {
             filename: draft.filename,
             mimeType: draft.mimeType,
             bytes: draft.bytes,
+            idempotencyKey: draft.idempotencyKey,
           });
           events.push({ type: "log", data: { message: `entregável: ${draft.filename}` } });
           (result as Record<string, unknown>)._deliverable = {
