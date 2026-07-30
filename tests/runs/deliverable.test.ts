@@ -29,6 +29,20 @@ describe("renderEmailDigestMarkdown (layout A)", () => {
     expect(md).toContain("3 emails · 2 remetentes · 29 jul 2026");
   });
 
+  it("singular correto: '1 email · 1 remetente'", () => {
+    const md = new TextDecoder().decode(
+      renderEmailDigestMarkdown({
+        period: "2026-07",
+        total: 1,
+        senders: [{ sender: "a@x.pt", count: 1, subjects: ["Só um"] }],
+        generatedAt: "2026-07-29T10:00:00.000Z",
+      }).bytes,
+    );
+    expect(md).toContain("1 email · 1 remetente · 29 jul 2026");
+    expect(md).not.toContain("1 emails");
+    expect(md).not.toContain("1 remetentes");
+  });
+
   it("filename e idempotencyKey NÃO mudam (idempotência intacta)", () => {
     const d = renderEmailDigestMarkdown(result);
     expect(d.filename).toBe("resumo-emails-2026-07.md");

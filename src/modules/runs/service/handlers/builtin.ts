@@ -65,6 +65,11 @@ const MONTHS_PT_FULL = [
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
 
+/** "1 email" / "2 emails" — plural simples (o plural PT aqui é só +s). */
+function plural(n: number, singular: string): string {
+  return `${n} ${n === 1 ? singular : `${singular}s`}`;
+}
+
 /** ISO → "29 jul 2026" (UTC). null se a data não parsear. */
 function fmtDatePt(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -143,7 +148,7 @@ export function renderEmailDigestMarkdown(result: Record<string, unknown>): Deli
   lines.push(`# Resumo de emails${period ? ` — ${prettyPeriod(period)}` : ""}`);
   lines.push("");
   // Subtítulo compacto: totais · data (a data só entra se parseável).
-  const meta = [`${total} emails`, `${senders.length} remetentes`];
+  const meta = [plural(total, "email"), plural(senders.length, "remetente")];
   if (headerDate) meta.push(headerDate);
   lines.push(meta.join(" · "));
   lines.push("");
