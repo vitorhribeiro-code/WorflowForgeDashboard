@@ -203,6 +203,7 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
           taskId: t.id,
           taskName: t.name,
           taskType: t.type,
+          taskRuntime: t.runtime,
           enabled: a.enabled,
           schedule: a.schedule,
           ready: r.eligible,

@@ -1438,3 +1438,70 @@ button.btn-danger:disabled {
   color: var(--text);
   word-break: break-word;
 }
+
+/* ---- Pop-up de histórico (Painel do Trabalhador) ---- */
+/* Prefixo wt- para não colidir; bordas completas + radius; sem seletores nus. */
+.wt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.wt-modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.wt-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.wt-modal-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+.wt-modal-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.wt-modal-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.wt-modal-close:hover {
+  color: var(--text);
+}
+.wt-modal-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.wt-modal-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

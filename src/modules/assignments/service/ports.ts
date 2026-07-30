@@ -24,6 +24,7 @@ export type TaskSummary = {
   id: string;
   name: string;
   type: TaskType;
+  runtime: string;
   published: boolean;
   configSchema: Record<string, unknown> | null;
 };
@@ -103,6 +104,7 @@ export type WorkerAssignmentView = {
   taskId: string;
   taskName: string;
   taskType: TaskType;
+  taskRuntime: string;
   enabled: boolean;
   schedule: string | null;
   ready: boolean;

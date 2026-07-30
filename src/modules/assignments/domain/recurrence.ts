@@ -115,3 +115,58 @@ export function parseCron(expr: string): Recurrence {
 
   return advanced(raw);
 }
+
+/* -------------------------------------------------------------------------- */
+/*  describeRecurrence / describeCron: modelo → frase legível em PT (UTC).     */
+/*  PURO. Usado no cartão do trabalhador para não mostrar cron cru.            */
+/* -------------------------------------------------------------------------- */
+
+const DAY_NAMES = [
+  "domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado",
+];
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+// "8h30" (com minutos) ou "8h" (minuto exato) — leitura natural em PT.
+function hhmm(hour: number, minute: number): string {
+  return minute === 0 ? `${hour}h` : `${hour}h${pad2(minute)}`;
+}
+
+// Lista de dias da semana → frase ("dias úteis", "fins de semana", "segunda e quinta").
+function daysPhrase(days: number[]): string {
+  const s = [...new Set(days)].sort((a, b) => a - b);
+  if (s.length === 7) return "todos os dias";
+  if (s.length === 5 && [1, 2, 3, 4, 5].every((d) => s.includes(d))) return "dias úteis";
+  if (s.length === 2 && s.includes(0) && s.includes(6)) return "fins de semana";
+  const names = s.map((d) => DAY_NAMES[d] ?? String(d));
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} e ${names.at(-1) ?? ""}`;
+}
+
+/** Modelo de recorrência → frase legível. Total (cobre todos os modos). */
+export function describeRecurrence(r: Recurrence): string {
+  switch (r.freq) {
+    case "minutes":
+      return r.interval === 1 ? "a cada minuto" : `a cada ${r.interval} minutos`;
+    case "daily":
+      return `diariamente às ${hhmm(r.hour, r.minute)}`;
+    case "weekly": {
+      const phrase = daysPhrase(r.days);
+      // Lista de dias equivalente a "todos" → cai no fraseado diário.
+      if (phrase === "todos os dias") return `diariamente às ${hhmm(r.hour, r.minute)}`;
+      return `${phrase} às ${hhmm(r.hour, r.minute)}`;
+    }
+    case "monthly":
+      return `dia ${r.dom} de cada mês às ${hhmm(r.hour, r.minute)}`;
+    case "advanced":
+      // Padrão fora dos modos amigáveis: mostra o cru, mas rotulado.
+      return `agenda ${r.expr}`;
+  }
+}
+
+/** Conveniência: cron cru → frase legível (via parseCron). PURO. */
+export function describeCron(expr: string): string {
+  return describeRecurrence(parseCron(expr));
+}

@@ -11,8 +11,9 @@
  * o semáforo verde/âmbar/vermelho (.status-pill) das conexões e da matriz.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorkerAssignmentView } from "@/modules/assignments";
+import { describeCron } from "../domain/recurrence";
 import {
   cancelRun,
   fetchHistory,
@@ -26,8 +27,25 @@ import {
 
 /* --- Apresentação (labels/tons derivados do estado) ----------------------- */
 
-function typeLabel(type: WorkerAssignmentView["taskType"]): string {
-  return type === "automation" ? "Automática" : "Assistida";
+// Rótulo do "tipo" já em linguagem do trabalhador. Para automáticas, o nome
+// depende do runtime (o resumo de emails diz "Resumo automático"); as restantes
+// ficam com "Automático". Assistidas: "Assistida".
+function automationLabel(runtime: string): string {
+  return runtime === "email.digest" ? "Resumo automático" : "Automático";
+}
+
+// Verbo do botão de disparo manual, também por runtime (nada de "Executar").
+function runNowLabel(runtime: string): string {
+  return runtime === "email.digest" ? "Fazer resumo agora" : "Executar agora";
+}
+
+// Linha de contexto do cartão: para automáticas, "{rótulo} · {agenda legível}"
+// (sem cron cru); para assistidas, "Assistida".
+function metaLine(task: WorkerAssignmentView): string {
+  if (task.taskType !== "automation") return "Assistida";
+  const label = automationLabel(task.taskRuntime);
+  const human = task.schedule ? describeCron(task.schedule) : null;
+  return human ? `${label} · ${human}` : label;
 }
 
 type Tone = "green" | "amber" | "red" | "grey";
@@ -106,9 +124,17 @@ function streamEventText(e: StreamEvent): string {
   }
 }
 
-/* --- Histórico de uma automática ------------------------------------------ */
+/* --- Histórico de uma automática (pop-up) --------------------------------- */
 
-function AutomationHistory({ assignmentId }: { assignmentId: string }) {
+function HistoryModal({
+  assignmentId,
+  notice,
+  onClose,
+}: {
+  assignmentId: string;
+  notice: string | null;
+  onClose: () => void;
+}) {
   const [runs, setRuns] = useState<RunRow[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +150,18 @@ function AutomationHistory({ assignmentId }: { assignmentId: string }) {
       setBusy(false);
     }
   }, [assignmentId]);
+
+  // Carrega ao abrir e fecha com Esc.
+  useEffect(() => {
+    void load();
+  }, [load]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   const onCancel = useCallback(
     async (runId: string) => {
@@ -149,64 +187,92 @@ function AutomationHistory({ assignmentId }: { assignmentId: string }) {
     [load],
   );
 
-  if (runs === null) {
-    return (
-      <button type="button" className="btn-secondary task-link" disabled={busy} onClick={() => void load()}>
-        {busy ? "A carregar…" : "Ver histórico"}
-      </button>
-    );
-  }
-
   return (
-    <div className="run-list">
-      <div className="run-list-head">
-        <span>Histórico</span>
-        <button type="button" className="task-link" disabled={busy} onClick={() => void load()}>
-          Atualizar
-        </button>
-      </div>
-      {error && <p className="task-error">{error}</p>}
-      {runs.length === 0 ? (
-        <p className="task-hint">Ainda sem execuções.</p>
-      ) : (
-        runs.map((run) => {
-          const pill = runPill(run);
-          const failure = failureText(run);
-          return (
-            <div key={run.id} className="run-entry">
-              <div className="run-row">
-                <div className="run-row-main">
-                  <Pill tone={pill.tone} label={pill.label} />
-                  <span className="run-when">{formatWhen(run.createdAt)}</span>
-                  {run.attempt > 1 && <span className="run-attempt">tentativa {run.attempt}</span>}
-                </div>
-                <div className="run-actions">
-                  {canCancel(run) && (
-                    <button type="button" className="btn-danger btn-sm" onClick={() => void onCancel(run.id)}>
-                      Cancelar
-                    </button>
-                  )}
-                  {canRetry(run) && (
-                    <button type="button" className="btn-secondary btn-sm" onClick={() => void onRetry(run.id)}>
-                      Repetir
-                    </button>
-                  )}
-                </div>
-              </div>
-              {failure && (
-                <p className="run-error" title={failure}>
-                  {run.errorClass && (
-                    <span className={`run-error-class run-error-${run.errorClass}`}>
-                      {errorClassLabel(run.errorClass)}
-                    </span>
-                  )}
-                  {failure}
-                </p>
-              )}
+    <div className="wt-modal-overlay" role="presentation" onClick={onClose}>
+      <div
+        className="wt-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Histórico de execuções"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="wt-modal-head">
+          <span className="wt-modal-title">Histórico</span>
+          <div className="wt-modal-head-actions">
+            <button type="button" className="task-link" disabled={busy} onClick={() => void load()}>
+              Atualizar
+            </button>
+            <button
+              type="button"
+              className="wt-modal-close"
+              aria-label="Fechar"
+              onClick={onClose}
+            >
+              &#215;
+            </button>
+          </div>
+        </div>
+
+        <div className="wt-modal-body">
+          {notice && <p className="task-ok">{notice}</p>}
+          {error && <p className="task-error">{error}</p>}
+          {runs === null ? (
+            <p className="task-hint">{busy ? "A carregar…" : "—"}</p>
+          ) : runs.length === 0 ? (
+            <p className="task-hint">Ainda sem execuções.</p>
+          ) : (
+            <div className="wt-modal-runs">
+              {runs.map((run) => {
+                const pill = runPill(run);
+                const failure = failureText(run);
+                return (
+                  <div key={run.id} className="run-entry">
+                    <div className="run-row">
+                      <div className="run-row-main">
+                        <Pill tone={pill.tone} label={pill.label} />
+                        <span className="run-when">{formatWhen(run.createdAt)}</span>
+                        {run.attempt > 1 && (
+                          <span className="run-attempt">tentativa {run.attempt}</span>
+                        )}
+                      </div>
+                      <div className="run-actions">
+                        {canCancel(run) && (
+                          <button
+                            type="button"
+                            className="btn-danger btn-sm"
+                            onClick={() => void onCancel(run.id)}
+                          >
+                            Cancelar
+                          </button>
+                        )}
+                        {canRetry(run) && (
+                          <button
+                            type="button"
+                            className="btn-secondary btn-sm"
+                            onClick={() => void onRetry(run.id)}
+                          >
+                            Repetir
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {failure && (
+                      <p className="run-error" title={failure}>
+                        {run.errorClass && (
+                          <span className={`run-error-class run-error-${run.errorClass}`}>
+                            {errorClassLabel(run.errorClass)}
+                          </span>
+                        )}
+                        {failure}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          );
-        })
-      )}
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -276,6 +342,7 @@ function TaskCard({ task }: { task: WorkerAssignmentView }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const pill = readinessPill(task);
   const blocked = !task.enabled || !task.ready;
 
@@ -285,13 +352,20 @@ function TaskCard({ task }: { task: WorkerAssignmentView }) {
     setNotice(null);
     try {
       const run = await runNow(task.assignmentId);
+      // O aviso mostra-se dentro do histórico, que abrimos já a seguir.
       setNotice(`Execução enfileirada (${run.status}).`);
+      setHistoryOpen(true);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
   }, [task.assignmentId]);
+
+  const openHistory = useCallback(() => {
+    setNotice(null); // sem aviso quando é só consulta
+    setHistoryOpen(true);
+  }, []);
 
   return (
     <div className="task-card">
@@ -300,10 +374,7 @@ function TaskCard({ task }: { task: WorkerAssignmentView }) {
         <Pill tone={pill.tone} label={pill.label} />
       </div>
       <div className="task-meta">
-        <span>{typeLabel(task.taskType)}</span>
-        {task.taskType === "automation" && task.schedule && (
-          <span className="task-cron">agenda {task.schedule}</span>
-        )}
+        <span>{metaLine(task)}</span>
       </div>
 
       {task.taskType === "automation" ? (
@@ -315,10 +386,12 @@ function TaskCard({ task }: { task: WorkerAssignmentView }) {
               disabled={busy || blocked}
               onClick={() => void onRunNow()}
             >
-              {busy ? "A enfileirar…" : "Executar agora"}
+              {busy ? "A enfileirar…" : runNowLabel(task.taskRuntime)}
+            </button>
+            <button type="button" className="btn-secondary btn-sm" onClick={openHistory}>
+              Ver histórico
             </button>
           </div>
-          {notice && <p className="task-ok">{notice}</p>}
           {error && <p className="task-error">{error}</p>}
           {blocked && (
             <p className="task-hint">
@@ -327,7 +400,6 @@ function TaskCard({ task }: { task: WorkerAssignmentView }) {
                 : "Liga as ferramentas em falta em «As minhas conexões»."}
             </p>
           )}
-          <AutomationHistory assignmentId={task.assignmentId} />
         </>
       ) : blocked ? (
         <p className="task-hint">
@@ -337,6 +409,14 @@ function TaskCard({ task }: { task: WorkerAssignmentView }) {
         </p>
       ) : (
         <AssistedConsole assignmentId={task.assignmentId} />
+      )}
+
+      {historyOpen && (
+        <HistoryModal
+          assignmentId={task.assignmentId}
+          notice={notice}
+          onClose={() => setHistoryOpen(false)}
+        />
       )}
     </div>
   );

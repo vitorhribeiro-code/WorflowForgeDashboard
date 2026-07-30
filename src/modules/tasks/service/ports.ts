@@ -40,6 +40,7 @@ export type TaskSummary = {
   id: string;
   name: string;
   type: TaskType;
+  runtime: string;
   published: boolean;
   configSchema: JsonSchema | null;
 };

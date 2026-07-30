@@ -274,6 +274,7 @@ export function createTaskCatalogPort(
           id: t.id,
           name: t.name,
           type: t.type,
+          runtime: t.runtime,
           published: await publication.isPublished(t.id),
           configSchema: t.configSchema,
         })),

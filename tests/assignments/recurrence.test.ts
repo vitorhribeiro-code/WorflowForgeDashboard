@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCron, parseCron, type Recurrence } from "@/modules/assignments/domain/recurrence";
+import { buildCron, describeCron, parseCron, type Recurrence } from "@/modules/assignments/domain/recurrence";
 
 describe("buildCron", () => {
   it("minutes", () => {
@@ -74,5 +74,33 @@ describe("round-trip build∘parse", () => {
     for (const r of cases) {
       expect(parseCron(buildCron(r))).toEqual(r);
     }
+  });
+});
+
+describe("describeCron (frase legível em PT)", () => {
+  it("diária com minutos: '30 8 * * *' → diariamente às 8h30", () => {
+    expect(describeCron("30 8 * * *")).toBe("diariamente às 8h30");
+  });
+  it("diária em hora exata omite os minutos: '0 9 * * *' → diariamente às 9h", () => {
+    expect(describeCron("0 9 * * *")).toBe("diariamente às 9h");
+  });
+  it("a cada N minutos", () => {
+    expect(describeCron("*/5 * * * *")).toBe("a cada 5 minutos");
+    expect(describeCron("*/1 * * * *")).toBe("a cada minuto");
+  });
+  it("dias úteis", () => {
+    expect(describeCron("0 9 * * 1,2,3,4,5")).toBe("dias úteis às 9h");
+  });
+  it("fins de semana", () => {
+    expect(describeCron("0 10 * * 0,6")).toBe("fins de semana às 10h");
+  });
+  it("lista de dias específicos", () => {
+    expect(describeCron("30 9 * * 1,4")).toBe("segunda e quinta às 9h30");
+  });
+  it("mensal", () => {
+    expect(describeCron("0 8 1 * *")).toBe("dia 1 de cada mês às 8h");
+  });
+  it("cron não reconhecido cai em 'agenda <expr>' sem falsificar", () => {
+    expect(describeCron("15 */2 * * *")).toBe("agenda 15 */2 * * *");
   });
 });
