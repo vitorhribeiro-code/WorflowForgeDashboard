@@ -30,7 +30,7 @@ function asRecord(v: unknown): Record<string, unknown> | null {
 /* ------------------------------ email.digest ----------------------------- */
 // input:  { emails: Array<{ from, subject?, receivedAt?, snippet? }>, period? }
 // config: { maxSubjectsPerSender?: number }
-// output: { period, total, senders: [{ sender, count, subjects }], generatedAt }
+// output: { period, total, senders: [{ sender, count, subjects, lastReceivedAt? }], generatedAt }
 
 interface EmailItem {
   from: string;
@@ -52,9 +52,61 @@ function toEmailItem(v: unknown): EmailItem | null {
   };
 }
 
+/* --------------------------- presentação (puro) -------------------------- */
+// Meses PT para datas determinísticas em UTC (sem depender de locale/fuso do
+// runtime — o mesmo output tem de dar sempre o mesmo Markdown).
+
+const MONTHS_PT_ABBR = [
+  "jan", "fev", "mar", "abr", "mai", "jun",
+  "jul", "ago", "set", "out", "nov", "dez",
+];
+const MONTHS_PT_FULL = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+/** ISO → "29 jul 2026" (UTC). null se a data não parsear. */
+function fmtDatePt(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getUTCDate()} ${MONTHS_PT_ABBR[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/** "2026-07" → "julho 2026"; qualquer outra coisa devolve-se tal e qual. */
+function prettyPeriod(period: string | null): string | null {
+  if (!period) return null;
+  const m = /^(\d{4})-(\d{2})$/.exec(period);
+  if (!m) return period;
+  const month = Number(m[2]) - 1;
+  if (month < 0 || month > 11) return period;
+  return `${MONTHS_PT_FULL[month]} ${m[1]}`;
+}
+
+/**
+ * Extrai um nome legível de um cabeçalho From.
+ *   'João Silva <joao@x.pt>'   → 'João Silva'
+ *   '"Silva, João" <j@x.pt>'   → 'Silva, João'  (tira aspas envolventes)
+ *   '<joao@x.pt>' / 'joao@x.pt' → 'joao@x.pt'    (sem nome → o email)
+ */
+function displayName(from: string): string {
+  const trimmed = from.trim();
+  const m = /^(.*?)<([^>]+)>\s*$/.exec(trimmed);
+  if (m) {
+    const email = (m[2] ?? "").trim();
+    const name = (m[1] ?? "").trim().replace(/^"(.*)"$/, "$1").trim();
+    return name || email;
+  }
+  return trimmed;
+}
+
 /**
  * Renderiza o output do email.digest num documento Markdown legível — o
  * entregável que vai para a cloud do trabalhador. PURO (output → bytes).
+ *
+ * Layout A: cabeçalho com período legível + subtítulo com totais e data; um
+ * bloco compacto por remetente (nome legível · nº · data do mais recente) com
+ * os assuntos numa só linha separados por " · ".
  */
 export function renderEmailDigestMarkdown(result: Record<string, unknown>): DeliverableDraft {
   const period = asString(result.period) ?? null;
@@ -70,25 +122,47 @@ export function renderEmailDigestMarkdown(result: Record<string, unknown>): Deli
       const subjects = (asArray(r.subjects) ?? [])
         .map(asString)
         .filter((x): x is string => x !== undefined);
-      return { sender, count, subjects };
+      const lastReceivedAt = asString(r.lastReceivedAt);
+      return { sender, count, subjects, lastReceivedAt };
     })
-    .filter((x): x is { sender: string; count: number; subjects: string[] } => x !== null);
+    .filter(
+      (
+        x,
+      ): x is {
+        sender: string;
+        count: number;
+        subjects: string[];
+        lastReceivedAt: string | undefined;
+      } => x !== null,
+    );
+
+  const generatedAt = asString(result.generatedAt);
+  const headerDate = fmtDatePt(generatedAt);
 
   const lines: string[] = [];
-  lines.push(`# Resumo de emails${period ? ` — ${period}` : ""}`);
+  lines.push(`# Resumo de emails${period ? ` — ${prettyPeriod(period)}` : ""}`);
   lines.push("");
-  lines.push(`**${total}** emails de **${senders.length}** remetentes.`);
+  // Subtítulo compacto: totais · data (a data só entra se parseável).
+  const meta = [`${total} emails`, `${senders.length} remetentes`];
+  if (headerDate) meta.push(headerDate);
+  lines.push(meta.join(" · "));
   lines.push("");
+
   for (const s of senders) {
-    lines.push(`## ${s.sender} (${s.count})`);
+    const name = displayName(s.sender);
+    const date = fmtDatePt(s.lastReceivedAt);
+    const head = [`${name} — ${s.count}`, date].filter(Boolean).join(" · ");
+    lines.push(`## ${head}`);
     if (s.subjects.length === 0) {
-      lines.push("_sem assuntos registados_");
+      lines.push("_sem assuntos_");
     } else {
-      for (const subj of s.subjects) lines.push(`- ${subj}`);
+      // "…" honesto: houve mais emails do que assuntos listados (cap por config).
+      const more = s.count > s.subjects.length ? " · …" : "";
+      lines.push(s.subjects.join(" · ") + more);
     }
     lines.push("");
   }
-  const generatedAt = asString(result.generatedAt);
+
   if (generatedAt) lines.push(`_Gerado em ${generatedAt}._`);
 
   const stamp = (period ?? generatedAt ?? "").slice(0, 10) || "sem-data";
@@ -122,16 +196,28 @@ export function createEmailDigestHandler(now: Now = defaultNow): RunHandler {
           ? cfg.maxSubjectsPerSender
           : 5;
 
-      const bySender = new Map<string, { count: number; subjects: string[] }>();
+      const bySender = new Map<
+        string,
+        { count: number; subjects: string[]; lastReceivedAt?: string }
+      >();
       for (const it of items) {
         const g = bySender.get(it.from) ?? { count: 0, subjects: [] };
         g.count += 1;
         if (g.subjects.length < maxSubjects) g.subjects.push(it.subject);
+        // ISO em UTC compara lexicograficamente = cronologicamente → max simples.
+        if (it.receivedAt && (!g.lastReceivedAt || it.receivedAt > g.lastReceivedAt)) {
+          g.lastReceivedAt = it.receivedAt;
+        }
         bySender.set(it.from, g);
       }
 
       const senders = [...bySender.entries()]
-        .map(([sender, g]) => ({ sender, count: g.count, subjects: g.subjects }))
+        .map(([sender, g]) => ({
+          sender,
+          count: g.count,
+          subjects: g.subjects,
+          lastReceivedAt: g.lastReceivedAt,
+        }))
         .sort((a, b) => b.count - a.count || a.sender.localeCompare(b.sender));
 
       ctx.emit({
