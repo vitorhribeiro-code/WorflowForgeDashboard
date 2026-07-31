@@ -15,6 +15,13 @@
       "when": 1785007155622,
       "tag": "0001_tier1",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785600000000,
+      "tag": "0002_ai_registry",
+      "breakpoints": true
     }
   ]
 }

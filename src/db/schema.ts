@@ -376,6 +376,69 @@ export const auditLogs = pgTable(
 );
 
 /* -------------------------------------------------------------------------- */
+/*  Registo de IA — providers e binding por capacidade (ao nível da org)       */
+/*                                                                             */
+/*  ai_providers: uma chave de API por (org, provider), SEMPRE cifrada ao      */
+/*    nível da app (mesmo cipher/credsCodec do M6). Só o super-utilizador      */
+/*    escreve; a chave é write-only na UI (nunca regressa ao cliente).         */
+/*  ai_bindings:  liga uma capability (ex.: "email.summary") a um provider +   */
+/*    model, um por (org, capability). O resolver faz                          */
+/*    (org, capability) -> ai_bindings -> ai_providers (chave decifrada).      */
+/*  provider/capability são text — extensíveis sem migração de enum (como      */
+/*  tools.key). O binding referencia o provider por string (mesma org); um     */
+/*  binding órfão (provider removido) não resolve -> fallback no consumidor.    */
+/* -------------------------------------------------------------------------- */
+
+export const aiProviders = pgTable(
+  "ai_providers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(), // "claude", "mistral", ...
+    // Chave de API SEMPRE cifrada ao nível da app (credsCodec do M6).
+    // Nullable para permitir criar e definir a chave depois (write-only na UI).
+    apiKeyEncrypted: text("api_key_encrypted"),
+    // Modelo por defeito quando o binding não fixa um (ex.: "claude-sonnet-4-5").
+    defaultModel: text("default_model"),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // Uma configuração por (org, provider).
+    orgProviderUq: uniqueIndex("ai_providers_org_provider_uq").on(
+      t.organizationId,
+      t.provider,
+    ),
+    orgIdx: index("ai_providers_org_idx").on(t.organizationId),
+  }),
+);
+
+export const aiBindings = pgTable(
+  "ai_bindings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    capability: text("capability").notNull(), // "email.summary", "ocr", "assistant.generic", ...
+    provider: text("provider").notNull(), // aponta (logicamente) a ai_providers.provider da mesma org
+    // Override do modelo para esta capacidade; null usa o default_model do provider.
+    model: text("model"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // Um modelo por (org, capability): binding ao nível da org (decisão fechada).
+    orgCapabilityUq: uniqueIndex("ai_bindings_org_capability_uq").on(
+      t.organizationId,
+      t.capability,
+    ),
+    orgIdx: index("ai_bindings_org_idx").on(t.organizationId),
+  }),
+);
+
+/* -------------------------------------------------------------------------- */
 /*  Relations (para queries tipadas com o query builder do Drizzle)            */
 /* -------------------------------------------------------------------------- */
 
@@ -383,6 +446,8 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   users: many(users),
   areas: many(functionalAreas),
   tasks: many(tasks),
+  aiProviders: many(aiProviders),
+  aiBindings: many(aiBindings),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -459,5 +524,19 @@ export const monthlyArchivesRelations = relations(monthlyArchives, ({ one }) => 
   worker: one(users, {
     fields: [monthlyArchives.workerId],
     references: [users.id],
+  }),
+}));
+
+export const aiProvidersRelations = relations(aiProviders, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [aiProviders.organizationId],
+    references: [organizations.id],
+  }),
+}));
+
+export const aiBindingsRelations = relations(aiBindings, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [aiBindings.organizationId],
+    references: [organizations.id],
   }),
 }));
