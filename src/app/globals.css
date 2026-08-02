@@ -1741,3 +1741,46 @@ button.btn-danger:disabled {
   .wf-side { position: relative; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
   .wf-side-spacer, .wf-side-foot { display: none; }
 }
+
+/* ---- Fase B — stat cards (dados reais) + board de tarefas movivel ---- */
+.wf-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+.wf-stat {
+  background: var(--wf-surface); border: 1px solid var(--wf-line); border-radius: 12px;
+  padding: 6px 14px; box-shadow: var(--wf-shadow); display: flex; align-items: center; gap: 10px;
+}
+.wf-stat-ic {
+  width: 24px; height: 24px; border-radius: 7px; flex: none; display: grid; place-items: center;
+  background: var(--wf-tint); color: var(--wf-green-hero-1);
+}
+.wf-stat-ic svg { width: 14px; height: 14px; }
+.wf-stat-main { min-width: 0; display: flex; flex-direction: row; align-items: baseline; gap: 7px; }
+.wf-stat-label { font-size: 11.5px; font-weight: 600; color: var(--wf-muted); white-space: nowrap; }
+.wf-stat-num { font-size: 16px; font-weight: 800; letter-spacing: -.02em; }
+.wf-stat-right { margin-left: auto; }
+.wf-stat-chip {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700;
+  background: var(--wf-tint); color: var(--wf-green-hero-1); padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+}
+.wf-stat.wf-hero {
+  background: linear-gradient(135deg, var(--wf-green-hero-1), var(--wf-green-hero-2));
+  border-color: transparent; color: #fff;
+}
+.wf-stat.wf-hero .wf-stat-ic { background: rgba(255, 255, 255, .16); color: #fff; }
+.wf-stat.wf-hero .wf-stat-label { color: rgba(255, 255, 255, .82); }
+.wf-stat.wf-hero .wf-stat-chip { background: rgba(255, 255, 255, .18); color: #fff; }
+
+.wf-app .wf-board {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start;
+}
+.wf-app .wf-board .task-card { transition: border-color .15s, box-shadow .15s, opacity .15s; }
+.wf-app .wf-board .task-card:hover { border-color: #dfe6df; box-shadow: 0 6px 20px rgba(20, 40, 28, .07); }
+.wf-app .task-card.wf-dragging { opacity: .55; border-style: dashed; border-color: var(--wf-green); box-shadow: none; }
+.wf-app .task-card-head { align-items: center; }
+.wf-move {
+  width: 26px; height: 26px; flex: none; display: grid; place-items: center;
+  color: var(--wf-faint); border-radius: 8px; cursor: grab;
+}
+.wf-move:hover { background: #f0f4f0; color: var(--wf-muted); }
+.wf-move:active { cursor: grabbing; }
+
+@media (max-width: 640px) { .wf-stats { grid-template-columns: 1fr; } }

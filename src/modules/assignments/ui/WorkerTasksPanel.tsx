@@ -11,7 +11,7 @@
  * o semáforo verde/âmbar/vermelho (.status-pill) das conexões e da matriz.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import type { WorkerAssignmentView } from "@/modules/assignments";
 import { describeCron } from "../domain/recurrence";
 import {
@@ -336,9 +336,63 @@ function AssistedConsole({ assignmentId }: { assignmentId: string }) {
   );
 }
 
+/* --- Board: reordenação (cliente) + pega + ícones dos stat cards ---------- */
+
+// Move `dragId` para a posição de `targetId` na lista de ordem. Reordenação é
+// só no cliente (Fase B); persistir a ordem por trabalhador fica para a Fase C.
+function moveTo(order: string[], dragId: string, targetId: string): string[] {
+  if (dragId === targetId) return order;
+  const next = order.filter((id) => id !== dragId);
+  const idx = next.indexOf(targetId);
+  if (idx < 0) return order;
+  next.splice(idx, 0, dragId);
+  return next;
+}
+
+const GripIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <circle cx="9" cy="6" r="1.5" />
+    <circle cx="15" cy="6" r="1.5" />
+    <circle cx="9" cy="12" r="1.5" />
+    <circle cx="15" cy="12" r="1.5" />
+    <circle cx="9" cy="18" r="1.5" />
+    <circle cx="15" cy="18" r="1.5" />
+  </svg>
+);
+
+const IcActive = (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path d="M9 11l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <rect x="4" y="4" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="1.7" />
+  </svg>
+);
+const IcReady = (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
+    <path d="M8.5 12.2l2.3 2.3 4.7-4.9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const IcPlug = (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path d="M9 15l6-6M8.5 10.5l-1.8 1.8a3.1 3.1 0 004.4 4.4l1.8-1.8M15.5 13.5l1.8-1.8a3.1 3.1 0 00-4.4-4.4L11.1 9.1" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+  </svg>
+);
+
 /* --- Cartão de uma atribuição --------------------------------------------- */
 
-function TaskCard({ task }: { task: WorkerAssignmentView }) {
+function TaskCard({
+  task,
+  dragging,
+  onHandleDragStart,
+  onCardDragEnter,
+  onDragEnd,
+}: {
+  task: WorkerAssignmentView;
+  dragging: boolean;
+  onHandleDragStart: (e: DragEvent<HTMLSpanElement>) => void;
+  onCardDragEnter: () => void;
+  onDragEnd: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -368,8 +422,22 @@ function TaskCard({ task }: { task: WorkerAssignmentView }) {
   }, []);
 
   return (
-    <div className="task-card">
+    <div
+      className={`task-card${dragging ? " wf-dragging" : ""}`}
+      onDragOver={(e) => e.preventDefault()}
+      onDragEnter={onCardDragEnter}
+      onDragEnd={onDragEnd}
+    >
       <div className="task-card-head">
+        <span
+          className="wf-move"
+          draggable
+          onDragStart={onHandleDragStart}
+          title="Arrastar para mover"
+          aria-label="Mover tarefa"
+        >
+          {GripIcon}
+        </span>
         <p className="task-card-title">{task.taskName}</p>
         <Pill tone={pill.tone} label={pill.label} />
       </div>
@@ -427,9 +495,60 @@ function TaskCard({ task }: { task: WorkerAssignmentView }) {
 export function WorkerTasksPanel() {
   const { status, tasks, error, refresh } = useWorkerTasks();
 
+  // Ordem dos cartões (só no cliente, Fase B). Reconcilia com as tarefas:
+  // mantém a ordem já escolhida e acrescenta novas no fim.
+  const [order, setOrder] = useState<string[]>([]);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const dragIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setOrder((prev) => {
+      const ids = tasks.map((t) => t.assignmentId);
+      const kept = prev.filter((id) => ids.includes(id));
+      const added = ids.filter((id) => !kept.includes(id));
+      return [...kept, ...added];
+    });
+  }, [tasks]);
+
+  const onHandleDragStart = useCallback(
+    (id: string) => (e: DragEvent<HTMLSpanElement>) => {
+      dragIdRef.current = id;
+      setDraggingId(id);
+      e.dataTransfer.effectAllowed = "move";
+      try {
+        e.dataTransfer.setData("text/plain", id);
+      } catch {
+        /* Firefox exige setData; ignora se falhar */
+      }
+      const card = e.currentTarget.closest(".task-card");
+      if (card) {
+        try {
+          e.dataTransfer.setDragImage(card, 24, 24);
+        } catch {
+          /* setDragImage pode não estar disponível */
+        }
+      }
+    },
+    [],
+  );
+
+  const onCardDragEnter = useCallback(
+    (overId: string) => () => {
+      const dragId = dragIdRef.current;
+      if (!dragId || dragId === overId) return;
+      setOrder((o) => moveTo(o, dragId, overId));
+    },
+    [],
+  );
+
+  const onDragEnd = useCallback(() => {
+    dragIdRef.current = null;
+    setDraggingId(null);
+  }, []);
+
   if (status === "loading" || status === "idle") {
     return (
-      <div className="conn-grid" aria-busy>
+      <div className="wf-board" aria-busy>
         {[0, 1].map((i) => (
           <div key={i} className="conn-skeleton" />
         ))}
@@ -461,11 +580,58 @@ export function WorkerTasksPanel() {
     );
   }
 
+  const byId = new Map(tasks.map((t) => [t.assignmentId, t] as const));
+  const ordered = order
+    .map((id) => byId.get(id))
+    .filter((t): t is WorkerAssignmentView => Boolean(t));
+
+  const active = tasks.filter((t) => t.enabled).length;
+  const ready = tasks.filter((t) => t.enabled && t.ready).length;
+  const attention = tasks.filter((t) => t.enabled && !t.ready).length;
+
   return (
-    <div className="conn-grid">
-      {tasks.map((t) => (
-        <TaskCard key={t.assignmentId} task={t} />
-      ))}
-    </div>
+    <>
+      <div className="wf-stats">
+        <div className="wf-stat wf-hero">
+          <span className="wf-stat-ic">{IcActive}</span>
+          <span className="wf-stat-main">
+            <span className="wf-stat-label">Tarefas ativas</span>
+            <span className="wf-stat-num">{active}</span>
+          </span>
+        </div>
+        <div className="wf-stat">
+          <span className="wf-stat-ic">{IcReady}</span>
+          <span className="wf-stat-main">
+            <span className="wf-stat-label">Prontas</span>
+            <span className="wf-stat-num">{ready}</span>
+          </span>
+        </div>
+        <div className="wf-stat">
+          <span className="wf-stat-ic">{IcPlug}</span>
+          <span className="wf-stat-main">
+            <span className="wf-stat-label">A precisar de ligação</span>
+            <span className="wf-stat-num">{attention}</span>
+          </span>
+          {attention > 0 && (
+            <span className="wf-stat-right">
+              <span className="wf-stat-chip">ver conexões</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="wf-board">
+        {ordered.map((t) => (
+          <TaskCard
+            key={t.assignmentId}
+            task={t}
+            dragging={draggingId === t.assignmentId}
+            onHandleDragStart={onHandleDragStart(t.assignmentId)}
+            onCardDragEnter={onCardDragEnter(t.assignmentId)}
+            onDragEnd={onDragEnd}
+          />
+        ))}
+      </div>
+    </>
   );
 }
