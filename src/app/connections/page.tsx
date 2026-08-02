@@ -1,11 +1,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSession, type SessionContext } from "@/lib/session";
-import { ConnectionsPanel } from "@/modules/connections/ui/ConnectionsPanel";
-import { WorkerTasksPanel } from "@/modules/assignments/ui/WorkerTasksPanel";
-import { LogoutButton } from "../dashboard/logout-button";
+import { WorkerApp } from "./WorkerApp";
 
-// Server Component: verifica a sessão (como /dashboard) e monta o painel do
+// Server Component: verifica a sessão (como /dashboard) e monta o shell do
 // trabalhador. O resultado do callback OAuth chega por query (?connected / ?error)
 // e é lido AQUI, no servidor, para evitar o pitfall do useSearchParams+Suspense
 // no build do Next 15 (handoff §4).
@@ -29,42 +27,7 @@ export default async function ConnectionsPage({
   const sp = await searchParams;
   const banner = bannerFor(sp);
 
-  return (
-    <main className="worker-shell">
-      <div className="worker-header">
-        <h1>As minhas conexões</h1>
-        <LogoutButton />
-      </div>
-      <p className="worker-sub">
-        Autoriza aqui as ferramentas que as tuas tarefas precisam. Uma ferramenta ligada e
-        com todas as permissões fica pronta para as automações correrem.
-      </p>
-
-      {banner && <div className={`conn-banner ${banner.tone}`}>{banner.text}</div>}
-
-      {session.role === "worker" ? (
-        <>
-          <ConnectionsPanel />
-          <section className="worker-section">
-            <h2>As minhas tarefas</h2>
-            <p className="worker-sub">
-              Executa as automáticas quando precisares e acompanha o histórico; inicia as
-              assistidas para acompanhares o progresso em direto.
-            </p>
-            <WorkerTasksPanel />
-          </section>
-        </>
-      ) : (
-        <div className="conn-empty">
-          <p className="conn-empty-title">Esta área é do trabalhador</p>
-          <p className="conn-empty-sub">
-            As conexões são pessoais de cada trabalhador. Como super-utilizador, acompanha a
-            prontidão das ligações na matriz de atribuições da consola.
-          </p>
-        </div>
-      )}
-    </main>
-  );
+  return <WorkerApp role={session.role} banner={banner} />;
 }
 
 function bannerFor(sp: {
