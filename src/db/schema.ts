@@ -4,6 +4,7 @@ import {
   uuid,
   text,
   boolean,
+  integer,
   timestamp,
   jsonb,
   uniqueIndex,
@@ -251,6 +252,8 @@ export const taskAssignments = pgTable(
     delivery: text("delivery"),
     // Overrides de configuração por trabalhador.
     config: jsonb("config").$type<Record<string, unknown>>(),
+    // Ordem do cartão no board do trabalhador (nulls = por ordenar → fim).
+    position: integer("position"),
     enabledBy: uuid("enabled_by").references(() => users.id, { onDelete: "set null" }),
     enabledAt: timestamp("enabled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -213,6 +213,23 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
       return views;
     },
 
+    // Persiste a ordem dos cartões do próprio trabalhador (board da Fase C).
+    // Só reordena ids que são MESMO dele; ignora intrusos silenciosamente.
+    async reorderForWorker(session: SessionContext, orderedIds: string[]): Promise<void> {
+      const mine = await repo.listByWorker(session.userId);
+      const mineIds = new Set(mine.map((a) => a.id));
+      const clean = orderedIds.filter((id) => mineIds.has(id));
+      if (clean.length === 0) return;
+      await repo.reorderForWorker(session.userId, clean);
+      await safeAudit(audit, {
+        actorId: session.userId,
+        action: "assignment.reordered",
+        entity: "task_assignment",
+        entityId: session.userId,
+        metadata: { count: clean.length },
+      });
+    },
+
     // Prontidão (verde/âmbar/vermelho da matriz), sem alterar estado.
     async readiness(session: SessionContext, id: string): Promise<AssignmentReadiness> {
       requireAdmin(session);

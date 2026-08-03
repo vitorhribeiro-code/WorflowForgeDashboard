@@ -20,6 +20,7 @@ import {
   openAssisted,
   retryRun,
   runNow,
+  saveOrder,
   useWorkerTasks,
   type RunRow,
   type StreamEvent,
@@ -544,6 +545,13 @@ export function WorkerTasksPanel() {
   const onDragEnd = useCallback(() => {
     dragIdRef.current = null;
     setDraggingId(null);
+    // Persiste a ordem atual (otimista: o board já está reordenado no estado).
+    setOrder((o) => {
+      void saveOrder(o).catch(() => {
+        /* falha a gravar não desfaz a ordem visual; próxima carga reconcilia */
+      });
+      return o;
+    });
   }, []);
 
   if (status === "loading" || status === "idle") {

@@ -1,4 +1,4 @@
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { taskAssignments, tasks } from "@/db/schema";
 import type { NewAssignment, TaskAssignment } from "../domain/types";
@@ -23,6 +23,8 @@ export interface AssignmentRepository {
   setEnabled(id: string, patch: EnablePatch): Promise<TaskAssignment | null>;
   updateConfig(id: string, config: Record<string, unknown> | null): Promise<TaskAssignment | null>;
   updateSchedule(id: string, schedule: string | null): Promise<TaskAssignment | null>;
+  // Persiste a ordem do board: position = índice, escopado ao próprio worker.
+  reorderForWorker(workerId: string, orderedIds: string[]): Promise<void>;
   // Suspensão em massa (propagação de despublicar/revogar).
   suspendForTask(taskId: string): Promise<number>;
   disableIfEnabled(id: string): Promise<boolean>;
@@ -37,6 +39,7 @@ function toAssignment(row: typeof taskAssignments.$inferSelect): TaskAssignment 
     schedule: row.schedule,
     delivery: row.delivery,
     config: (row.config as Record<string, unknown> | null) ?? null,
+    position: row.position,
     enabledBy: row.enabledBy,
     enabledAt: row.enabledAt,
     createdAt: row.createdAt,
@@ -102,7 +105,9 @@ export class DrizzleAssignmentRepository implements AssignmentRepository {
     const rows = await this.db
       .select()
       .from(taskAssignments)
-      .where(eq(taskAssignments.workerId, workerId));
+      .where(eq(taskAssignments.workerId, workerId))
+      // Ordem do board: posição escolhida primeiro (nulls no fim), depois criação.
+      .orderBy(sql`${taskAssignments.position} asc nulls last`, asc(taskAssignments.createdAt));
     return rows.map(toAssignment);
   }
 
@@ -131,6 +136,16 @@ export class DrizzleAssignmentRepository implements AssignmentRepository {
       .where(eq(taskAssignments.id, id))
       .returning();
     return row ? toAssignment(row) : null;
+  }
+
+  async reorderForWorker(workerId: string, orderedIds: string[]): Promise<void> {
+    // Escopa cada update ao (id, workerId) — nunca reordena tarefas de outrem.
+    for (let i = 0; i < orderedIds.length; i++) {
+      await this.db
+        .update(taskAssignments)
+        .set({ position: i })
+        .where(and(eq(taskAssignments.id, orderedIds[i]!), eq(taskAssignments.workerId, workerId)));
+    }
   }
 
   async listScheduledActive(): Promise<{ assignmentId: string; schedule: string }[]> {

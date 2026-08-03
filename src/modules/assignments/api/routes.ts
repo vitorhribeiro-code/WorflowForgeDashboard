@@ -3,6 +3,7 @@ import { assignmentService } from "../container";
 import {
   createAssignmentSchema,
   editConfigSchema,
+  reorderSchema,
   setScheduleSchema,
   toggleSchema,
 } from "../validation/schemas";
@@ -72,4 +73,12 @@ export const configPUT = withSession(async (session, req, ctx) => {
 export const schedulePUT = withSession(async (session, req, ctx) => {
   const { schedule } = await readJson(req, setScheduleSchema);
   return json(await assignmentService.setSchedule(session, id(ctx), schedule));
+});
+
+// PATCH /api/assignments/mine/order — { order: assignmentId[] } (worker-facing).
+// Sem requireAdmin: o serviço escopa por session.userId (só reordena o que é dele).
+export const reorderMinePATCH = withSession(async (session, req) => {
+  const { order } = await readJson(req, reorderSchema);
+  await assignmentService.reorderForWorker(session, order);
+  return json({ ok: true });
 });

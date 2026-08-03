@@ -10,6 +10,7 @@ export type TaskAssignment = {
   schedule: string | null; // cron — só relevante para type=automation
   delivery: string | null; // como o output chega (inbox, email, ...)
   config: Record<string, unknown> | null;
+  position: number | null; // ordem do cartão no board do trabalhador
   enabledBy: string | null;
   enabledAt: Date | null;
   createdAt: Date;

@@ -24,6 +24,7 @@ function mkAssignment(input: NewAssignment): TaskAssignment {
     schedule: input.schedule ?? null,
     delivery: input.delivery ?? null,
     config: input.config ?? null,
+    position: null,
     enabledBy: null,
     enabledAt: null,
     createdAt: new Date("2026-07-26T00:00:00Z"),
@@ -50,7 +51,13 @@ class FakeRepo implements AssignmentRepository {
     return [...this.rows];
   }
   async listByWorker(workerId: string) {
-    return this.rows.filter((a) => a.workerId === workerId);
+    return this.rows
+      .filter((a) => a.workerId === workerId)
+      .sort((x, y) => {
+        const px = x.position ?? Number.POSITIVE_INFINITY;
+        const py = y.position ?? Number.POSITIVE_INFINITY;
+        return px - py || x.createdAt.getTime() - y.createdAt.getTime();
+      });
   }
   async listScheduledActive() {
     return this.rows
@@ -80,6 +87,12 @@ class FakeRepo implements AssignmentRepository {
   }
   async disableIfEnabled() {
     return false;
+  }
+  async reorderForWorker(workerId: string, orderedIds: string[]) {
+    orderedIds.forEach((id, i) => {
+      const a = this.rows.find((x) => x.id === id && x.workerId === workerId);
+      if (a) a.position = i;
+    });
   }
 }
 
@@ -240,5 +253,34 @@ describe("listForWorker", () => {
     await service.create(ADMIN, { taskId: "t1", workerId: "w1" });
     const other: SessionContext = { userId: "w2", orgId: "o1", role: "worker" };
     expect(await service.listForWorker(other)).toHaveLength(0);
+  });
+});
+
+describe("reorderForWorker", () => {
+  it("persiste a ordem do board e regista auditoria", async () => {
+    const { service, audit } = setup(true);
+    const a1 = await service.create(ADMIN, { taskId: "t1", workerId: "w1" });
+    const a2 = await service.create(ADMIN, { taskId: "t2", workerId: "w1" });
+    // Ordem inicial (position null → createdAt): [a1, a2].
+    const before = await service.listForWorker(WORKER);
+    expect(before.map((v) => v.assignmentId)).toEqual([a1.id, a2.id]);
+
+    await service.reorderForWorker(WORKER, [a2.id, a1.id]);
+
+    const after = await service.listForWorker(WORKER);
+    expect(after.map((v) => v.assignmentId)).toEqual([a2.id, a1.id]);
+    expect(audit.actions()).toContain("assignment.reordered");
+  });
+
+  it("ignora ids que não pertencem ao worker (isolamento)", async () => {
+    const { service, repo } = setup(true);
+    const a1 = await service.create(ADMIN, { taskId: "t1", workerId: "w1" });
+    const other = await service.create(ADMIN, { taskId: "t2", workerId: "w2" });
+
+    await service.reorderForWorker(WORKER, [other.id, a1.id]);
+
+    // 'other' (de w2) não foi tocado; a1 (de w1) recebeu posição.
+    expect(repo.rows.find((x) => x.id === other.id)?.position).toBeNull();
+    expect(repo.rows.find((x) => x.id === a1.id)?.position).toBe(0);
   });
 });

@@ -77,6 +77,16 @@ export async function runNow(assignmentId: string): Promise<RunRow> {
   return (await res.json()) as RunRow;
 }
 
+// Grava a ordem do board do trabalhador (assignmentIds na nova ordem).
+export async function saveOrder(order: string[]): Promise<void> {
+  const res = await fetch("/api/assignments/mine/order", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ order }),
+  });
+  if (!res.ok) throw await httpError(res);
+}
+
 export async function cancelRun(runId: string): Promise<RunRow> {
   const res = await fetch(`/api/runs/${runId}/cancel`, { method: "POST" });
   if (!res.ok) throw await httpError(res);
