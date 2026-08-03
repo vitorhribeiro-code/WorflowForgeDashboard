@@ -1742,7 +1742,7 @@ button.btn-danger:disabled {
 @media (max-width: 900px) {
   .wf-app { grid-template-columns: 1fr; }
   .wf-side { position: relative; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
-  .wf-side-spacer, .wf-side-foot, .wf-side-cards { display: none; }
+  .wf-side-spacer, .wf-side-foot { display: none; }
 }
 
 /* ---- Fase B — stat cards (dados reais) + board de tarefas movivel ---- */
@@ -1789,12 +1789,16 @@ button.btn-danger:disabled {
 @media (max-width: 640px) { .wf-stats { grid-template-columns: 1fr; } }
 
 /* -------------------------------------------------------------------------- */
-/*  Fase C2 (revisto) — cartões na sidebar estreita (Próxima ação + Ações       */
-/*  recentes), por baixo de «Terminar sessão». O board ocupa toda a largura.    */
+/*  Fase C2 (revisto 2) — cartões numa coluna à direita do conteúdo, ancorada    */
+/*  no topo e a descer ao lado do board. A sidebar volta a ser só navegação.     */
 /* -------------------------------------------------------------------------- */
-.wf-app .wf-side-cards { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.wf-app .wf-side-cards::before {
-  content: ""; display: block; height: 1px; background: var(--wf-line); margin: 2px 6px 6px;
+.wf-app .wf-tasks-layout {
+  display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 22px; align-items: start;
+}
+.wf-app .wf-tasks-col { min-width: 0; }
+.wf-app .wf-tasks-rail {
+  display: flex; flex-direction: column; gap: 16px; min-width: 0;
+  position: sticky; top: 22px;
 }
 .wf-app .wf-widget {
   background: var(--wf-surface); border: 1px solid var(--wf-line);
@@ -1844,20 +1848,9 @@ button.btn-danger:disabled {
 }
 .wf-app .wf-widget-more:hover { text-decoration: underline; }
 
-/* Compacto na sidebar estreita — nada vaza: tudo trunca ou quebra em coluna. */
-.wf-app .wf-side .wf-widget { padding: 12px; border-radius: 14px; box-shadow: none; }
-.wf-app .wf-side .wf-widget-head { margin-bottom: 8px; }
-.wf-app .wf-side .wf-widget-title { font-size: 12px; min-width: 0; overflow-wrap: anywhere; }
-.wf-app .wf-side .wf-widget-refresh { width: 22px; height: 22px; }
-.wf-app .wf-side .wf-widget-empty { font-size: 11px; }
-.wf-app .wf-side .wf-next-rel { font-size: 15px; line-height: 1.2; }
-.wf-app .wf-side .wf-next-task { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wf-app .wf-side .wf-next-sub { font-size: 10.5px; line-height: 1.3; }
-.wf-app .wf-side .wf-next-warn { font-size: 9.5px; padding: 2px 7px; }
-.wf-app .wf-side .wf-feed { gap: 9px; }
-.wf-app .wf-side .wf-feed-item + .wf-feed-item { padding-top: 9px; }
-.wf-app .wf-side .wf-feed-task { font-size: 11.5px; }
-.wf-app .wf-side .wf-feed-meta { flex-direction: column; align-items: flex-start; gap: 4px; }
-.wf-app .wf-side .wf-feed-when { font-size: 10.5px; }
-.wf-app .wf-side .status-pill { font-size: 10px; padding: 2px 8px; gap: 5px; }
-.wf-app .wf-side .wf-widget-more { font-size: 11.5px; margin-top: 10px; }
+/* Em ecrã estreito, a coluna passa para baixo do board (a toda a largura). */
+@media (max-width: 1100px) {
+  .wf-app .wf-tasks-layout { grid-template-columns: 1fr; }
+  .wf-app .wf-tasks-rail { position: static; flex-direction: row; flex-wrap: wrap; }
+  .wf-app .wf-tasks-rail .wf-widget { flex: 1 1 280px; }
+}

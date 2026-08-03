@@ -9,9 +9,9 @@
  *  - RecentRunsWidget: feed das últimas AÇÕES do trabalhador (GET /api/runs/mine),
  *    com "ver mais" a expandir de 2 para 6.
  *
- * Vivem na sidebar estreita (por baixo de «Terminar sessão»), estilo compacto
- * sob `.wf-side`. Design system do projeto (globals.css, CSS-vars), tudo em
- * `.wf-app`.
+ * Vivem numa coluna à direita do conteúdo (ancorada no topo, a descer ao lado
+ * do board), com o estilo folgado base de `.wf-widget`. Design system do projeto
+ * (globals.css, CSS-vars), tudo em `.wf-app`.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";

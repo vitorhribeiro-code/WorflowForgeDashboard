@@ -9,9 +9,10 @@
  * chrome. O tema claro vive sob `.wf-app` (globals.css) e NÃO afeta consola/
  * login (escuros).
  *
- * Fase B: board de tarefas movível + stat cards. Fase C2 (revisto): a sidebar
- * estreita leva os cartões «Próxima ação» e «Ações recentes» por baixo de
- * «Terminar sessão» (auto-suficientes); o board ocupa toda a largura.
+ * Fase B: board de tarefas movível + stat cards. Fase C2 (revisto 2): a sidebar
+ * estreita é só navegação (ícones); os cartões «Próxima ação» e «Ações recentes»
+ * (auto-suficientes) vivem numa coluna à direita do conteúdo, ancorada no topo e
+ * a descer ao lado do board.
  */
 
 import { useState } from "react";
@@ -139,13 +140,6 @@ export function WorkerApp({ role, banner }: { role: string; banner: Banner }) {
           </button>
         </nav>
 
-        {!isAdmin && (
-          <div className="wf-side-cards">
-            <NextRunWidget />
-            <RecentRunsWidget />
-          </div>
-        )}
-
         <div className="wf-side-spacer" />
         <div className="wf-side-foot" title={roleLabel}>
           <span className="wf-avatar">{initials}</span>
@@ -166,11 +160,29 @@ export function WorkerApp({ role, banner }: { role: string; banner: Banner }) {
         </div>
 
         <section className={`wf-view${view === "tasks" ? " wf-on" : ""}`}>
-          <div className="wf-page-head">
-            <h1>As minhas tarefas</h1>
-            <p>Executa as automáticas quando precisares e acompanha o histórico.</p>
-          </div>
-          {isAdmin ? <AdminNote /> : <WorkerTasksPanel />}
+          {isAdmin ? (
+            <>
+              <div className="wf-page-head">
+                <h1>As minhas tarefas</h1>
+                <p>Executa as automáticas quando precisares e acompanha o histórico.</p>
+              </div>
+              <AdminNote />
+            </>
+          ) : (
+            <div className="wf-tasks-layout">
+              <div className="wf-tasks-col">
+                <div className="wf-page-head">
+                  <h1>As minhas tarefas</h1>
+                  <p>Executa as automáticas quando precisares e acompanha o histórico.</p>
+                </div>
+                <WorkerTasksPanel />
+              </div>
+              <aside className="wf-tasks-rail" aria-label="Resumo">
+                <NextRunWidget />
+                <RecentRunsWidget />
+              </aside>
+            </div>
+          )}
         </section>
 
         <section className={`wf-view${view === "connections" ? " wf-on" : ""}`}>
