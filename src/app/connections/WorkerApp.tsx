@@ -4,10 +4,11 @@
  * Shell do Painel do Trabalhador (Fase A do redesign — visual claro "wf-app").
  *
  * Envolve os painéis existentes (ConnectionsPanel M6, WorkerTasksPanel) numa
- * sidebar ESTREITA só-ícones (rótulos em tooltip) e alterna a vista principal
- * no cliente. Toda a mecânica dos painéis fica intacta — aqui só há navegação +
- * chrome. O tema claro vive sob `.wf-app` (globals.css) e NÃO afeta consola/
- * login (escuros).
+ * sidebar ESTREITA só-ícones (rótulos em tooltip) que se AUTO-OCULTA — revela-se
+ * ao levar o rato à berma esquerda (`.wf-dock`) ou ao focar com teclado. Alterna
+ * a vista principal no cliente. Toda a mecânica dos painéis fica intacta — aqui
+ * só há navegação + chrome. O tema claro vive sob `.wf-app` (globals.css) e NÃO
+ * afeta consola/login (escuros).
  *
  * Fase B: board de tarefas movível + stat cards. Fase C2 (revisto 2): a sidebar
  * estreita é só navegação (ícones); os cartões «Próxima ação» e «Ações recentes»
@@ -115,36 +116,38 @@ export function WorkerApp({ role, banner }: { role: string; banner: Banner }) {
 
   return (
     <div className="wf-app">
-      <aside className="wf-side">
-        <div className="wf-brand">
-          <span className="wf-brand-mark" title="WorkflowForge">
-            {IcMark}
-          </span>
-        </div>
+      <div className="wf-dock">
+        <aside className="wf-side">
+          <div className="wf-brand">
+            <span className="wf-brand-mark" title="WorkflowForge">
+              {IcMark}
+            </span>
+          </div>
 
-        <nav className="wf-nav" aria-label="Navegação">
-          {navItem("tasks", "As minhas tarefas", IcTasks)}
-          <div className="wf-nav-sep" />
-          {navItem("connections", "As minhas conexões", IcLink)}
-          {navItem("settings", "Definições", IcGear)}
-          {navItem("help", "Ajuda", IcHelp)}
-          <button
-            type="button"
-            className="wf-nav-item wf-danger"
-            onClick={() => void logout()}
-            disabled={loggingOut}
-            aria-label={loggingOut ? "A sair…" : "Terminar sessão"}
-            title="Terminar sessão"
-          >
-            {IcLogout}
-          </button>
-        </nav>
+          <nav className="wf-nav" aria-label="Navegação">
+            {navItem("tasks", "As minhas tarefas", IcTasks)}
+            <div className="wf-nav-sep" />
+            {navItem("connections", "As minhas conexões", IcLink)}
+            {navItem("settings", "Definições", IcGear)}
+            {navItem("help", "Ajuda", IcHelp)}
+            <button
+              type="button"
+              className="wf-nav-item wf-danger"
+              onClick={() => void logout()}
+              disabled={loggingOut}
+              aria-label={loggingOut ? "A sair…" : "Terminar sessão"}
+              title="Terminar sessão"
+            >
+              {IcLogout}
+            </button>
+          </nav>
 
-        <div className="wf-side-spacer" />
-        <div className="wf-side-foot" title={roleLabel}>
-          <span className="wf-avatar">{initials}</span>
-        </div>
-      </aside>
+          <div className="wf-side-spacer" />
+          <div className="wf-side-foot" title={roleLabel}>
+            <span className="wf-avatar">{initials}</span>
+          </div>
+        </aside>
+      </div>
 
       <main className="wf-main">
         <div className="wf-topbar">

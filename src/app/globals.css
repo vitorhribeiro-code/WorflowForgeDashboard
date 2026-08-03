@@ -1523,27 +1523,36 @@ button.btn-danger:disabled {
   --wf-line: #e9ede9; --wf-line2: #eef1ee;
   --wf-shadow: 0 1px 2px rgba(20, 40, 28, .04), 0 6px 18px rgba(20, 40, 28, .05);
   --wf-r-lg: 20px; --wf-r-md: 14px;
-  --wf-side-w: 124px; /* sidebar estreita só-ícones (~metade dos 248px) */
+  --wf-side-w: 64px; /* carril de ícones justo (auto-oculta; revela no hover) */
   min-height: 100vh;
   background: var(--wf-bg);
   color: var(--wf-ink);
   font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
   display: grid;
-  grid-template-columns: var(--wf-side-w) 1fr;
+  grid-template-columns: 1fr;
 }
 
 /* Sidebar */
+/* Dock: faixa fina na berma esquerda que revela a sidebar ao hover/focus. */
+.wf-app .wf-dock { position: fixed; left: 0; top: 0; height: 100vh; width: 12px; z-index: 60; }
+.wf-app .wf-dock::before {
+  content: ""; position: absolute; left: 0; top: 0; width: 3px; height: 100%;
+  background: linear-gradient(var(--wf-green), var(--wf-green-hero-1));
+  opacity: .45; transition: opacity .18s ease;
+}
+.wf-app .wf-dock:hover::before, .wf-app .wf-dock:focus-within::before { opacity: 0; }
+
 .wf-side {
-  background: var(--wf-surface);
-  border-right: 1px solid var(--wf-line);
-  padding: 16px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
+  position: absolute; left: 0; top: 0; height: 100vh; width: var(--wf-side-w);
+  background: var(--wf-surface); border-right: 1px solid var(--wf-line);
+  padding: 16px 0;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  overflow-y: auto; overflow-x: hidden;
+  transform: translateX(-100%); transition: transform .2s ease, box-shadow .2s ease;
+}
+.wf-app .wf-dock:hover .wf-side,
+.wf-app .wf-dock:focus-within .wf-side {
+  transform: translateX(0); box-shadow: 8px 0 28px rgba(20, 40, 28, .16);
 }
 .wf-brand { display: flex; justify-content: center; padding: 4px 0 12px; }
 .wf-brand-mark {
@@ -1554,30 +1563,26 @@ button.btn-danger:disabled {
 }
 .wf-brand-name { font-weight: 800; font-size: 16px; letter-spacing: -.02em; line-height: 1.1; }
 .wf-brand-name small { display: block; font-weight: 600; font-size: 10.5px; color: var(--wf-faint); }
-.wf-nav { display: flex; flex-direction: column; gap: 4px; }
-.wf-nav-sep { height: 1px; background: var(--wf-line); margin: 8px 6px; }
+.wf-nav { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.wf-nav-sep { width: 28px; height: 1px; background: var(--wf-line); margin: 6px auto; }
 .wf-nav-label {
   font-size: 10.5px; font-weight: 700; letter-spacing: .12em;
   color: var(--wf-faint); padding: 14px 10px 6px;
 }
 .wf-nav-item {
-  display: flex; align-items: center; justify-content: center; width: 100%;
-  padding: 11px; border-radius: 12px; border: 0; cursor: pointer;
-  background: transparent; color: var(--wf-muted); font: inherit; font-weight: 600;
-  position: relative;
+  display: grid; place-items: center; width: 44px; height: 44px;
+  border-radius: 12px; border: 0; cursor: pointer;
+  background: transparent; color: var(--wf-muted); position: relative;
 }
 .wf-nav-item:hover { background: #f4f7f4; color: var(--wf-ink); }
 .wf-nav-item .wf-ic { width: 21px; height: 21px; flex: none; }
 .wf-nav-item.wf-active { background: var(--wf-tint); color: var(--wf-green-hero-1); }
-.wf-nav-item.wf-active::before {
-  content: ""; position: absolute; left: -8px; top: 8px; bottom: 8px;
-  width: 4px; background: var(--wf-green); border-radius: 0 4px 4px 0;
-}
+.wf-nav-item.wf-active::before { display: none; }
 .wf-nav-item.wf-danger:hover { background: var(--wf-red-tint); color: var(--wf-red); }
 .wf-nav-item:disabled { opacity: .6; cursor: default; }
 .wf-side-spacer { flex: 1; }
 .wf-side-foot {
-  padding: 8px; border-radius: 14px; background: #f4f7f4;
+  padding: 4px 0; background: transparent;
   display: flex; justify-content: center; align-items: center;
 }
 .wf-avatar {
@@ -1740,9 +1745,10 @@ button.btn-danger:disabled {
 .wf-app .stream-line { white-space: pre-wrap; }
 
 @media (max-width: 900px) {
-  .wf-app { grid-template-columns: 1fr; }
-  .wf-side { position: relative; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
-  .wf-side-spacer, .wf-side-foot { display: none; }
+  .wf-app .wf-dock { width: var(--wf-side-w); }
+  .wf-app .wf-dock::before { display: none; }
+  .wf-app .wf-side { transform: translateX(0); box-shadow: none; }
+  .wf-app .wf-main { padding-left: calc(var(--wf-side-w) + 12px); }
 }
 
 /* ---- Fase B — stat cards (dados reais) + board de tarefas movivel ---- */
