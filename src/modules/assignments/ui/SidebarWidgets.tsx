@@ -1,22 +1,24 @@
 "use client";
 
 /**
- * Widgets do rail do Painel do Trabalhador (Fase C2 do redesign).
+ * Cartões da sidebar do Painel do Trabalhador (Fase C2 do redesign, revisto).
  *
- *  - NextRunWidget: a próxima execução agendada, derivada do cron das próprias
- *    atribuições (puro, no cliente — nada de rede). Avaliação em UTC, como todo
- *    o motor; o fuso da org fica para §5.3.
- *  - RecentRunsWidget: feed dos últimos Runs do trabalhador (GET /api/runs/mine),
+ *  - NextRunWidget: a próxima AÇÃO agendada, derivada do cron das próprias
+ *    atribuições (auto-suficiente — busca-as sozinho). Avaliação em UTC, como
+ *    todo o motor; o fuso da org fica para §5.3.
+ *  - RecentRunsWidget: feed das últimas AÇÕES do trabalhador (GET /api/runs/mine),
  *    com "ver mais" a expandir de 2 para 6.
  *
- * Design system do projeto (globals.css, CSS-vars), tudo sob `.wf-app`.
+ * Vivem na sidebar estreita (por baixo de «Terminar sessão»), estilo compacto
+ * sob `.wf-side`. Design system do projeto (globals.css, CSS-vars), tudo em
+ * `.wf-app`.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { WorkerAssignmentView } from "@/modules/assignments";
 import { nextRunAfter } from "../domain/cron";
 import { describeCron } from "../domain/recurrence";
-import { fetchMineRuns, type MineRunRow } from "./use-worker-tasks";
+import { fetchMineAssignments, fetchMineRuns, type MineRunRow } from "./use-worker-tasks";
 
 /* --- Semáforo (reaproveita .status-pill como no painel) ------------------- */
 
@@ -76,22 +78,24 @@ function formatRelative(ms: number): string {
   return remH ? `daqui a ${d} d ${remH} h` : `daqui a ${d} d`;
 }
 
-// Instante absoluto rotulado em UTC — coerente com as agendas (describeCron diz
-// "às 8h" em UTC). Evita a discrepância de zona até §5.3 estar feita.
-function formatUtc(d: Date): string {
-  const s = d.toLocaleString("pt-PT", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "UTC",
-  });
-  return `${s} UTC`;
-}
-
-export function NextRunWidget({ tasks }: { tasks: WorkerAssignmentView[] }) {
-  // Tick de 30s para o "daqui a…" não ficar preso e a próxima rolar ao disparar.
+export function NextRunWidget() {
+  // Auto-suficiente: busca as próprias atribuições (vive na sidebar, longe do
+  // painel). Tick de 30s para o "daqui a…" não ficar preso e a próxima rolar.
+  const [tasks, setTasks] = useState<WorkerAssignmentView[]>([]);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  useEffect(() => {
+    let alive = true;
+    void fetchMineAssignments()
+      .then((t) => {
+        if (alive) setTasks(t);
+      })
+      .catch(() => {
+        /* silencioso: o widget é acessório */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
   useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), 30_000);
     return () => clearInterval(id);
@@ -100,23 +104,21 @@ export function NextRunWidget({ tasks }: { tasks: WorkerAssignmentView[] }) {
   const next = useMemo(() => soonestNextRun(tasks, new Date(nowMs)), [tasks, nowMs]);
 
   return (
-    <section className="wf-widget" aria-label="Próxima execução">
+    <section className="wf-widget" aria-label="Próxima ação">
       <div className="wf-widget-head">
-        <span className="wf-widget-title">Próxima execução</span>
+        <span className="wf-widget-title">Próxima ação</span>
       </div>
       {next ? (
         <div className="wf-next">
           <span className="wf-next-rel">{formatRelative(next.at.getTime() - nowMs)}</span>
           <span className="wf-next-task">{next.task.taskName}</span>
-          <span className="wf-next-sub">
-            {describeCron(next.schedule)} · {formatUtc(next.at)}
-          </span>
+          <span className="wf-next-sub">{describeCron(next.schedule)}</span>
           {!next.task.ready && (
             <span className="wf-next-warn">Requer conexões para correr</span>
           )}
         </div>
       ) : (
-        <p className="wf-widget-empty">Sem execuções agendadas.</p>
+        <p className="wf-widget-empty">Sem ações agendadas.</p>
       )}
     </section>
   );
@@ -171,9 +173,9 @@ export function RecentRunsWidget() {
   const hiddenCount = runs ? Math.min(runs.length, EXPANDED) - COLLAPSED : 0;
 
   return (
-    <section className="wf-widget" aria-label="Execuções recentes">
+    <section className="wf-widget" aria-label="Ações recentes">
       <div className="wf-widget-head">
-        <span className="wf-widget-title">Execuções recentes</span>
+        <span className="wf-widget-title">Ações recentes</span>
         <button
           type="button"
           className="wf-widget-refresh"
@@ -195,7 +197,7 @@ export function RecentRunsWidget() {
           ))}
         </div>
       ) : runs.length === 0 ? (
-        <p className="wf-widget-empty">Ainda sem execuções.</p>
+        <p className="wf-widget-empty">Ainda sem ações.</p>
       ) : (
         <>
           <div className="wf-feed">

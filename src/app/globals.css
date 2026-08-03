@@ -1523,28 +1523,29 @@ button.btn-danger:disabled {
   --wf-line: #e9ede9; --wf-line2: #eef1ee;
   --wf-shadow: 0 1px 2px rgba(20, 40, 28, .04), 0 6px 18px rgba(20, 40, 28, .05);
   --wf-r-lg: 20px; --wf-r-md: 14px;
+  --wf-side-w: 124px; /* sidebar estreita só-ícones (~metade dos 248px) */
   min-height: 100vh;
   background: var(--wf-bg);
   color: var(--wf-ink);
   font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
   display: grid;
-  grid-template-columns: 248px 1fr;
+  grid-template-columns: var(--wf-side-w) 1fr;
 }
 
 /* Sidebar */
 .wf-side {
   background: var(--wf-surface);
   border-right: 1px solid var(--wf-line);
-  padding: 22px 16px;
+  padding: 16px 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   position: sticky;
   top: 0;
   height: 100vh;
   overflow-y: auto;
 }
-.wf-brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 18px; }
+.wf-brand { display: flex; justify-content: center; padding: 4px 0 12px; }
 .wf-brand-mark {
   width: 34px; height: 34px; border-radius: 10px; flex: none;
   background: linear-gradient(135deg, var(--wf-green), var(--wf-green-hero-1));
@@ -1553,29 +1554,31 @@ button.btn-danger:disabled {
 }
 .wf-brand-name { font-weight: 800; font-size: 16px; letter-spacing: -.02em; line-height: 1.1; }
 .wf-brand-name small { display: block; font-weight: 600; font-size: 10.5px; color: var(--wf-faint); }
+.wf-nav { display: flex; flex-direction: column; gap: 4px; }
+.wf-nav-sep { height: 1px; background: var(--wf-line); margin: 8px 6px; }
 .wf-nav-label {
   font-size: 10.5px; font-weight: 700; letter-spacing: .12em;
   color: var(--wf-faint); padding: 14px 10px 6px;
 }
 .wf-nav-item {
-  display: flex; align-items: center; gap: 11px; width: 100%;
-  padding: 10px; border-radius: 12px; border: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; width: 100%;
+  padding: 11px; border-radius: 12px; border: 0; cursor: pointer;
   background: transparent; color: var(--wf-muted); font: inherit; font-weight: 600;
-  text-align: left; position: relative;
+  position: relative;
 }
 .wf-nav-item:hover { background: #f4f7f4; color: var(--wf-ink); }
-.wf-nav-item .wf-ic { width: 20px; height: 20px; flex: none; }
+.wf-nav-item .wf-ic { width: 21px; height: 21px; flex: none; }
 .wf-nav-item.wf-active { background: var(--wf-tint); color: var(--wf-green-hero-1); }
 .wf-nav-item.wf-active::before {
-  content: ""; position: absolute; left: -16px; top: 8px; bottom: 8px;
+  content: ""; position: absolute; left: -8px; top: 8px; bottom: 8px;
   width: 4px; background: var(--wf-green); border-radius: 0 4px 4px 0;
 }
 .wf-nav-item.wf-danger:hover { background: var(--wf-red-tint); color: var(--wf-red); }
 .wf-nav-item:disabled { opacity: .6; cursor: default; }
 .wf-side-spacer { flex: 1; }
 .wf-side-foot {
-  margin-top: 8px; padding: 12px; border-radius: 14px; background: #f4f7f4;
-  display: flex; align-items: center; gap: 10px;
+  padding: 8px; border-radius: 14px; background: #f4f7f4;
+  display: flex; justify-content: center; align-items: center;
 }
 .wf-avatar {
   width: 32px; height: 32px; border-radius: 50%; flex: none;
@@ -1739,7 +1742,7 @@ button.btn-danger:disabled {
 @media (max-width: 900px) {
   .wf-app { grid-template-columns: 1fr; }
   .wf-side { position: relative; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
-  .wf-side-spacer, .wf-side-foot { display: none; }
+  .wf-side-spacer, .wf-side-foot, .wf-side-cards { display: none; }
 }
 
 /* ---- Fase B — stat cards (dados reais) + board de tarefas movivel ---- */
@@ -1786,18 +1789,16 @@ button.btn-danger:disabled {
 @media (max-width: 640px) { .wf-stats { grid-template-columns: 1fr; } }
 
 /* -------------------------------------------------------------------------- */
-/*  Fase C2 — rail de widgets (Próxima execução + Execuções recentes).         */
-/*  Board à esquerda, rail à direita; colapsa a coluna única em ecrã estreito. */
+/*  Fase C2 (revisto) — cartões na sidebar estreita (Próxima ação + Ações       */
+/*  recentes), por baixo de «Terminar sessão». O board ocupa toda a largura.    */
 /* -------------------------------------------------------------------------- */
-.wf-app .wf-tasks-main {
-  display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start;
-}
-.wf-app .wf-rail {
-  display: flex; flex-direction: column; gap: 16px; position: sticky; top: 22px; min-width: 0;
+.wf-app .wf-side-cards { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.wf-app .wf-side-cards::before {
+  content: ""; display: block; height: 1px; background: var(--wf-line); margin: 2px 6px 6px;
 }
 .wf-app .wf-widget {
   background: var(--wf-surface); border: 1px solid var(--wf-line);
-  border-radius: var(--wf-r-lg); padding: 16px; box-shadow: var(--wf-shadow);
+  border-radius: var(--wf-r-lg); padding: 16px; box-shadow: var(--wf-shadow); min-width: 0;
 }
 .wf-app .wf-widget-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .wf-app .wf-widget-title { font-weight: 700; font-size: 13.5px; color: var(--wf-ink); }
@@ -1809,7 +1810,7 @@ button.btn-danger:disabled {
 .wf-app .wf-widget-refresh:disabled { opacity: .5; cursor: default; }
 .wf-app .wf-widget-empty { margin: 0; color: var(--wf-muted); font-size: 12.5px; }
 
-/* Próxima execução */
+/* Próxima ação */
 .wf-app .wf-next { display: flex; flex-direction: column; gap: 4px; }
 .wf-app .wf-next-rel {
   font-size: 20px; font-weight: 800; letter-spacing: -.02em; color: var(--wf-green-hero-1); line-height: 1.15;
@@ -1821,7 +1822,7 @@ button.btn-danger:disabled {
   color: var(--wf-amber-ink); background: var(--wf-amber-tint); padding: 2px 9px; border-radius: 999px;
 }
 
-/* Execuções recentes */
+/* Ações recentes */
 .wf-app .wf-feed { display: flex; flex-direction: column; gap: 10px; }
 .wf-app .wf-feed-item { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .wf-app .wf-feed-item + .wf-feed-item { border-top: 1px solid var(--wf-line2); padding-top: 10px; }
@@ -1843,8 +1844,20 @@ button.btn-danger:disabled {
 }
 .wf-app .wf-widget-more:hover { text-decoration: underline; }
 
-@media (max-width: 980px) {
-  .wf-app .wf-tasks-main { grid-template-columns: 1fr; }
-  .wf-app .wf-rail { position: static; flex-direction: row; flex-wrap: wrap; }
-  .wf-app .wf-rail .wf-widget { flex: 1 1 260px; }
-}
+/* Compacto na sidebar estreita — nada vaza: tudo trunca ou quebra em coluna. */
+.wf-app .wf-side .wf-widget { padding: 12px; border-radius: 14px; box-shadow: none; }
+.wf-app .wf-side .wf-widget-head { margin-bottom: 8px; }
+.wf-app .wf-side .wf-widget-title { font-size: 12px; min-width: 0; overflow-wrap: anywhere; }
+.wf-app .wf-side .wf-widget-refresh { width: 22px; height: 22px; }
+.wf-app .wf-side .wf-widget-empty { font-size: 11px; }
+.wf-app .wf-side .wf-next-rel { font-size: 15px; line-height: 1.2; }
+.wf-app .wf-side .wf-next-task { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-app .wf-side .wf-next-sub { font-size: 10.5px; line-height: 1.3; }
+.wf-app .wf-side .wf-next-warn { font-size: 9.5px; padding: 2px 7px; }
+.wf-app .wf-side .wf-feed { gap: 9px; }
+.wf-app .wf-side .wf-feed-item + .wf-feed-item { padding-top: 9px; }
+.wf-app .wf-side .wf-feed-task { font-size: 11.5px; }
+.wf-app .wf-side .wf-feed-meta { flex-direction: column; align-items: flex-start; gap: 4px; }
+.wf-app .wf-side .wf-feed-when { font-size: 10.5px; }
+.wf-app .wf-side .status-pill { font-size: 10px; padding: 2px 8px; gap: 5px; }
+.wf-app .wf-side .wf-widget-more { font-size: 11.5px; margin-top: 10px; }

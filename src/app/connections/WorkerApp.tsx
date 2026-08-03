@@ -4,18 +4,21 @@
  * Shell do Painel do Trabalhador (Fase A do redesign — visual claro "wf-app").
  *
  * Envolve os painéis existentes (ConnectionsPanel M6, WorkerTasksPanel) numa
- * sidebar com MENU/GENERAL e alterna a vista principal no cliente. Toda a
- * mecânica dos painéis fica intacta — aqui só há navegação + chrome. O tema
- * claro vive sob `.wf-app` (globals.css) e NÃO afeta consola/login (escuros).
+ * sidebar ESTREITA só-ícones (rótulos em tooltip) e alterna a vista principal
+ * no cliente. Toda a mecânica dos painéis fica intacta — aqui só há navegação +
+ * chrome. O tema claro vive sob `.wf-app` (globals.css) e NÃO afeta consola/
+ * login (escuros).
  *
- * Fase B: board de tarefas movível + stat cards. Fase C: widgets da sidebar
- * (próxima execução / execuções recentes) com o respetivo feed de dados.
+ * Fase B: board de tarefas movível + stat cards. Fase C2 (revisto): a sidebar
+ * estreita leva os cartões «Próxima ação» e «Ações recentes» por baixo de
+ * «Terminar sessão» (auto-suficientes); o board ocupa toda a largura.
  */
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConnectionsPanel } from "@/modules/connections/ui/ConnectionsPanel";
 import { WorkerTasksPanel } from "@/modules/assignments/ui/WorkerTasksPanel";
+import { NextRunWidget, RecentRunsWidget } from "@/modules/assignments/ui/SidebarWidgets";
 
 type View = "tasks" | "connections" | "settings" | "help";
 type Banner = { tone: "ok" | "err"; text: string } | null;
@@ -89,16 +92,19 @@ export function WorkerApp({ role, banner }: { role: string; banner: Banner }) {
     }
   }
 
+  // Nav só-ícones (sidebar estreita): o rótulo vive no tooltip (title) e no
+  // aria-label — não no ecrã.
   function navItem(v: View, label: string, icon: React.ReactNode) {
     return (
       <button
         type="button"
         className={`wf-nav-item${view === v ? " wf-active" : ""}`}
         aria-current={view === v ? "page" : undefined}
+        aria-label={label}
+        title={label}
         onClick={() => setView(v)}
       >
         {icon}
-        {label}
       </button>
     );
   }
@@ -110,37 +116,39 @@ export function WorkerApp({ role, banner }: { role: string; banner: Banner }) {
     <div className="wf-app">
       <aside className="wf-side">
         <div className="wf-brand">
-          <span className="wf-brand-mark">{IcMark}</span>
-          <span className="wf-brand-name">
-            WorkflowForge
-            <small>Painel do trabalhador</small>
+          <span className="wf-brand-mark" title="WorkflowForge">
+            {IcMark}
           </span>
         </div>
 
-        <div className="wf-nav-label">MENU</div>
-        {navItem("tasks", "As minhas tarefas", IcTasks)}
+        <nav className="wf-nav" aria-label="Navegação">
+          {navItem("tasks", "As minhas tarefas", IcTasks)}
+          <div className="wf-nav-sep" />
+          {navItem("connections", "As minhas conexões", IcLink)}
+          {navItem("settings", "Definições", IcGear)}
+          {navItem("help", "Ajuda", IcHelp)}
+          <button
+            type="button"
+            className="wf-nav-item wf-danger"
+            onClick={() => void logout()}
+            disabled={loggingOut}
+            aria-label={loggingOut ? "A sair…" : "Terminar sessão"}
+            title="Terminar sessão"
+          >
+            {IcLogout}
+          </button>
+        </nav>
 
-        <div className="wf-nav-label">GENERAL</div>
-        {navItem("connections", "As minhas conexões", IcLink)}
-        {navItem("settings", "Definições", IcGear)}
-        {navItem("help", "Ajuda", IcHelp)}
-        <button
-          type="button"
-          className="wf-nav-item wf-danger"
-          onClick={() => void logout()}
-          disabled={loggingOut}
-        >
-          {IcLogout}
-          {loggingOut ? "A sair…" : "Terminar sessão"}
-        </button>
+        {!isAdmin && (
+          <div className="wf-side-cards">
+            <NextRunWidget />
+            <RecentRunsWidget />
+          </div>
+        )}
 
         <div className="wf-side-spacer" />
-        <div className="wf-side-foot">
+        <div className="wf-side-foot" title={roleLabel}>
           <span className="wf-avatar">{initials}</span>
-          <span className="wf-who">
-            <b>A minha conta</b>
-            <span>{roleLabel}</span>
-          </span>
         </div>
       </aside>
 

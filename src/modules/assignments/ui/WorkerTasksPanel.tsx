@@ -14,7 +14,6 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import type { WorkerAssignmentView } from "@/modules/assignments";
 import { describeCron } from "../domain/recurrence";
-import { NextRunWidget, RecentRunsWidget } from "./SidebarWidgets";
 import {
   cancelRun,
   fetchHistory,
@@ -195,7 +194,7 @@ function HistoryModal({
         className="wt-modal"
         role="dialog"
         aria-modal="true"
-        aria-label="Histórico de execuções"
+        aria-label="Histórico de ações"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="wt-modal-head">
@@ -221,7 +220,7 @@ function HistoryModal({
           {runs === null ? (
             <p className="task-hint">{busy ? "A carregar…" : "—"}</p>
           ) : runs.length === 0 ? (
-            <p className="task-hint">Ainda sem execuções.</p>
+            <p className="task-hint">Ainda sem ações.</p>
           ) : (
             <div className="wt-modal-runs">
               {runs.map((run) => {
@@ -409,7 +408,7 @@ function TaskCard({
     try {
       const run = await runNow(task.assignmentId);
       // O aviso mostra-se dentro do histórico, que abrimos já a seguir.
-      setNotice(`Execução enfileirada (${run.status}).`);
+      setNotice(`Ação enfileirada (${run.status}).`);
       setHistoryOpen(true);
     } catch (e) {
       setError((e as Error).message);
@@ -629,24 +628,17 @@ export function WorkerTasksPanel() {
         </div>
       </div>
 
-      <div className="wf-tasks-main">
-        <div className="wf-board">
-          {ordered.map((t) => (
-            <TaskCard
-              key={t.assignmentId}
-              task={t}
-              dragging={draggingId === t.assignmentId}
-              onHandleDragStart={onHandleDragStart(t.assignmentId)}
-              onCardDragEnter={onCardDragEnter(t.assignmentId)}
-              onDragEnd={onDragEnd}
-            />
-          ))}
-        </div>
-
-        <aside className="wf-rail">
-          <NextRunWidget tasks={tasks} />
-          <RecentRunsWidget />
-        </aside>
+      <div className="wf-board">
+        {ordered.map((t) => (
+          <TaskCard
+            key={t.assignmentId}
+            task={t}
+            dragging={draggingId === t.assignmentId}
+            onHandleDragStart={onHandleDragStart(t.assignmentId)}
+            onCardDragEnter={onCardDragEnter(t.assignmentId)}
+            onDragEnd={onDragEnd}
+          />
+        ))}
       </div>
     </>
   );

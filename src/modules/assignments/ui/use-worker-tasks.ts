@@ -76,6 +76,14 @@ export async function fetchMineRuns(limit = 6): Promise<MineRunRow[]> {
   return (await res.json()) as MineRunRow[];
 }
 
+// Atribuições do trabalhador (leitura simples, para o widget "Próxima ação",
+// que vive na sidebar e não partilha o estado do painel).
+export async function fetchMineAssignments(): Promise<WorkerAssignmentView[]> {
+  const res = await fetch("/api/assignments/mine");
+  if (!res.ok) throw await httpError(res);
+  return (await res.json()) as WorkerAssignmentView[];
+}
+
 // Dispara manualmente uma automática (trigger=manual). Devolve o Run enfileirado.
 export async function runNow(assignmentId: string): Promise<RunRow> {
   const res = await fetch(`/api/assignments/${assignmentId}/run`, {
