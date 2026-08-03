@@ -1784,3 +1784,67 @@ button.btn-danger:disabled {
 .wf-move:active { cursor: grabbing; }
 
 @media (max-width: 640px) { .wf-stats { grid-template-columns: 1fr; } }
+
+/* -------------------------------------------------------------------------- */
+/*  Fase C2 — rail de widgets (Próxima execução + Execuções recentes).         */
+/*  Board à esquerda, rail à direita; colapsa a coluna única em ecrã estreito. */
+/* -------------------------------------------------------------------------- */
+.wf-app .wf-tasks-main {
+  display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start;
+}
+.wf-app .wf-rail {
+  display: flex; flex-direction: column; gap: 16px; position: sticky; top: 22px; min-width: 0;
+}
+.wf-app .wf-widget {
+  background: var(--wf-surface); border: 1px solid var(--wf-line);
+  border-radius: var(--wf-r-lg); padding: 16px; box-shadow: var(--wf-shadow);
+}
+.wf-app .wf-widget-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.wf-app .wf-widget-title { font-weight: 700; font-size: 13.5px; color: var(--wf-ink); }
+.wf-app .wf-widget-refresh {
+  margin-left: auto; display: grid; place-items: center; width: 26px; height: 26px;
+  border: 0; background: transparent; cursor: pointer; color: var(--wf-faint); border-radius: 8px;
+}
+.wf-app .wf-widget-refresh:hover { background: #f0f4f0; color: var(--wf-green-hero-1); }
+.wf-app .wf-widget-refresh:disabled { opacity: .5; cursor: default; }
+.wf-app .wf-widget-empty { margin: 0; color: var(--wf-muted); font-size: 12.5px; }
+
+/* Próxima execução */
+.wf-app .wf-next { display: flex; flex-direction: column; gap: 4px; }
+.wf-app .wf-next-rel {
+  font-size: 20px; font-weight: 800; letter-spacing: -.02em; color: var(--wf-green-hero-1); line-height: 1.15;
+}
+.wf-app .wf-next-task { font-size: 13.5px; font-weight: 700; color: var(--wf-ink); }
+.wf-app .wf-next-sub { font-size: 12px; color: var(--wf-muted); }
+.wf-app .wf-next-warn {
+  margin-top: 6px; align-self: flex-start; font-size: 10.5px; font-weight: 700;
+  color: var(--wf-amber-ink); background: var(--wf-amber-tint); padding: 2px 9px; border-radius: 999px;
+}
+
+/* Execuções recentes */
+.wf-app .wf-feed { display: flex; flex-direction: column; gap: 10px; }
+.wf-app .wf-feed-item { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.wf-app .wf-feed-item + .wf-feed-item { border-top: 1px solid var(--wf-line2); padding-top: 10px; }
+.wf-app .wf-feed-task {
+  font-size: 13px; font-weight: 600; color: var(--wf-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wf-app .wf-feed-meta { display: flex; align-items: center; gap: 8px; }
+.wf-app .wf-feed-when { font-size: 11.5px; color: var(--wf-faint); }
+.wf-app .wf-feed-skel {
+  height: 38px; border-radius: 10px;
+  background: linear-gradient(90deg, #eef1ee, #f6f8f6, #eef1ee);
+  background-size: 200% 100%; animation: wf-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes wf-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.wf-app .wf-widget-more {
+  margin-top: 12px; border: 0; background: transparent; cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 700; color: var(--wf-green-hero-1); padding: 0;
+}
+.wf-app .wf-widget-more:hover { text-decoration: underline; }
+
+@media (max-width: 980px) {
+  .wf-app .wf-tasks-main { grid-template-columns: 1fr; }
+  .wf-app .wf-rail { position: static; flex-direction: row; flex-wrap: wrap; }
+  .wf-app .wf-rail .wf-widget { flex: 1 1 260px; }
+}

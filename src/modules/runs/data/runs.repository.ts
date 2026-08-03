@@ -23,6 +23,12 @@ export interface RunRow {
   createdAt: Date;
 }
 
+/** Run enriquecido com o nome/runtime da tarefa — para o feed do trabalhador. */
+export interface WorkerRunRow extends RunRow {
+  taskName: string;
+  taskRuntime: string;
+}
+
 /** Contexto necessário para executar/validar um Run. */
 export interface AssignmentContext {
   assignment: {
@@ -69,6 +75,9 @@ export interface RunsRepository {
     finishedAt: Date,
   ): Promise<void>;
   listByAssignment(assignmentId: string, limit: number): Promise<RunRow[]>;
+  // Feed agregado do trabalhador: últimos Runs de TODAS as suas atribuições,
+  // já com o nome/runtime da tarefa (join). Escopado por worker_id.
+  listRecentByWorker(workerId: string, limit: number): Promise<WorkerRunRow[]>;
 }
 
 /* --------------------------- Implementação Drizzle ----------------------- */
@@ -168,6 +177,24 @@ export function createDrizzleRunsRepository(db: any): RunsRepository {
         .orderBy(desc(runs.createdAt))
         .limit(limit);
       return rows.map(mapRow);
+    },
+
+    async listRecentByWorker(workerId, limit) {
+      // runs → task_assignments (dono) → tasks (nome/runtime). O filtro por
+      // worker_id é o isolamento: um trabalhador só vê os seus próprios Runs.
+      const rows = await db
+        .select({ r: runs, taskName: tasks.name, taskRuntime: tasks.runtime })
+        .from(runs)
+        .innerJoin(taskAssignments, eq(taskAssignments.id, runs.assignmentId))
+        .innerJoin(tasks, eq(tasks.id, taskAssignments.taskId))
+        .where(eq(taskAssignments.workerId, workerId))
+        .orderBy(desc(runs.createdAt))
+        .limit(limit);
+      return rows.map((row: any) => ({
+        ...mapRow(row.r),
+        taskName: row.taskName,
+        taskRuntime: row.taskRuntime,
+      }));
     },
   };
 }

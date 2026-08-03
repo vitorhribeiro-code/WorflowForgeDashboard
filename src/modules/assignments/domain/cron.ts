@@ -100,3 +100,33 @@ export function cronMatches(expr: string, date: Date): boolean {
   if (dowRestricted) return dowOk;
   return true; // ambos "*"
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Próxima execução (forward): o inverso do computeDue (que olha p/ trás).    */
+/* -------------------------------------------------------------------------- */
+
+// Horizonte por defeito: ~366 dias em minutos. Cobre todos os modos amigáveis
+// (mensal precisa de até ~31 dias; mês+dia fixos de até ~366). Fora disto, um
+// cron que não dispara no horizonte devolve null (ex.: "0 0 30 2 *", 30 fev).
+const DEFAULT_LOOKAHEAD_MINUTES = 366 * 24 * 60;
+
+// Primeiro minuto (UTC) em que o cron dispara ESTRITAMENTE APÓS `from`. Varre
+// minuto-a-minuto a partir do minuto seguinte a `from` (mesma granularidade do
+// scheduler). Devolve null se nada casar dentro do horizonte, ou se o cron for
+// inválido. PURO — usado no widget "Próxima execução" (avaliação em UTC, como
+// todo o motor; o fuso da org é evolução futura, §spec).
+export function nextRunAfter(
+  expr: string,
+  from: Date,
+  maxLookaheadMinutes: number = DEFAULT_LOOKAHEAD_MINUTES,
+): Date | null {
+  if (!isValidCron(expr)) return null;
+  // Minuto seguinte ao de `from` (trunca ao minuto e soma 1) — nunca o próprio.
+  const startMs = Math.floor(from.getTime() / 60_000) * 60_000 + 60_000;
+  const cap = Math.max(1, maxLookaheadMinutes);
+  for (let i = 0; i < cap; i++) {
+    const minute = new Date(startMs + i * 60_000);
+    if (cronMatches(expr, minute)) return minute;
+  }
+  return null;
+}

@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import type { WorkerAssignmentView } from "@/modules/assignments";
 import { describeCron } from "../domain/recurrence";
+import { NextRunWidget, RecentRunsWidget } from "./SidebarWidgets";
 import {
   cancelRun,
   fetchHistory,
@@ -628,17 +629,24 @@ export function WorkerTasksPanel() {
         </div>
       </div>
 
-      <div className="wf-board">
-        {ordered.map((t) => (
-          <TaskCard
-            key={t.assignmentId}
-            task={t}
-            dragging={draggingId === t.assignmentId}
-            onHandleDragStart={onHandleDragStart(t.assignmentId)}
-            onCardDragEnter={onCardDragEnter(t.assignmentId)}
-            onDragEnd={onDragEnd}
-          />
-        ))}
+      <div className="wf-tasks-main">
+        <div className="wf-board">
+          {ordered.map((t) => (
+            <TaskCard
+              key={t.assignmentId}
+              task={t}
+              dragging={draggingId === t.assignmentId}
+              onHandleDragStart={onHandleDragStart(t.assignmentId)}
+              onCardDragEnter={onCardDragEnter(t.assignmentId)}
+              onDragEnd={onDragEnd}
+            />
+          ))}
+        </div>
+
+        <aside className="wf-rail">
+          <NextRunWidget tasks={tasks} />
+          <RecentRunsWidget />
+        </aside>
       </div>
     </>
   );

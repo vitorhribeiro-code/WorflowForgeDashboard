@@ -6,7 +6,7 @@
 import { getRunsService } from "./container";
 
 export { getRunsService };
-export type { RunsService } from "./service/runs.service";
+export type { RunsService, WorkerRunFeedItem } from "./service/runs.service";
 export type { RunView, RunStatus, RunTrigger } from "./domain/run.types";
 
 /**

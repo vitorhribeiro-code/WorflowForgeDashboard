@@ -21,7 +21,7 @@ import {
 } from "../domain/run.types";
 import { assertTransition, canCancel } from "../domain/state-machine";
 import { backoffMs, buildIdempotencyKey } from "../domain/idempotency";
-import type { RunRow, RunsRepository } from "../data/runs.repository";
+import type { RunRow, RunsRepository, WorkerRunRow } from "../data/runs.repository";
 import type { ArtifactSink, InputProvider, ReadinessChecker, RunQueue } from "./ports";
 import type { HandlerRegistry, RunEvent } from "./handlers/handler";
 import { classify, messageOf } from "./exec-errors";
@@ -60,6 +60,12 @@ export interface EnqueueInput {
 
 /** Evento externo do stream assistido (inclui "done" com a vista final). */
 export type AssistedEvent = RunEvent | { type: "done"; data: { run: RunView } };
+
+/** Item do feed "Execuções recentes" do trabalhador: vista do Run + a tarefa. */
+export interface WorkerRunFeedItem extends RunView {
+  taskName: string;
+  taskRuntime: string;
+}
 
 export function createRunsService(deps: RunsServiceDeps) {
   const { repo, queue, readiness, handlers, artifacts, audit } = deps;
@@ -453,6 +459,25 @@ export function createRunsService(deps: RunsServiceDeps) {
     return rows.map(toView);
   }
 
+  /**
+   * Feed "Execuções recentes" do trabalhador autenticado: os últimos Runs de
+   * TODAS as suas atribuições, cada um com o nome/runtime da tarefa. Escopa
+   * SEMPRE por session.userId (é "as minhas" — mesmo um super-utilizador vê as
+   * suas, não as da org). O isolamento por worker vive na query do repositório.
+   */
+  async function listMine(
+    session: SessionContext,
+    limit = 6,
+  ): Promise<WorkerRunFeedItem[]> {
+    const capped = Math.max(1, Math.min(20, Math.trunc(limit)));
+    const rows: WorkerRunRow[] = await repo.listRecentByWorker(session.userId, capped);
+    return rows.map((r) => ({
+      ...toView(r),
+      taskName: r.taskName,
+      taskRuntime: r.taskRuntime,
+    }));
+  }
+
   return {
     enqueue,
     processRun,
@@ -461,6 +486,7 @@ export function createRunsService(deps: RunsServiceDeps) {
     retry,
     getRun,
     listRuns,
+    listMine,
     toView, // exposto p/ testes
   };
 }

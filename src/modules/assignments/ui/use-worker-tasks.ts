@@ -12,6 +12,9 @@ export type RunRow = Omit<RunView, "startedAt" | "finishedAt" | "createdAt"> & {
   createdAt: string;
 };
 
+// Item do feed "Execuções recentes": um RunRow com o nome/runtime da tarefa.
+export type MineRunRow = RunRow & { taskName: string; taskRuntime: string };
+
 // Eventos do stream assistido (SSE). Espelha o RunEvent do handler + o "done"
 // final do serviço. O "error" pode vir como {message} (handler) ou string (rota).
 export type StreamEvent =
@@ -64,6 +67,13 @@ export async function fetchHistory(assignmentId: string): Promise<RunRow[]> {
   const res = await fetch(`/api/assignments/${assignmentId}/runs`);
   if (!res.ok) throw await httpError(res);
   return (await res.json()) as RunRow[];
+}
+
+// Feed agregado dos últimos Runs do trabalhador (todas as suas atribuições).
+export async function fetchMineRuns(limit = 6): Promise<MineRunRow[]> {
+  const res = await fetch(`/api/runs/mine?limit=${limit}`);
+  if (!res.ok) throw await httpError(res);
+  return (await res.json()) as MineRunRow[];
 }
 
 // Dispara manualmente uma automática (trigger=manual). Devolve o Run enfileirado.

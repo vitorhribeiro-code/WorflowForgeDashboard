@@ -27,6 +27,16 @@ export const assignmentRunsGET = withSession(async (session, _req, ctx) => {
   return json(runs);
 });
 
+// GET /api/runs/mine — feed agregado dos últimos Runs do trabalhador (todas as
+// suas atribuições), cada um com o nome da tarefa. `?limit=` opcional (1..20,
+// default 6); o serviço faz o clamp. Escopado por session.userId.
+export const myRunsGET = withSession(async (session, req) => {
+  const raw = Number(new URL(req.url).searchParams.get("limit"));
+  const limit = Number.isFinite(raw) && raw > 0 ? raw : 6;
+  const runs = await getRunsService().listMine(session, limit);
+  return json(runs);
+});
+
 // GET /api/runs/[id] — detalhe de um Run.
 export const runGET = withSession(async (session, _req, ctx) => {
   const runId = param(ctx, "id");

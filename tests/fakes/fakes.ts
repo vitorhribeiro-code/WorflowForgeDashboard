@@ -5,6 +5,7 @@ import type {
   CreateRunInput,
   RunRow,
   RunsRepository,
+  WorkerRunRow,
 } from "@/modules/runs/data/runs.repository";
 import type {
   ArtifactSink,
@@ -95,6 +96,16 @@ export class FakeRunsRepo implements RunsRepository {
   }
   async listByAssignment(assignmentId: string, limit: number) {
     return [...this.runs.values()].filter((r) => r.assignmentId === assignmentId).slice(0, limit);
+  }
+
+  // Feed do trabalhador. O isolamento por worker vive na query SQL real; aqui o
+  // fake só devolve o que foi semeado (`recent`) e regista o pedido, para os
+  // testes de serviço poderem afirmar o worker/limite encaminhados.
+  recent: WorkerRunRow[] = [];
+  lastRecentQuery: { workerId: string; limit: number } | null = null;
+  async listRecentByWorker(workerId: string, limit: number) {
+    this.lastRecentQuery = { workerId, limit };
+    return this.recent.slice(0, limit);
   }
 }
 

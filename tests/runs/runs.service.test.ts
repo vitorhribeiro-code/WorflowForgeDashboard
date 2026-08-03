@@ -8,6 +8,7 @@ import {
   TransientError,
 } from "@/modules/runs/service/exec-errors";
 import type { SessionContext } from "@/lib/session";
+import type { WorkerRunRow } from "@/modules/runs/data/runs.repository";
 import {
   ctx,
   FakeArtifacts,
@@ -346,5 +347,53 @@ describe("processRun + inputProvider (aquisição a montante)", () => {
     await service.processRun(run.id);
     const stored = await repo.getRun(run.id);
     expect((stored!.output as any).result.echo).toEqual({ x: 2 });
+  });
+});
+
+describe("listMine (feed do trabalhador)", () => {
+  function mkWorkerRun(over: Partial<WorkerRunRow> = {}): WorkerRunRow {
+    return {
+      id: "run-x",
+      assignmentId: "asg-1",
+      status: "success",
+      trigger: "schedule",
+      idempotencyKey: null,
+      input: null,
+      output: null,
+      error: null,
+      triggeredBy: null,
+      startedAt: null,
+      finishedAt: null,
+      createdAt: new Date("2026-08-03T09:00:00Z"),
+      taskName: "Resumo do meu email",
+      taskRuntime: "email.digest",
+      ...over,
+    };
+  }
+
+  it("encaminha o worker da sessão e o limite ao repositório", async () => {
+    const { repo, service } = setup();
+    repo.recent = [mkWorkerRun()];
+    await service.listMine(WORKER, 5);
+    expect(repo.lastRecentQuery).toEqual({ workerId: "w1", limit: 5 });
+  });
+
+  it("mapeia para a vista com o nome/runtime da tarefa e o outcome", async () => {
+    const { repo, service } = setup();
+    repo.recent = [mkWorkerRun({ id: "run-77" })];
+    const [item] = await service.listMine(WORKER, 6);
+    expect(item!.id).toBe("run-77");
+    expect(item!.taskName).toBe("Resumo do meu email");
+    expect(item!.taskRuntime).toBe("email.digest");
+    expect(item!.outcome).toBe("success"); // toView derivou o outcome
+  });
+
+  it("faz clamp do limite a [1, 20]", async () => {
+    const { repo, service } = setup();
+    repo.recent = [];
+    await service.listMine(WORKER, 999);
+    expect(repo.lastRecentQuery?.limit).toBe(20);
+    await service.listMine(WORKER, 0);
+    expect(repo.lastRecentQuery?.limit).toBe(1);
   });
 });
