@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { InputAcquisitionContext, InputProvider } from "@/modules/runs/service/ports";
 import type { LlmPort, LlmSummarizeItem } from "@/platform/ai/port";
 import type { LlmResolver } from "@/modules/ai/service/resolver";
@@ -47,6 +47,16 @@ const EMAILS = [
 ];
 
 describe("enriquecimento de emails por IA", () => {
+  // O provider loga em warn/info nos caminhos de fallback/sucesso; silencia-se
+  // para manter o output dos testes limpo (o comportamento não muda).
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "info").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("dá um resumo por email numa só chamada em batch e marca aiSummary.used", async () => {
     const adapter = fakeAdapter();
     const spy = vi.spyOn(adapter, "summarizeBatch");

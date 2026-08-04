@@ -82,6 +82,9 @@ export function createEmailEnrichmentProvider(deps: EmailEnrichmentDeps): InputP
         adapter = null;
       }
       if (!adapter) {
+        console.warn(
+          `[ai-enrichment] sem provider para "${capability}" (org ${ctx.orgId}) — fallback ao snippet/assunto.`,
+        );
         return { ...input, emails, aiSummary: { used: false, reason: "no-provider" } };
       }
 
@@ -99,6 +102,9 @@ export function createEmailEnrichmentProvider(deps: EmailEnrichmentDeps): InputP
           const ai = byId.get(String(i));
           return ai ? { ...e, resumo: ai } : e; // senão fica o fallback
         });
+        console.info(
+          `[ai-enrichment] ${byId.size}/${items.length} resumos via ${adapter.provider} · ${adapter.model} (org ${ctx.orgId}).`,
+        );
         return {
           ...input,
           emails: enriched,
@@ -109,8 +115,13 @@ export function createEmailEnrichmentProvider(deps: EmailEnrichmentDeps): InputP
             count: byId.size,
           },
         };
-      } catch {
-        // Falha do modelo → fallback (o run continua verde).
+      } catch (err) {
+        // Falha do modelo → fallback (o run continua verde). Loga a razão real
+        // (ex.: "Mistral respondeu 401." / id de modelo inválido) para diagnóstico.
+        const reason = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `[ai-enrichment] falha no modelo ${adapter.provider} · ${adapter.model} (org ${ctx.orgId}) — fallback: ${reason}`,
+        );
         return { ...input, emails, aiSummary: { used: false, reason: "error" } };
       }
     },
