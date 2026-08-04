@@ -37,6 +37,7 @@ interface EmailItem {
   subject: string;
   receivedAt?: string;
   snippet?: string;
+  resumo?: string;
 }
 
 function toEmailItem(v: unknown): EmailItem | null {
@@ -49,6 +50,7 @@ function toEmailItem(v: unknown): EmailItem | null {
     subject: asString(r.subject) ?? "(sem assunto)",
     receivedAt: asString(r.receivedAt),
     snippet: asString(r.snippet),
+    resumo: asString(r.resumo),
   };
 }
 
@@ -127,8 +129,11 @@ export function renderEmailDigestMarkdown(result: Record<string, unknown>): Deli
       const subjects = (asArray(r.subjects) ?? [])
         .map(asString)
         .filter((x): x is string => x !== undefined);
+      const resumos = (asArray(r.resumos) ?? [])
+        .map(asString)
+        .filter((x): x is string => x !== undefined);
       const lastReceivedAt = asString(r.lastReceivedAt);
-      return { sender, count, subjects, lastReceivedAt };
+      return { sender, count, subjects, resumos, lastReceivedAt };
     })
     .filter(
       (
@@ -137,6 +142,7 @@ export function renderEmailDigestMarkdown(result: Record<string, unknown>): Deli
         sender: string;
         count: number;
         subjects: string[];
+        resumos: string[];
         lastReceivedAt: string | undefined;
       } => x !== null,
     );
@@ -158,7 +164,11 @@ export function renderEmailDigestMarkdown(result: Record<string, unknown>): Deli
     const date = fmtDatePt(s.lastReceivedAt);
     const head = [`${name} — ${s.count}`, date].filter(Boolean).join(" · ");
     lines.push(`## ${head}`);
-    if (s.subjects.length === 0) {
+    if (s.resumos.length > 0) {
+      // Resumos por IA: um por linha (mais informativo que os assuntos).
+      for (const r of s.resumos) lines.push(`- ${r}`);
+      if (s.count > s.resumos.length) lines.push("- …");
+    } else if (s.subjects.length === 0) {
       lines.push("_sem assuntos_");
     } else {
       // "…" honesto: houve mais emails do que assuntos listados (cap por config).
@@ -166,6 +176,16 @@ export function renderEmailDigestMarkdown(result: Record<string, unknown>): Deli
       lines.push(s.subjects.join(" · ") + more);
     }
     lines.push("");
+  }
+
+  // Rodapé RGPD: quando os resumos vieram de IA, deixa rasto do provider/modelo
+  // (a escolha de provider — ex.: Mistral EU — é a alavanca de residência de dados).
+  const ai = asRecord(result.ai);
+  if (ai && ai.used === true) {
+    const provider = asString(ai.provider);
+    const model = asString(ai.model);
+    const label = [provider, model].filter(Boolean).join(" · ");
+    lines.push(label ? `_Resumos por IA — ${label}._` : "_Resumos por IA._");
   }
 
   if (generatedAt) lines.push(`_Gerado em ${generatedAt}._`);
@@ -203,12 +223,13 @@ export function createEmailDigestHandler(now: Now = defaultNow): RunHandler {
 
       const bySender = new Map<
         string,
-        { count: number; subjects: string[]; lastReceivedAt?: string }
+        { count: number; subjects: string[]; resumos: string[]; lastReceivedAt?: string }
       >();
       for (const it of items) {
-        const g = bySender.get(it.from) ?? { count: 0, subjects: [] };
+        const g = bySender.get(it.from) ?? { count: 0, subjects: [], resumos: [] };
         g.count += 1;
         if (g.subjects.length < maxSubjects) g.subjects.push(it.subject);
+        if (it.resumo && g.resumos.length < maxSubjects) g.resumos.push(it.resumo);
         // ISO em UTC compara lexicograficamente = cronologicamente → max simples.
         if (it.receivedAt && (!g.lastReceivedAt || it.receivedAt > g.lastReceivedAt)) {
           g.lastReceivedAt = it.receivedAt;
@@ -221,6 +242,9 @@ export function createEmailDigestHandler(now: Now = defaultNow): RunHandler {
           sender,
           count: g.count,
           subjects: g.subjects,
+          // Aditivo: só inclui `resumos` quando algum email trouxe resumo, para
+          // manter o output idêntico ao anterior quando não há IA a montante.
+          ...(g.resumos.length > 0 ? { resumos: g.resumos } : {}),
           lastReceivedAt: g.lastReceivedAt,
         }))
         .sort((a, b) => b.count - a.count || a.sender.localeCompare(b.sender));
@@ -230,10 +254,15 @@ export function createEmailDigestHandler(now: Now = defaultNow): RunHandler {
         data: { message: `${items.length} emails de ${senders.length} remetentes` },
       });
 
+      // Meta de IA (se o enriquecimento a montante correu) — carregado para o
+      // output para o renderer o mostrar e o processRun o auditar. Passthrough puro.
+      const ai = asRecord(ctx.input.aiSummary);
+
       return {
         period: asString(ctx.input.period) ?? null,
         total: items.length,
         senders,
+        ...(ai ? { ai } : {}),
         generatedAt: now().toISOString(),
       };
     },

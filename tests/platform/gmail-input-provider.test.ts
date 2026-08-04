@@ -13,7 +13,7 @@ describe("createGmailInputProvider.resolve", () => {
     const fetchEmails = vi.fn();
     const p = createGmailInputProvider({ tokens: tokenPort("tok"), fetchRecentEmails: fetchEmails, now: NOW });
     const base = { period: "2026-07", sections: [] };
-    expect(await p.resolve({ runtime: "report.monthly", workerId: "w1", config: null, base })).toBe(base);
+    expect(await p.resolve({ runtime: "report.monthly", orgId: "o1", workerId: "w1", config: null, base })).toBe(base);
     expect(fetchEmails).not.toHaveBeenCalled();
   });
 
@@ -21,7 +21,7 @@ describe("createGmailInputProvider.resolve", () => {
     const fetchEmails = vi.fn();
     const p = createGmailInputProvider({ tokens: tokenPort("tok"), fetchRecentEmails: fetchEmails, now: NOW });
     const base = { emails: [{ from: "a@x.pt" }] };
-    const out = await p.resolve({ runtime: "email.digest", workerId: "w1", config: null, base });
+    const out = await p.resolve({ runtime: "email.digest", orgId: "o1", workerId: "w1", config: null, base });
     expect(out.emails).toBe(base.emails);
     expect(out.period).toBe("2026-07");
     expect(fetchEmails).not.toHaveBeenCalled();
@@ -31,7 +31,7 @@ describe("createGmailInputProvider.resolve", () => {
     const emails = [{ from: "cliente@x.pt", subject: "Fatura" }];
     const fetchEmails = vi.fn(async () => emails);
     const p = createGmailInputProvider({ tokens: tokenPort("tok"), fetchRecentEmails: fetchEmails, now: NOW });
-    const out = await p.resolve({ runtime: "email.digest", workerId: "w1", config: { lookbackDays: 3 }, base: {} });
+    const out = await p.resolve({ runtime: "email.digest", orgId: "o1", workerId: "w1", config: { lookbackDays: 3 }, base: {} });
     expect(out.emails).toBe(emails);
     expect(out.period).toBe("2026-07");
     expect(fetchEmails).toHaveBeenCalledWith("tok", { lookbackDays: 3 });
@@ -40,7 +40,7 @@ describe("createGmailInputProvider.resolve", () => {
   it("lança (permanente) quando o worker não tem conexão Google", async () => {
     const p = createGmailInputProvider({ tokens: tokenPort(null), fetchRecentEmails: vi.fn(), now: NOW });
     await expect(
-      p.resolve({ runtime: "email.digest", workerId: "w1", config: null, base: {} }),
+      p.resolve({ runtime: "email.digest", orgId: "o1", workerId: "w1", config: null, base: {} }),
     ).rejects.toThrow(/Google/);
   });
 });

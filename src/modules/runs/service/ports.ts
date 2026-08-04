@@ -27,6 +27,7 @@ export interface ReadinessChecker {
  */
 export interface InputAcquisitionContext {
   runtime: string;
+  orgId: string;
   workerId: string;
   config: Record<string, unknown> | null;
   base: Record<string, unknown>;

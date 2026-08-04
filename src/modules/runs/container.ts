@@ -17,6 +17,8 @@ import { getArtifactContainer } from "@/modules/artifacts/container";
 import { getWorkerTokenPort } from "@/modules/connections";
 import { createGmailAcquisition } from "@/platform/acquisition/gmail";
 import { createGmailInputProvider } from "@/platform/acquisition/gmail-input-provider";
+import { createEmailEnrichmentProvider } from "@/platform/ai/email-enrichment";
+import { getLlmResolver } from "@/modules/ai/container";
 
 // Registo de handlers por runtime (email.digest, report.monthly, assistant.generic).
 const HANDLERS: RunHandler[] = [...builtinHandlers];
@@ -62,9 +64,16 @@ export function getRunsService(): RunsService {
   let inputProvider: InputProvider | undefined;
   if (env.ENCRYPTION_KEY) {
     const gmail = createGmailAcquisition();
-    inputProvider = createGmailInputProvider({
+    const gmailProvider = createGmailInputProvider({
       tokens: getWorkerTokenPort(),
       fetchRecentEmails: (token, opts) => gmail.fetchRecentEmails(token, opts),
+    });
+    // Enriquecimento por IA a montante (§5.2 fase 3): dá a cada email um `resumo`
+    // via o resolver da org, com fallback ao snippet/assunto. Usa o mesmo
+    // ENCRYPTION_KEY (já exigido acima) para decifrar as chaves de LLM.
+    inputProvider = createEmailEnrichmentProvider({
+      resolver: getLlmResolver(),
+      inner: gmailProvider,
     });
   }
 

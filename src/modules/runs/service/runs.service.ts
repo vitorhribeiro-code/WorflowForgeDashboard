@@ -204,11 +204,28 @@ export function createRunsService(deps: RunsServiceDeps) {
       const input = deps.inputProvider
         ? await deps.inputProvider.resolve({
             runtime: task.runtime,
+            orgId: task.orgId,
             workerId: assignment.workerId,
             config: assignment.config,
             base: row.input ?? {},
           })
         : row.input ?? {};
+
+      // Auditoria do enriquecimento por IA (§5.2 fase 3). Rasto do provider/
+      // modelo usados — a escolha é a alavanca de residência de dados (RGPD).
+      const aiMeta =
+        input.aiSummary && typeof input.aiSummary === "object"
+          ? (input.aiSummary as Record<string, unknown>)
+          : null;
+      if (aiMeta) {
+        await audit.record({
+          actorId: null,
+          action: aiMeta.used === true ? "ai.email_enriched" : "ai.email_enrich_skipped",
+          entity: "run",
+          entityId: runId,
+          metadata: aiMeta,
+        });
+      }
       const result = await handler.execute({
         input,
         config: assignment.config,
