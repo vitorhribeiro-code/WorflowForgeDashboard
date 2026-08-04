@@ -29,6 +29,29 @@ export type UpsertBindingInput = {
   model: string | null;
 };
 
+/* -------------------------------------------------------------------------- */
+/*  Porto de RESOLUÇÃO (system-context, Fase 2).                               */
+/*  Devolve o ciphertext da chave e o alvo do binding — SÓ para o resolver     */
+/*  (processo server), que decifra e constrói o adapter. NUNCA é exposto pela  */
+/*  admin service nem por HTTP: a chave continua write-only na fronteira.      */
+/* -------------------------------------------------------------------------- */
+
+export type ProviderSecret = {
+  apiKeyEncrypted: string | null;
+  defaultModel: string | null;
+  enabled: boolean;
+};
+
+export type BindingTarget = {
+  provider: string;
+  model: string | null;
+};
+
+export interface AiResolverPort {
+  getBindingByCapability(orgId: string, capability: string): Promise<BindingTarget | null>;
+  getProviderSecret(orgId: string, provider: string): Promise<ProviderSecret | null>;
+}
+
 export interface AiRegistryRepository {
   listProviders(orgId: string): Promise<AiProviderView[]>;
   getProviderByName(orgId: string, provider: string): Promise<AiProviderView | null>;
@@ -167,6 +190,44 @@ export function createDrizzleAiRegistryRepository(db: Db): AiRegistryRepository 
         .where(and(eq(aiBindings.id, id), eq(aiBindings.organizationId, orgId)))
         .returning({ id: aiBindings.id });
       return rows.length > 0;
+    },
+  };
+}
+
+// Porto de resolução (system-context). Lê o ciphertext e o alvo do binding;
+// só o resolver (server) o usa. Escopado por orgId como o resto.
+export function createDrizzleAiResolverPort(db: Db): AiResolverPort {
+  return {
+    async getBindingByCapability(orgId, capability) {
+      const [row] = await db
+        .select({ provider: aiBindings.provider, model: aiBindings.model })
+        .from(aiBindings)
+        .where(
+          and(
+            eq(aiBindings.organizationId, orgId),
+            eq(aiBindings.capability, capability),
+          ),
+        )
+        .limit(1);
+      return row ?? null;
+    },
+
+    async getProviderSecret(orgId, provider) {
+      const [row] = await db
+        .select({
+          apiKeyEncrypted: aiProviders.apiKeyEncrypted,
+          defaultModel: aiProviders.defaultModel,
+          enabled: aiProviders.enabled,
+        })
+        .from(aiProviders)
+        .where(
+          and(
+            eq(aiProviders.organizationId, orgId),
+            eq(aiProviders.provider, provider),
+          ),
+        )
+        .limit(1);
+      return row ?? null;
     },
   };
 }

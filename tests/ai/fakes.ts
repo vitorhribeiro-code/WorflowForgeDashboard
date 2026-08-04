@@ -1,6 +1,9 @@
 import type {
   AiRegistryRepository,
+  AiResolverPort,
+  BindingTarget,
   CreateProviderInput,
+  ProviderSecret,
   UpdateProviderInput,
   UpsertBindingInput,
 } from "@/modules/ai/data/ai-registry.repository";
@@ -27,7 +30,7 @@ type BindingRec = {
 
 // Fake fiel às invariantes da BD: único (org, provider) no create e upsert por
 // (org, capability) nos bindings. Escopado por orgId como o repo Drizzle real.
-export class FakeAiRegistryRepo implements AiRegistryRepository {
+export class FakeAiRegistryRepo implements AiRegistryRepository, AiResolverPort {
   providers: ProviderRec[] = [];
   bindings: BindingRec[] = [];
   private seq = 0;
@@ -134,5 +137,19 @@ export class FakeAiRegistryRepo implements AiRegistryRepository {
     const before = this.bindings.length;
     this.bindings = this.bindings.filter((b) => !(b.id === id && b.orgId === orgId));
     return this.bindings.length < before;
+  }
+
+  /* --- AiResolverPort (system-context) --- */
+
+  async getBindingByCapability(orgId: string, capability: string): Promise<BindingTarget | null> {
+    const b = this.bindings.find((x) => x.orgId === orgId && x.capability === capability);
+    return b ? { provider: b.provider, model: b.model } : null;
+  }
+
+  async getProviderSecret(orgId: string, provider: string): Promise<ProviderSecret | null> {
+    const p = this.providers.find((x) => x.orgId === orgId && x.provider === provider);
+    return p
+      ? { apiKeyEncrypted: p.apiKeyEncrypted, defaultModel: p.defaultModel, enabled: p.enabled }
+      : null;
   }
 }
