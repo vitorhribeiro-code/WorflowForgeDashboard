@@ -9,6 +9,7 @@ const TABS: { href: string; label: string }[] = [
   { href: "/console/ferramentas", label: "Ferramentas" },
   { href: "/console/tarefas", label: "Catálogo" },
   { href: "/console/atribuicoes", label: "Atribuições" },
+  { href: "/console/ia", label: "IA / Modelos" },
 ];
 
 export function ConsoleNav() {
