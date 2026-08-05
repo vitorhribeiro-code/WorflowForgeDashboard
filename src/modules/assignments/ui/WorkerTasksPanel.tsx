@@ -22,6 +22,7 @@ import {
   retryRun,
   runNow,
   saveOrder,
+  saveSummary,
   useWorkerTasks,
   type LastSummary,
   type RunRow,
@@ -434,6 +435,8 @@ function LastSummaryModal({
   const [summary, setSummary] = useState<LastSummary | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<{ text: string; url: string } | null>(null);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -444,6 +447,23 @@ function LastSummaryModal({
       setError((e as Error).message);
     } finally {
       setBusy(false);
+    }
+  }, [assignmentId]);
+
+  const onSave = useCallback(async () => {
+    setSaving(true);
+    setError(null);
+    setSaveMsg(null);
+    try {
+      const r = await saveSummary(assignmentId);
+      setSaveMsg({
+        text: r.appended ? `Gravado em ${r.file}.` : `Já estava gravado em ${r.file}.`,
+        url: r.url,
+      });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
     }
   }, [assignmentId]);
 
@@ -474,6 +494,17 @@ function LastSummaryModal({
         <div className="wt-modal-head">
           <span className="wt-modal-title">Último resumo</span>
           <div className="wt-modal-head-actions">
+            {summary ? (
+              <button
+                type="button"
+                className="task-link"
+                disabled={saving}
+                onClick={() => void onSave()}
+                title="Acrescentar este resumo ao ficheiro da semana (Google Drive)"
+              >
+                {saving ? "A gravar…" : "Gravar no semanal"}
+              </button>
+            ) : null}
             <button type="button" className="task-link" disabled={busy} onClick={() => void load()}>
               Atualizar
             </button>
@@ -485,6 +516,14 @@ function LastSummaryModal({
 
         <div className="wt-modal-body">
           {error && <p className="task-error">{error}</p>}
+          {saveMsg && (
+            <p className="task-ok">
+              {saveMsg.text}{" "}
+              <a href={saveMsg.url} target="_blank" rel="noreferrer" className="task-link">
+                Abrir no Drive
+              </a>
+            </p>
+          )}
           {summary === undefined ? (
             <p className="task-hint">{busy ? "A carregar…" : "—"}</p>
           ) : summary === null ? (

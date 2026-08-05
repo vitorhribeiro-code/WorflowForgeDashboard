@@ -38,6 +38,15 @@ export interface PersistInput {
 export interface ArtifactService {
   /** Chamado pelo motor (M7) via ArtifactSink. Contexto de sistema, sem sessão. */
   persist(input: PersistInput): Promise<Artifact>;
+  /**
+   * Acrescenta um bloco a um ficheiro vivo da cloud do trabalhador (ex.: os
+   * resumos da semana), por workerId — fora do pipeline de run e sem criar
+   * linha de artefacto. Idempotente por marker.
+   */
+  appendWorkerDocument(
+    workerId: string,
+    args: { filename: string; idempotencyKey: string; marker: string; header: string; block: string },
+  ): Promise<{ storageRef: string; appended: boolean }>;
   /** Lista artefactos de um run (Detalhe de Run). Aplica controlo de acesso. */
   listByRun(session: SessionContext, runId: string): Promise<ArtifactView[]>;
   /** Resolve um link de download. Efémero expirado -> ARTIFACT_EXPIRED. */
@@ -94,6 +103,13 @@ export function createArtifactService(deps: ArtifactServiceDeps): ArtifactServic
       });
 
       return artifact;
+    },
+
+    async appendWorkerDocument(workerId, args) {
+      // Escrita direta na cloud do trabalhador (append a um ficheiro vivo). Não
+      // cria linha de artefacto: o ficheiro semanal é um documento contínuo, não
+      // um entregável por-run. Pode lançar CLOUD_* (sem cloud/scope/token).
+      return cloud.appendDocument(workerId, args);
     },
 
     async listByRun(session, runId) {

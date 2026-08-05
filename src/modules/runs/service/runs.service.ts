@@ -67,6 +67,70 @@ export interface WorkerRunFeedItem extends RunView {
   taskRuntime: string;
 }
 
+/* --- Gravar resumo no ficheiro da semana (§5.2, Fatia B) ------------------ */
+
+// Semana ISO-8601 (segunda→domingo; a semana 1 contém a 1.ª quinta-feira).
+function isoWeek(date: Date): { year: number; week: number } {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayNum = (d.getUTCDay() + 6) % 7; // segunda=0 … domingo=6
+  d.setUTCDate(d.getUTCDate() - dayNum + 3); // quinta-feira desta semana
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const week =
+    1 +
+    Math.round(
+      ((d.getTime() - firstThursday.getTime()) / 86400000 -
+        3 +
+        ((firstThursday.getUTCDay() + 6) % 7)) /
+        7,
+    );
+  return { year: d.getUTCFullYear(), week };
+}
+
+// "Nome <email>" → "Nome"; senão o próprio valor.
+function senderName(from: string): string {
+  const m = from.match(/^\s*"?([^"<]+?)"?\s*<[^>]+>\s*$/);
+  return (m && m[1] ? m[1] : from).trim();
+}
+
+// Constrói o bloco a acrescentar ao ficheiro da semana a partir do resultado do
+// último resumo. A semana e o marcador de idempotência vêm do `generatedAt` do
+// resumo — assim gravar o MESMO resumo 2x não duplica.
+function buildWeeklySummaryBlock(result: Record<string, unknown>, fallbackAt: Date) {
+  const gen = typeof result.generatedAt === "string" ? result.generatedAt : fallbackAt.toISOString();
+  const genDate = new Date(gen);
+  const { year, week } = isoWeek(Number.isNaN(genDate.getTime()) ? fallbackAt : genDate);
+  const weekLabel = `${year}-W${String(week).padStart(2, "0")}`;
+  const filename = `resumos-semana-${weekLabel}.md`;
+  const header = `# Resumos de emails — semana ${weekLabel}`;
+
+  const when = (Number.isNaN(genDate.getTime()) ? fallbackAt : genDate).toLocaleString("pt-PT", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const period = typeof result.period === "string" ? result.period : null;
+  const emails = Array.isArray(result.emails) ? (result.emails as Array<Record<string, unknown>>) : [];
+
+  const lines = emails.map((e) => {
+    const name = senderName(String(e.from ?? ""));
+    const resumo =
+      typeof e.resumo === "string" && e.resumo
+        ? e.resumo
+        : typeof e.subject === "string"
+          ? e.subject
+          : "";
+    return `- ${name} — ${resumo}`;
+  });
+
+  // Marcador invisível (comentário HTML) para idempotência por resumo.
+  const marker = `<!-- wff:${gen} -->`;
+  const head = period ? `## ${when} · ${period}` : `## ${when}`;
+  const block = [head, marker, ...(lines.length ? lines : ["- (sem emails)"])].join("\n");
+
+  return { filename, header, block, marker, week: weekLabel, count: emails.length };
+}
+
 export function createRunsService(deps: RunsServiceDeps) {
   const { repo, queue, readiness, handlers, artifacts, audit } = deps;
   const maxAttempts = deps.maxAttempts ?? 3;
@@ -496,6 +560,54 @@ export function createRunsService(deps: RunsServiceDeps) {
   }
 
   /**
+   * Grava o último resumo no ficheiro da SEMANA na cloud do trabalhador
+   * (append idempotente). Ação do utilizador (não do motor). Devolve o link do
+   * ficheiro e se acrescentou (false = esse resumo já lá estava).
+   */
+  async function saveSummaryToWeekly(
+    session: SessionContext,
+    assignmentId: string,
+  ): Promise<{ appended: boolean; url: string; file: string }> {
+    const { assignment, task } = await loadContext(assignmentId);
+    assertCanActOnRun(session, assignment.workerId);
+
+    const rows = await repo.listByAssignment(assignmentId, 20);
+    const last = rows.find(
+      (r) => r.status === "success" && (r.output as { result?: unknown } | null)?.result,
+    );
+    const result = last ? (last.output as { result?: Record<string, unknown> }).result ?? null : null;
+    if (!result) throw conflict("Ainda não há resumo para gravar.", { assignmentId });
+
+    const built = buildWeeklySummaryBlock(result, now());
+    const res = await artifacts.appendWeekly({
+      workerId: assignment.workerId,
+      filename: built.filename,
+      idempotencyKey: `weekly-summary:${task.orgId}:${assignment.workerId}:${built.week}`,
+      marker: built.marker,
+      header: built.header,
+      block: built.block,
+    });
+
+    try {
+      await audit.record({
+        actorId: session.userId,
+        action: "ai.summary_saved",
+        entity: "assignment",
+        entityId: assignmentId,
+        metadata: { file: built.filename, week: built.week, appended: res.appended, emails: built.count },
+      });
+    } catch (err) {
+      console.error("[audit] falha ao registar ai.summary_saved", err);
+    }
+
+    return {
+      appended: res.appended,
+      url: `https://drive.google.com/file/d/${res.storageRef}/view`,
+      file: built.filename,
+    };
+  }
+
+  /**
    * Feed "Execuções recentes" do trabalhador autenticado: os últimos Runs de
    * TODAS as suas atribuições, cada um com o nome/runtime da tarefa. Escopa
    * SEMPRE por session.userId (é "as minhas" — mesmo um super-utilizador vê as
@@ -523,6 +635,7 @@ export function createRunsService(deps: RunsServiceDeps) {
     getRun,
     listRuns,
     getLastSummary,
+    saveSummaryToWeekly,
     listMine,
     toView, // exposto p/ testes
   };

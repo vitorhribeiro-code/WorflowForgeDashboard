@@ -40,6 +40,21 @@ export interface DownloadTarget {
 export interface CloudStoragePort {
   write(workerId: string, content: ArtifactContent): Promise<StoredBlob>;
   getDownload(workerId: string, storageRef: string): Promise<DownloadTarget>;
+  /**
+   * Acrescenta um bloco a um ficheiro vivo do trabalhador (ex.: resumos da
+   * semana), upsert por idempotencyKey e idempotente por marker. Devolve a
+   * referência do ficheiro e se acrescentou (false = já lá estava).
+   */
+  appendDocument(
+    workerId: string,
+    args: {
+      filename: string;
+      idempotencyKey: string;
+      marker: string;
+      header: string;
+      block: string;
+    },
+  ): Promise<{ storageRef: string; appended: boolean }>;
   // Sem delete: a retenção da cloud segue a política da cloud do trabalhador,
   // o cleanup do M8 nunca lhe toca.
 }

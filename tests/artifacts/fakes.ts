@@ -55,6 +55,14 @@ export function fakeRepo(seed: Artifact[] = []) {
 
 export function fakeCloud(opts: { missing?: boolean } = {}) {
   const uploads: Array<{ workerId: string; content: ArtifactContent }> = [];
+  const appends: Array<{
+    workerId: string;
+    filename: string;
+    idempotencyKey: string;
+    marker: string;
+    header: string;
+    block: string;
+  }> = [];
   const cloud: CloudStoragePort = {
     async write(workerId, content): Promise<StoredBlob> {
       if (opts.missing) {
@@ -66,8 +74,15 @@ export function fakeCloud(opts: { missing?: boolean } = {}) {
     async getDownload(_workerId, storageRef): Promise<DownloadTarget> {
       return { url: `https://cloud.example/${storageRef}` };
     },
+    async appendDocument(workerId, args) {
+      if (opts.missing) {
+        throw new DomainError("CLOUD_CONNECTION_MISSING", "sem cloud");
+      }
+      appends.push({ workerId, ...args });
+      return { storageRef: "cloud:weekly", appended: true };
+    },
   };
-  return { cloud, uploads };
+  return { cloud, uploads, appends };
 }
 
 export function fakeEphemeral() {

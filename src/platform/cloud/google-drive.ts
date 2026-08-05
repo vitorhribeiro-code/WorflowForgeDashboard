@@ -184,6 +184,19 @@ export function createGoogleDriveSdk(opts: GoogleDriveSdkOptions = {}): CloudSdk
     return id;
   }
 
+  /** Lê o conteúdo de texto de um ficheiro (files.get?alt=media). */
+  async function readText(accessToken: string, fileId: string): Promise<string> {
+    const url = `${DRIVE_API}/${fileId}?alt=media`;
+    let res: Response;
+    try {
+      res = await httpFetch(url, { headers: { authorization: `Bearer ${accessToken}` } });
+    } catch {
+      throw transient("Google Drive inacessível.");
+    }
+    if (!res.ok) throw withStatus(`Google Drive respondeu ${res.status}.`, res.status);
+    return await res.text();
+  }
+
   return {
     async upload({ accessToken, rootFolderRef, filename, mimeType, bytes, idempotencyKey }) {
       // UPSERT: se já existe um ficheiro com esta chave, reescreve-o (media +
@@ -214,6 +227,36 @@ export function createGoogleDriveSdk(opts: GoogleDriveSdkOptions = {}): CloudSdk
       // Drive do PRÓPRIO trabalhador, o link de visualização abre para o dono
       // (autenticado na Google). Sem expiração — segue a política da cloud.
       return { url: `https://drive.google.com/file/d/${fileId}/view` };
+    },
+
+    // ACRESCENTAR a um ficheiro vivo (ex.: resumos da semana): lê o conteúdo
+    // atual e reescreve com o bloco no fim. Idempotente por `marker` — se o
+    // conteúdo já o contém (mesmo resumo gravado 2x), não duplica.
+    async appendText({ accessToken, rootFolderRef, filename, idempotencyKey, marker, header, block }) {
+      const existing = await findByKey(accessToken, idempotencyKey);
+      if (existing) {
+        const current = await readText(accessToken, existing);
+        if (marker && current.includes(marker)) {
+          return { fileId: existing, appended: false };
+        }
+        const merged = `${current.replace(/\s+$/, "")}\n\n${block}\n`;
+        const fileId = await putMedia(accessToken, {
+          fileId: existing,
+          metadata: { name: filename, appProperties: { wffKey: idempotencyKey } },
+          mimeType: "text/markdown",
+          bytes: new TextEncoder().encode(merged),
+        });
+        return { fileId, appended: true };
+      }
+
+      const parentId = rootFolderRef ?? (await ensureAppFolder(accessToken));
+      const content = `${header}\n\n${block}\n`;
+      const fileId = await putMedia(accessToken, {
+        metadata: { name: filename, parents: [parentId], appProperties: { wffKey: idempotencyKey } },
+        mimeType: "text/markdown",
+        bytes: new TextEncoder().encode(content),
+      });
+      return { fileId, appended: true };
     },
   };
 }

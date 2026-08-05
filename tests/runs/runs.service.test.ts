@@ -447,3 +447,87 @@ describe("getLastSummary", () => {
     });
   });
 });
+
+describe("saveSummaryToWeekly", () => {
+  async function seedSummary(repo: FakeRunsRepo) {
+    const run = await repo.createRun({
+      assignmentId: "asg-1",
+      trigger: "manual",
+      idempotencyKey: null,
+      input: {},
+      output: { _engine: { attempt: 1 } },
+      triggeredBy: "w1",
+    });
+    await repo.markSuccess(
+      run.id,
+      {
+        _engine: { attempt: 1 },
+        result: {
+          period: "2026-08",
+          generatedAt: "2026-08-05T20:00:00.000Z",
+          total: 2,
+          emails: [
+            { from: "Ana <ana@x.pt>", subject: "Fatura", resumo: "Fatura por pagar" },
+            { from: "b@x.pt", subject: "Oi", resumo: "Pergunta rápida" },
+          ],
+        },
+      },
+      now(),
+    );
+    return run;
+  }
+
+  it("grava no ficheiro da semana (append) e audita", async () => {
+    const { repo, artifacts, audit, service } = setup();
+    repo.seedContext(ctx());
+    await seedSummary(repo);
+
+    const out = await service.saveSummaryToWeekly(WORKER, "asg-1");
+    expect(out.appended).toBe(true);
+    expect(out.file).toMatch(/^resumos-semana-2026-W\d{2}\.md$/);
+    expect(out.url).toContain("cloud:weekly");
+
+    const ap = artifacts.weeklyAppends[0]!;
+    expect(ap.workerId).toBe("w1");
+    expect(ap.filename).toBe(out.file);
+    expect(ap.block).toContain("- Ana — Fatura por pagar");
+    expect(ap.block).toContain("- b@x.pt — Pergunta rápida");
+    expect(ap.marker).toContain("2026-08-05T20:00:00.000Z");
+    expect(audit.actions()).toContain("ai.summary_saved");
+  });
+
+  it("é idempotente: gravar o mesmo resumo 2x não duplica", async () => {
+    const { repo, service } = setup();
+    repo.seedContext(ctx());
+    await seedSummary(repo);
+    const a = await service.saveSummaryToWeekly(WORKER, "asg-1");
+    const b = await service.saveSummaryToWeekly(WORKER, "asg-1");
+    expect(a.appended).toBe(true);
+    expect(b.appended).toBe(false); // mesmo marker (generatedAt)
+  });
+
+  it("sem resumo → conflito", async () => {
+    const { repo, service } = setup();
+    repo.seedContext(ctx());
+    await repo.createRun({
+      assignmentId: "asg-1",
+      trigger: "manual",
+      idempotencyKey: null,
+      input: {},
+      output: { _engine: { attempt: 1 } },
+      triggeredBy: "w1",
+    });
+    await expect(service.saveSummaryToWeekly(WORKER, "asg-1")).rejects.toMatchObject({
+      code: "conflict",
+    });
+  });
+
+  it("recusa um trabalhador que não é o dono", async () => {
+    const { repo, service } = setup();
+    repo.seedContext(ctx());
+    await seedSummary(repo);
+    await expect(service.saveSummaryToWeekly(OTHER, "asg-1")).rejects.toMatchObject({
+      code: "forbidden",
+    });
+  });
+});

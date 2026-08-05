@@ -94,6 +94,14 @@ export async function fetchLastSummary(assignmentId: string): Promise<LastSummar
   return body.result;
 }
 
+// Grava o último resumo no ficheiro da semana (Drive). appended=false → já lá estava.
+export type SaveSummaryResult = { appended: boolean; url: string; file: string };
+export async function saveSummary(assignmentId: string): Promise<SaveSummaryResult> {
+  const res = await fetch(`/api/assignments/${assignmentId}/save-summary`, { method: "POST" });
+  if (!res.ok) throw await httpError(res);
+  return (await res.json()) as SaveSummaryResult;
+}
+
 // Feed agregado dos últimos Runs do trabalhador (todas as suas atribuições).
 export async function fetchMineRuns(limit = 6): Promise<MineRunRow[]> {
   const res = await fetch(`/api/runs/mine?limit=${limit}`);

@@ -54,6 +54,11 @@ export function getRunsService(): RunsService {
       });
       return { id: a.id, storageRef: a.storageRef };
     },
+    // Append a um ficheiro vivo do trabalhador (ex.: resumos da semana).
+    async appendWeekly(input) {
+      const { workerId, ...rest } = input;
+      return getArtifactContainer().service.appendWorkerDocument(workerId, rest);
+    },
   };
 
   const boss = new PgBoss({ connectionString: env.DATABASE_URL });

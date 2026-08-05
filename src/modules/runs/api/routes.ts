@@ -35,6 +35,14 @@ export const assignmentLastSummaryGET = withSession(async (session, _req, ctx) =
   return json({ result });
 });
 
+// POST /api/assignments/[assignmentId]/save-summary — grava o último resumo no
+// ficheiro da semana na cloud do trabalhador (append idempotente).
+export const assignmentSaveSummaryPOST = withSession(async (session, _req, ctx) => {
+  const assignmentId = param(ctx, "assignmentId");
+  const out = await getRunsService().saveSummaryToWeekly(session, assignmentId);
+  return json(out);
+});
+
 // GET /api/runs/mine — feed agregado dos últimos Runs do trabalhador (todas as
 // suas atribuições), cada um com o nome da tarefa. `?limit=` opcional (1..20,
 // default 6); o serviço faz o clamp. Escopado por session.userId.

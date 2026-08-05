@@ -148,6 +148,30 @@ export class FakeArtifacts implements ArtifactSink {
     this.docs.push(x);
     return { id: `doc:${this.docs.length}`, storageRef: `cloud:${this.docs.length}` };
   }
+
+  weeklyAppends: Array<{
+    workerId: string;
+    filename: string;
+    idempotencyKey: string;
+    marker: string;
+    header: string;
+    block: string;
+  }> = [];
+  // Simula idempotência por marker: 2.ª gravação do mesmo marker → appended:false.
+  private seenMarkers = new Set<string>();
+  async appendWeekly(x: {
+    workerId: string;
+    filename: string;
+    idempotencyKey: string;
+    marker: string;
+    header: string;
+    block: string;
+  }) {
+    this.weeklyAppends.push(x);
+    const appended = !this.seenMarkers.has(x.marker);
+    this.seenMarkers.add(x.marker);
+    return { storageRef: "cloud:weekly", appended };
+  }
 }
 
 export class FakeAudit implements AuditPort {

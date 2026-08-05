@@ -41,6 +41,20 @@ export interface CloudSdk {
     idempotencyKey?: string;
   }): Promise<{ fileId: string }>;
   signedUrl(accessToken: string, fileId: string): Promise<DownloadTarget>;
+  /**
+   * Acrescenta um bloco a um ficheiro vivo (upsert por idempotencyKey). Lê o
+   * conteúdo atual e reescreve com o bloco no fim. Idempotente por `marker`.
+   * `header` só é usado quando o ficheiro ainda não existe (título/H1).
+   */
+  appendText(args: {
+    accessToken: string;
+    rootFolderRef: string | null;
+    filename: string;
+    idempotencyKey: string;
+    marker: string;
+    header: string;
+    block: string;
+  }): Promise<{ fileId: string; appended: boolean }>;
 }
 
 export function createCloudStorageAdapter(
@@ -93,6 +107,20 @@ export function createCloudStorageAdapter(
     async getDownload(workerId: string, storageRef: string): Promise<DownloadTarget> {
       const { sdk, accessToken } = await resolve(workerId);
       return sdk.signedUrl(accessToken, storageRef);
+    },
+
+    async appendDocument(workerId, args) {
+      const { conn, sdk, accessToken } = await resolve(workerId);
+      const { fileId, appended } = await sdk.appendText({
+        accessToken,
+        rootFolderRef: conn.rootFolderRef,
+        filename: args.filename,
+        idempotencyKey: args.idempotencyKey,
+        marker: args.marker,
+        header: args.header,
+        block: args.block,
+      });
+      return { storageRef: fileId, appended };
     },
   };
 }

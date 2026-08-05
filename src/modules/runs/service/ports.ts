@@ -56,4 +56,17 @@ export interface ArtifactSink {
     bytes: Uint8Array;
     idempotencyKey?: string;
   }): Promise<{ id: string; storageRef: string }>;
+  /**
+   * Acrescenta um bloco a um ficheiro vivo do trabalhador (ex.: resumos da
+   * semana), por workerId (ação do utilizador, não do motor). Idempotente por
+   * marker. Devolve a referência e se acrescentou (false = já lá estava).
+   */
+  appendWeekly(input: {
+    workerId: string;
+    filename: string;
+    idempotencyKey: string;
+    marker: string;
+    header: string;
+    block: string;
+  }): Promise<{ storageRef: string; appended: boolean }>;
 }
