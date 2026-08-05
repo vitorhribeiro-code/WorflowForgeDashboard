@@ -35,6 +35,13 @@ describe("email.digest com resumos", () => {
     // Remetente sem resumos não ganha o campo (aditivo).
     expect(b.resumos).toBeUndefined();
     expect(out.ai).toMatchObject({ used: true, provider: "mistral" });
+
+    // Lista por email (para a vista tipo caixa de entrada): um item por email,
+    // na ordem original, com resumo (ou fallback ao snippet/assunto).
+    const emails = out.emails as Array<Record<string, unknown>>;
+    expect(emails).toHaveLength(3);
+    expect(emails[0]).toMatchObject({ from: "a@x.pt", subject: "Fatura", resumo: "Fatura de agosto por pagar" });
+    expect(emails[2]!.from).toBe("b@x.pt");
   });
 
   it("sem resumos, o output não tem resumos nem ai (idêntico ao anterior)", async () => {

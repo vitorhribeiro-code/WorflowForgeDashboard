@@ -27,6 +27,14 @@ export const assignmentRunsGET = withSession(async (session, _req, ctx) => {
   return json(runs);
 });
 
+// GET /api/assignments/[assignmentId]/last-summary — resultado estruturado do
+// último Run bem-sucedido da atribuição (para a vista «Ver último resumo»).
+export const assignmentLastSummaryGET = withSession(async (session, _req, ctx) => {
+  const assignmentId = param(ctx, "assignmentId");
+  const result = await getRunsService().getLastSummary(session, assignmentId);
+  return json({ result });
+});
+
 // GET /api/runs/mine — feed agregado dos últimos Runs do trabalhador (todas as
 // suas atribuições), cada um com o nome da tarefa. `?limit=` opcional (1..20,
 // default 6); o serviço faz o clamp. Escopado por session.userId.

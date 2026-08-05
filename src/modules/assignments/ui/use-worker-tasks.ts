@@ -69,6 +69,31 @@ export async function fetchHistory(assignmentId: string): Promise<RunRow[]> {
   return (await res.json()) as RunRow[];
 }
 
+// Um email já resumido, para a vista tipo caixa de entrada.
+export type SummaryEmail = {
+  from: string;
+  subject: string;
+  receivedAt: string | null;
+  resumo: string | null;
+};
+
+// Resultado estruturado do último resumo (o `output.result` do email.digest).
+export type LastSummary = {
+  period: string | null;
+  total: number;
+  emails: SummaryEmail[];
+  ai?: { used?: boolean; provider?: string; model?: string } | null;
+  generatedAt?: string;
+};
+
+// Último resumo produzido para a atribuição (por agendamento ou manual), ou null.
+export async function fetchLastSummary(assignmentId: string): Promise<LastSummary | null> {
+  const res = await fetch(`/api/assignments/${assignmentId}/last-summary`);
+  if (!res.ok) throw await httpError(res);
+  const body = (await res.json()) as { result: LastSummary | null };
+  return body.result;
+}
+
 // Feed agregado dos últimos Runs do trabalhador (todas as suas atribuições).
 export async function fetchMineRuns(limit = 6): Promise<MineRunRow[]> {
   const res = await fetch(`/api/runs/mine?limit=${limit}`);

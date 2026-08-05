@@ -397,3 +397,53 @@ describe("listMine (feed do trabalhador)", () => {
     expect(repo.lastRecentQuery?.limit).toBe(1);
   });
 });
+
+describe("getLastSummary", () => {
+  async function seedSuccess(repo: FakeRunsRepo, result: Record<string, unknown>) {
+    const run = await repo.createRun({
+      assignmentId: "asg-1",
+      trigger: "manual",
+      idempotencyKey: null,
+      input: {},
+      output: { _engine: { attempt: 1 } },
+      triggeredBy: "w1",
+    });
+    await repo.markSuccess(run.id, { _engine: { attempt: 1 }, result }, now());
+    return run;
+  }
+
+  it("devolve o result do último run bem-sucedido", async () => {
+    const { repo, service } = setup();
+    repo.seedContext(ctx());
+    await seedSuccess(repo, {
+      total: 2,
+      emails: [{ from: "a@x.pt", subject: "Fatura", resumo: "resumo A" }],
+    });
+    const out = await service.getLastSummary(WORKER, "asg-1");
+    expect(out).toMatchObject({ total: 2 });
+    expect((out!.emails as unknown[])).toHaveLength(1);
+  });
+
+  it("devolve null quando ainda não há sucesso", async () => {
+    const { repo, service } = setup();
+    repo.seedContext(ctx());
+    await repo.createRun({
+      assignmentId: "asg-1",
+      trigger: "manual",
+      idempotencyKey: null,
+      input: {},
+      output: { _engine: { attempt: 1 } },
+      triggeredBy: "w1",
+    });
+    expect(await service.getLastSummary(WORKER, "asg-1")).toBeNull();
+  });
+
+  it("recusa um trabalhador que não é o dono", async () => {
+    const { repo, service } = setup();
+    repo.seedContext(ctx());
+    await seedSuccess(repo, { total: 1, emails: [] });
+    await expect(service.getLastSummary(OTHER, "asg-1")).rejects.toMatchObject({
+      code: "forbidden",
+    });
+  });
+});

@@ -477,6 +477,25 @@ export function createRunsService(deps: RunsServiceDeps) {
   }
 
   /**
+   * Resultado estruturado do último Run BEM-SUCEDIDO de uma atribuição (para a
+   * vista «Ver último resumo»). Escopado ao trabalhador dono (ou super_admin).
+   * Devolve `runs.output.result` tal-e-qual, ou null se ainda não houve sucesso.
+   */
+  async function getLastSummary(
+    session: SessionContext,
+    assignmentId: string,
+  ): Promise<Record<string, unknown> | null> {
+    const { assignment } = await loadContext(assignmentId);
+    assertCanActOnRun(session, assignment.workerId);
+    const rows = await repo.listByAssignment(assignmentId, 20);
+    const last = rows.find(
+      (r) => r.status === "success" && (r.output as { result?: unknown } | null)?.result,
+    );
+    if (!last) return null;
+    return ((last.output as { result?: Record<string, unknown> }).result) ?? null;
+  }
+
+  /**
    * Feed "Execuções recentes" do trabalhador autenticado: os últimos Runs de
    * TODAS as suas atribuições, cada um com o nome/runtime da tarefa. Escopa
    * SEMPRE por session.userId (é "as minhas" — mesmo um super-utilizador vê as
@@ -503,6 +522,7 @@ export function createRunsService(deps: RunsServiceDeps) {
     retry,
     getRun,
     listRuns,
+    getLastSummary,
     listMine,
     toView, // exposto p/ testes
   };

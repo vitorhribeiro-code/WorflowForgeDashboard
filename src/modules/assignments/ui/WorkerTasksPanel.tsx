@@ -17,13 +17,16 @@ import { describeCron } from "../domain/recurrence";
 import {
   cancelRun,
   fetchHistory,
+  fetchLastSummary,
   openAssisted,
   retryRun,
   runNow,
   saveOrder,
   useWorkerTasks,
+  type LastSummary,
   type RunRow,
   type StreamEvent,
+  type SummaryEmail,
 } from "./use-worker-tasks";
 
 /* --- Apresentação (labels/tons derivados do estado) ----------------------- */
@@ -379,6 +382,146 @@ const IcPlug = (
   </svg>
 );
 
+/* --- Último resumo (vista tipo caixa de entrada) -------------------------- */
+
+// "Nome <email>" → "Nome"; senão o próprio valor.
+function senderName(from: string): string {
+  const m = from.match(/^\s*"?([^"<]+?)"?\s*<[^>]+>\s*$/);
+  return (m && m[1] ? m[1] : from).trim();
+}
+
+function senderInitials(name: string): string {
+  const parts = name.replace(/[<>@].*$/, "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+}
+
+// Tom do avatar, determinístico pelo remetente (native à paleta wf).
+function avatarTone(seed: string): string {
+  const tones = ["sum-av--g", "sum-av--a", "sum-av--r", "sum-av--g2", "sum-av--n"];
+  let h = 0;
+  for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return tones[h % tones.length]!;
+}
+
+function SummaryRow({ email }: { email: SummaryEmail }) {
+  const name = senderName(email.from);
+  return (
+    <div className="sum-row">
+      <span className={`sum-av ${avatarTone(email.from)}`} aria-hidden>
+        {senderInitials(name)}
+      </span>
+      <div className="sum-main">
+        <div className="sum-line">
+          <span className="sum-sender">{name}</span>
+          <span className="sum-when">{formatWhen(email.receivedAt)}</span>
+        </div>
+        <div className="sum-subject">{email.subject}</div>
+        <div className="sum-resumo">{email.resumo ?? "—"}</div>
+      </div>
+    </div>
+  );
+}
+
+function LastSummaryModal({
+  assignmentId,
+  onClose,
+}: {
+  assignmentId: string;
+  onClose: () => void;
+}) {
+  const [summary, setSummary] = useState<LastSummary | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setSummary(await fetchLastSummary(assignmentId));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }, [assignmentId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const ai = summary?.ai;
+  const aiLabel =
+    ai && ai.used ? [ai.provider, ai.model].filter(Boolean).join(" · ") : null;
+
+  return (
+    <div className="wt-modal-overlay" role="presentation" onClick={onClose}>
+      <div
+        className="wt-modal sum-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Último resumo de emails"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="wt-modal-head">
+          <span className="wt-modal-title">Último resumo</span>
+          <div className="wt-modal-head-actions">
+            <button type="button" className="task-link" disabled={busy} onClick={() => void load()}>
+              Atualizar
+            </button>
+            <button type="button" className="wt-modal-close" aria-label="Fechar" onClick={onClose}>
+              &#215;
+            </button>
+          </div>
+        </div>
+
+        <div className="wt-modal-body">
+          {error && <p className="task-error">{error}</p>}
+          {summary === undefined ? (
+            <p className="task-hint">{busy ? "A carregar…" : "—"}</p>
+          ) : summary === null ? (
+            <p className="task-hint">
+              Ainda não há resumos. Usa «Fazer resumo agora» para criar o primeiro.
+            </p>
+          ) : (
+            <>
+              <div className="sum-meta">
+                {[
+                  summary.period,
+                  `${summary.total} ${summary.total === 1 ? "email" : "emails"}`,
+                  summary.generatedAt ? `atualizado ${formatWhen(summary.generatedAt)}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+              {summary.emails.length === 0 ? (
+                <p className="task-hint">Sem emails no período.</p>
+              ) : (
+                <div className="sum-list">
+                  {summary.emails.map((e, i) => (
+                    <SummaryRow key={`${e.from}-${i}`} email={e} />
+                  ))}
+                </div>
+              )}
+              {aiLabel && (
+                <p className="sum-foot">Sumários por IA — {aiLabel}</p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* --- Cartão de uma atribuição --------------------------------------------- */
 
 function TaskCard({
@@ -398,6 +541,8 @@ function TaskCard({
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const isDigest = task.taskRuntime === "email.digest";
   const pill = readinessPill(task);
   const blocked = !task.enabled || !task.ready;
 
@@ -457,6 +602,15 @@ function TaskCard({
             >
               {busy ? "A enfileirar…" : runNowLabel(task.taskRuntime)}
             </button>
+            {isDigest && (
+              <button
+                type="button"
+                className="btn-secondary btn-sm"
+                onClick={() => setSummaryOpen(true)}
+              >
+                Ver último resumo
+              </button>
+            )}
             <button type="button" className="btn-secondary btn-sm" onClick={openHistory}>
               Ver histórico
             </button>
@@ -485,6 +639,13 @@ function TaskCard({
           assignmentId={task.assignmentId}
           notice={notice}
           onClose={() => setHistoryOpen(false)}
+        />
+      )}
+
+      {summaryOpen && (
+        <LastSummaryModal
+          assignmentId={task.assignmentId}
+          onClose={() => setSummaryOpen(false)}
         />
       )}
     </div>

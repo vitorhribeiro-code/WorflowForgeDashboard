@@ -261,6 +261,15 @@ export function createEmailDigestHandler(now: Now = defaultNow): RunHandler {
       return {
         period: asString(ctx.input.period) ?? null,
         total: items.length,
+        // Lista por email (para a vista tipo caixa de entrada). Aditivo: o
+        // `senders` agregado e o entregável .md continuam iguais. Teto para não
+        // inflar o output guardado do run.
+        emails: items.slice(0, 200).map((e) => ({
+          from: e.from,
+          subject: e.subject,
+          receivedAt: e.receivedAt ?? null,
+          resumo: e.resumo ?? e.snippet ?? null,
+        })),
         senders,
         ...(ai ? { ai } : {}),
         generatedAt: now().toISOString(),
