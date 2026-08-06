@@ -8,6 +8,7 @@
 // => TransientError.
 import type { DeliverableDraft, ExecContext, RunEvent, RunHandler } from "./handler";
 import { PermanentError } from "../exec-errors";
+import type { LlmResolver } from "@/modules/ai/service/resolver";
 
 type Now = () => Date;
 const defaultNow: Now = () => new Date();
@@ -359,6 +360,174 @@ export function createAssistantGenericHandler(now: Now = defaultNow): RunHandler
       }
       yield { type: "progress", data: { pct: 90 } };
       yield { type: "result", data: { response: acknowledge(prompt, ctx.input) } };
+    },
+  };
+}
+
+/* --------------------------- assistant.writing --------------------------- */
+// Agente de escrita assistido (§5.4, opção a). A "inteligência" é DENTRO do
+// handler: resolve o adapter da org e chama `complete`. Dois modos e um tom.
+//   input: {
+//     mode: "fim" | "resposta",
+//     tone: "formal" | "informal" | "familiar" | "meu",
+//     brief?: string,        // mode=fim: assunto/objetivo
+//     sourceText?: string,   // mode=resposta: texto a que se responde
+//     instruction?: string,  // mode=resposta: como responder (opcional)
+//     style?: string,        // conteúdo do .md do utilizador (injetado a
+//                            //   montante na Fatia 3; ausente na Fatia 1)
+//   }
+//   output: { text, mode, tone, ai:{ used, provider?, model?, reason? }, generatedAt }
+//
+// Fallback: sem adapter (org sem binding/modelo) → texto-scaffold honesto que
+// diz que a IA não está configurada, e o run fica verde (o worker vê a nota).
+// Erro do modelo (401/5xx) → RE-LANÇA: um erro real deve ser visível/retentado,
+// não mascarado por um scaffold que o worker poderia enviar como se fosse texto.
+
+const WRITING_CAPABILITY = "assistant.writing";
+const WRITING_MODES = ["fim", "resposta"] as const;
+const WRITING_TONES = ["formal", "informal", "familiar", "meu"] as const;
+type WritingMode = (typeof WRITING_MODES)[number];
+type WritingTone = (typeof WRITING_TONES)[number];
+
+const SYSTEM_BASE =
+  "És um assistente de escrita. Produzes apenas o texto final pedido, em " +
+  "português europeu, sem preâmbulos, sem explicações e sem marcas de formatação.";
+
+const TONE_INSTRUCTION: Record<Exclude<WritingTone, "meu">, string> = {
+  formal:
+    "Escreve num registo formal e profissional: frases claras e corteses, sem gíria.",
+  informal:
+    "Escreve num registo informal mas cuidado: tom próximo e natural, sem ser demasiado coloquial.",
+  familiar:
+    "Escreve num registo familiar e coloquial, como quem fala com alguém próximo.",
+};
+
+function coerceMode(v: unknown): WritingMode {
+  return WRITING_MODES.includes(v as WritingMode) ? (v as WritingMode) : "fim";
+}
+
+// Tom "meu" só é válido se houver estilo; senão cai para "informal" (a UI já
+// bloqueia esta escolha, mas o handler não confia no cliente).
+function coerceTone(v: unknown, hasStyle: boolean): WritingTone {
+  const t = WRITING_TONES.includes(v as WritingTone) ? (v as WritingTone) : "informal";
+  return t === "meu" && !hasStyle ? "informal" : t;
+}
+
+function buildSystemPrompt(tone: WritingTone, style: string | undefined): string {
+  if (tone === "meu" && style) {
+    return (
+      `${SYSTEM_BASE} Imita fielmente a voz do utilizador descrita abaixo — ` +
+      `vocabulário, ritmo e expressões características.\n\n` +
+      `--- ESTILO DO UTILIZADOR ---\n${style}\n--- FIM DO ESTILO ---`
+    );
+  }
+  const key = (tone === "meu" ? "informal" : tone) as Exclude<WritingTone, "meu">;
+  return `${SYSTEM_BASE} ${TONE_INSTRUCTION[key]}`;
+}
+
+function buildUserPrompt(
+  mode: WritingMode,
+  input: Record<string, unknown>,
+): string {
+  if (mode === "resposta") {
+    const source = (asString(input.sourceText) ?? "").trim();
+    const instruction = (asString(input.instruction) ?? "").trim();
+    const parts = [`Texto recebido:\n"""\n${source}\n"""`];
+    if (instruction) parts.push(`Instrução para a resposta: ${instruction}`);
+    parts.push("Escreve a resposta.");
+    return parts.join("\n\n");
+  }
+  const brief = (asString(input.brief) ?? "").trim();
+  return `Objetivo do texto:\n${brief}`;
+}
+
+// Scaffold honesto quando não há IA configurada — mantém o run verde e diz o
+// que falta, em vez de fingir texto real.
+function writingScaffold(reason: string): string {
+  return (
+    "[assistente de escrita: a IA não está configurada para esta organização. " +
+    "O super-utilizador precisa de ligar um modelo à capacidade " +
+    `\"assistant.writing\" na consola de IA. (motivo: ${reason})]`
+  );
+}
+
+export interface AssistantWritingDeps {
+  // null quando a plataforma não tem ENCRYPTION_KEY (sem IA) — sempre fallback.
+  resolver: LlmResolver | null;
+  now?: Now;
+}
+
+export function createAssistantWritingHandler(deps: AssistantWritingDeps): RunHandler {
+  const now = deps.now ?? defaultNow;
+
+  async function run(ctx: ExecContext): Promise<Record<string, unknown>> {
+    const mode = coerceMode(ctx.input.mode);
+    const style = asString(ctx.input.style);
+    const tone = coerceTone(ctx.input.tone, style !== undefined && style.length > 0);
+
+    // Validação de input → PermanentError (não se repete).
+    if (mode === "fim" && !(asString(ctx.input.brief) ?? "").trim()) {
+      throw new PermanentError("assistant.writing: 'brief' é obrigatório no modo 'fim'.");
+    }
+    if (mode === "resposta" && !(asString(ctx.input.sourceText) ?? "").trim()) {
+      throw new PermanentError(
+        "assistant.writing: 'sourceText' é obrigatório no modo 'resposta'.",
+      );
+    }
+
+    const system = buildSystemPrompt(tone, style);
+    const prompt = buildUserPrompt(mode, ctx.input);
+
+    // Resolve o adapter da org para a capacidade de escrita. null → scaffold.
+    let adapter = null;
+    if (deps.resolver) {
+      try {
+        adapter = await deps.resolver.resolve(ctx.orgId, WRITING_CAPABILITY);
+      } catch {
+        adapter = null;
+      }
+    }
+
+    if (!adapter) {
+      const reason = deps.resolver ? "no-provider" : "no-resolver";
+      console.warn(
+        `[assistant.writing] sem provider para "${WRITING_CAPABILITY}" (org ${ctx.orgId}) — scaffold.`,
+      );
+      return {
+        text: writingScaffold(reason),
+        mode,
+        tone,
+        ai: { used: false, reason },
+        generatedAt: now().toISOString(),
+      };
+    }
+
+    // Erro do modelo propaga-se (transient/permanent via classify do motor).
+    const out = await adapter.complete({ system, prompt, maxTokens: 1500 });
+    console.info(
+      `[assistant.writing] texto via ${adapter.provider} · ${adapter.model} (org ${ctx.orgId}, modo ${mode}, tom ${tone}).`,
+    );
+    return {
+      text: out.text,
+      mode,
+      tone,
+      ai: { used: true, provider: adapter.provider, model: adapter.model },
+      generatedAt: now().toISOString(),
+    };
+  }
+
+  return {
+    runtime: "assistant.writing",
+    execute: run,
+    async *stream(ctx: ExecContext): AsyncIterable<RunEvent> {
+      yield { type: "progress", data: { pct: 10 } };
+      if (ctx.signal.aborted) {
+        yield { type: "error", data: { message: "sessão cancelada" } };
+        return;
+      }
+      const result = await run(ctx);
+      yield { type: "progress", data: { pct: 90 } };
+      yield { type: "result", data: result };
     },
   };
 }

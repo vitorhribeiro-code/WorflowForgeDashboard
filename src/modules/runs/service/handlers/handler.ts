@@ -8,6 +8,10 @@ export type RunEvent =
 export interface ExecContext {
   input: Record<string, unknown>;
   config: Record<string, unknown> | null;
+  // Org do run (= task.orgId). Presente para handlers que resolvem IA por org
+  // (ex.: assistant.writing → resolver.resolve(orgId, capability)). Os handlers
+  // puros ignoram-no.
+  orgId: string;
   signal: AbortSignal;
   emit: (event: RunEvent) => void;
 }

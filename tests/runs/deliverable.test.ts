@@ -101,6 +101,7 @@ describe("createEmailDigestHandler.execute — lastReceivedAt por remetente", ()
     return {
       input,
       config: null,
+      orgId: "o1",
       signal: new AbortController().signal,
       emit: () => {},
     };

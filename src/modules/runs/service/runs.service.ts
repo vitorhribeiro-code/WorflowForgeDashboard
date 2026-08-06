@@ -293,6 +293,7 @@ export function createRunsService(deps: RunsServiceDeps) {
       const result = await handler.execute({
         input,
         config: assignment.config,
+        orgId: task.orgId,
         signal: controller.signal,
         emit: (e) => events.push(e),
       });
@@ -400,6 +401,7 @@ export function createRunsService(deps: RunsServiceDeps) {
       for await (const event of handler.stream({
         input,
         config: assignment.config,
+        orgId: task.orgId,
         signal: controller.signal,
         emit: () => {},
       })) {

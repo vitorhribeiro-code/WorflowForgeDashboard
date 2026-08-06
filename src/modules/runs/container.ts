@@ -11,7 +11,7 @@ import { loadEnv } from "@/platform/config/env";
 import { createDrizzleRunsRepository } from "./data/runs.repository";
 import { createRunsService, type RunsService } from "./service/runs.service";
 import { createHandlerRegistry, type RunHandler } from "./service/handlers/handler";
-import { builtinHandlers } from "./service/handlers/builtin";
+import { builtinHandlers, createAssistantWritingHandler } from "./service/handlers/builtin";
 import type { ArtifactSink, InputProvider } from "./service/ports";
 import { getArtifactContainer } from "@/modules/artifacts/container";
 import { getWorkerTokenPort } from "@/modules/connections";
@@ -19,9 +19,7 @@ import { createGmailAcquisition } from "@/platform/acquisition/gmail";
 import { createGmailInputProvider } from "@/platform/acquisition/gmail-input-provider";
 import { createEmailEnrichmentProvider } from "@/platform/ai/email-enrichment";
 import { getLlmResolver } from "@/modules/ai/container";
-
-// Registo de handlers por runtime (email.digest, report.monthly, assistant.generic).
-const HANDLERS: RunHandler[] = [...builtinHandlers];
+import type { LlmResolver } from "@/modules/ai/service/resolver";
 
 let cached: RunsService | null = null;
 
@@ -67,26 +65,38 @@ export function getRunsService(): RunsService {
   // ENCRYPTION_KEY (necessária para decifrar o token do M6). Sem ela, o motor
   // fica em pass-through — o comportamento de antes desta fatia.
   let inputProvider: InputProvider | undefined;
+  // Resolver de IA: só se liga com ENCRYPTION_KEY (necessária para decifrar as
+  // chaves de LLM). Sem ela → null; o handler de escrita cai no scaffold e o
+  // enriquecimento de emails fica em pass-through.
+  let llmResolver: LlmResolver | null = null;
   if (env.ENCRYPTION_KEY) {
+    llmResolver = getLlmResolver();
     const gmail = createGmailAcquisition();
     const gmailProvider = createGmailInputProvider({
       tokens: getWorkerTokenPort(),
       fetchRecentEmails: (token, opts) => gmail.fetchRecentEmails(token, opts),
     });
     // Enriquecimento por IA a montante (§5.2 fase 3): dá a cada email um `resumo`
-    // via o resolver da org, com fallback ao snippet/assunto. Usa o mesmo
-    // ENCRYPTION_KEY (já exigido acima) para decifrar as chaves de LLM.
+    // via o resolver da org, com fallback ao snippet/assunto.
     inputProvider = createEmailEnrichmentProvider({
-      resolver: getLlmResolver(),
+      resolver: llmResolver,
       inner: gmailProvider,
     });
   }
+
+  // Registo de handlers por runtime. Os built-in são puros; o assistant.writing
+  // (§5.4 opção a) recebe o resolver injetado — a chamada `complete` é dentro
+  // do handler, com fallback a scaffold quando não há IA configurada.
+  const handlers: RunHandler[] = [
+    ...builtinHandlers,
+    createAssistantWritingHandler({ resolver: llmResolver }),
+  ];
 
   cached = createRunsService({
     repo: createDrizzleRunsRepository(db),
     queue: createPgBossQueue(boss),
     readiness: createDrizzleReadinessChecker(db),
-    handlers: createHandlerRegistry(HANDLERS),
+    handlers: createHandlerRegistry(handlers),
     artifacts,
     audit: createDrizzleAudit(db),
     inputProvider,

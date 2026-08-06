@@ -15,6 +15,7 @@ export type RuntimeDescriptor = {
 
 export const RUNTIMES: readonly RuntimeDescriptor[] = [
   { key: "assistant.generic", label: "Assistente genérico (stream)", taskType: "assistant" },
+  { key: "assistant.writing", label: "Assistente de escrita", taskType: "assistant" },
   { key: "email.digest", label: "Resumo de emails", taskType: "automation" },
   { key: "report.monthly", label: "Relatório mensal", taskType: "automation" },
 ] as const;

@@ -11,7 +11,7 @@ import {
  */
 
 function ctx(input: Record<string, unknown>) {
-  return { input, config: null, signal: new AbortController().signal, emit: () => {} };
+  return { input, config: null, orgId: "o1", signal: new AbortController().signal, emit: () => {} };
 }
 
 describe("email.digest com resumos", () => {

@@ -10,6 +10,7 @@
 const RUNTIME_TO_CAPABILITY: Record<string, string> = {
   "email.digest": "email.summary",
   "assistant.generic": "assistant.generic",
+  "assistant.writing": "assistant.writing",
   // report.monthly ainda não usa IA (§5.5).
 };
 

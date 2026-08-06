@@ -32,5 +32,6 @@ export const KNOWN_PROVIDERS = ["claude", "mistral"] as const;
 export const KNOWN_CAPABILITIES = [
   "email.summary",
   "assistant.generic",
+  "assistant.writing",
   "ocr",
 ] as const;

@@ -21,6 +21,7 @@ function ctx(
     ctx: {
       input,
       config,
+      orgId: "o1",
       signal: new AbortController().signal,
       emit: (e) => events.push(e),
     },
@@ -138,6 +139,7 @@ describe("assistant.generic", () => {
     const c: ExecContext = {
       input: { prompt: "x" },
       config: null,
+      orgId: "o1",
       signal: controller.signal,
       emit: () => {},
     };
