@@ -45,6 +45,8 @@ export async function startRunWorker(
   processRun: (runId: string) => Promise<unknown>,
 ): Promise<PgBoss> {
   const boss = new PgBoss({ connectionString });
+  // Um erro do pg-boss não deve derrubar o worker (senão os digests param).
+  boss.on("error", (e) => console.error("[pg-boss:worker]", e));
   await boss.start();
   await boss.createQueue(QUEUE);
   await boss.work<{ runId: string }>(QUEUE, async (jobs) => {
