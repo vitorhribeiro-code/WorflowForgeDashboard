@@ -341,7 +341,215 @@ function AssistedConsole({ assignmentId }: { assignmentId: string }) {
   );
 }
 
-/* --- Board: reordenação (cliente) + pega + ícones dos stat cards ---------- */
+/* --- Consola de escrita (assistant.writing) ------------------------------- */
+// Formulário do agente de escrita: modo (fim/resposta) + tom (3 registos AI +
+// «o meu estilo», este bloqueado até existir estilo — Fatias 2/3). Ao gerar,
+// abre o stream assistido com o input e mostra o texto do evento `result`.
+
+type WritingMode = "fim" | "resposta";
+type WritingTone = "formal" | "informal" | "familiar" | "meu";
+
+const TONE_OPTIONS: Array<{ id: WritingTone; label: string; sub: string }> = [
+  { id: "formal", label: "AI formal", sub: "registo profissional" },
+  { id: "informal", label: "AI informal", sub: "próximo e leve" },
+  { id: "familiar", label: "AI familiar", sub: "coloquial" },
+  { id: "meu", label: "O meu estilo", sub: "a partir do teu .md" },
+];
+
+function WritingConsole({
+  assignmentId,
+  styleAvailable,
+}: {
+  assignmentId: string;
+  // Fatia 1: sempre false (a tabela de estilos ainda não existe). Fatias 2/3
+  // passam a alimentar isto por atribuição.
+  styleAvailable: boolean;
+}) {
+  const [mode, setMode] = useState<WritingMode>("fim");
+  const [tone, setTone] = useState<WritingTone>("informal");
+  const [brief, setBrief] = useState("");
+  const [sourceText, setSourceText] = useState("");
+  const [instruction, setInstruction] = useState("");
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [output, setOutput] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const canSubmit =
+    !running &&
+    (mode === "fim" ? brief.trim().length > 0 : sourceText.trim().length > 0);
+
+  const generate = useCallback(async () => {
+    setError(null);
+    setOutput(null);
+    setCopied(false);
+    setRunning(true);
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    const input: Record<string, unknown> =
+      mode === "fim"
+        ? { mode, tone, brief: brief.trim() }
+        : { mode, tone, sourceText: sourceText.trim(), instruction: instruction.trim() };
+    try {
+      await openAssisted(
+        assignmentId,
+        (e) => {
+          if (e.type === "result") {
+            const text = e.data.text;
+            if (typeof text === "string") setOutput(text);
+          } else if (e.type === "error") {
+            setError(typeof e.data === "string" ? e.data : e.data.message);
+          }
+        },
+        ctrl.signal,
+        input,
+      );
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") setError((e as Error).message);
+    } finally {
+      setRunning(false);
+      abortRef.current = null;
+    }
+  }, [assignmentId, mode, tone, brief, sourceText, instruction]);
+
+  const stop = useCallback(() => abortRef.current?.abort(), []);
+
+  const copy = useCallback(async () => {
+    if (!output) return;
+    try {
+      await navigator.clipboard.writeText(output);
+      setCopied(true);
+    } catch {
+      /* clipboard indisponível — ignora */
+    }
+  }, [output]);
+
+  return (
+    <div className="assisted wrt">
+      <div className="wrt-field">
+        <span className="wrt-label">O que queres fazer</span>
+        <div className="wrt-modes">
+          <button
+            type="button"
+            className={`wrt-mode${mode === "fim" ? " is-on" : ""}`}
+            onClick={() => setMode("fim")}
+          >
+            <span className="wrt-mode-title">Escrever com um fim</span>
+            <span className="wrt-mode-sub">indicas o assunto e o objetivo</span>
+          </button>
+          <button
+            type="button"
+            className={`wrt-mode${mode === "resposta" ? " is-on" : ""}`}
+            onClick={() => setMode("resposta")}
+          >
+            <span className="wrt-mode-title">Responder a um texto</span>
+            <span className="wrt-mode-sub">colas o texto a que respondes</span>
+          </button>
+        </div>
+      </div>
+
+      {mode === "fim" ? (
+        <div className="wrt-field">
+          <span className="wrt-label">Assunto e objetivo</span>
+          <textarea
+            className="wrt-textarea"
+            value={brief}
+            onChange={(e) => setBrief(e.target.value)}
+            placeholder="Escrever um email a pedir uma reunião sobre o fecho de contas de julho"
+          />
+        </div>
+      ) : (
+        <>
+          <div className="wrt-field">
+            <span className="wrt-label">Texto a que vais responder</span>
+            <textarea
+              className="wrt-textarea"
+              value={sourceText}
+              onChange={(e) => setSourceText(e.target.value)}
+              placeholder="Cola aqui o email ou mensagem recebida"
+            />
+          </div>
+          <div className="wrt-field">
+            <span className="wrt-label">Instrução para a resposta</span>
+            <textarea
+              className="wrt-textarea wrt-textarea-sm"
+              value={instruction}
+              onChange={(e) => setInstruction(e.target.value)}
+              placeholder="Recusar com simpatia e propor a semana seguinte"
+            />
+          </div>
+        </>
+      )}
+
+      <div className="wrt-field">
+        <span className="wrt-label">Tom</span>
+        <div className="wrt-tones">
+          {TONE_OPTIONS.map((t) => {
+            const blocked = t.id === "meu" && !styleAvailable;
+            const on = tone === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                className={`wrt-tone${on ? " is-on" : ""}${blocked ? " is-blocked" : ""}`}
+                disabled={blocked}
+                title={
+                  blocked
+                    ? "O super-utilizador ainda não carregou o teu estilo de escrita"
+                    : undefined
+                }
+                onClick={() => setTone(t.id)}
+              >
+                <span className="wrt-tone-title">
+                  {t.label}
+                  {blocked ? " 🔒" : ""}
+                </span>
+                <span className="wrt-tone-sub">{t.sub}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="task-hint">
+          {styleAvailable
+            ? "«O meu estilo» escreve na tua voz a partir do ficheiro carregado."
+            : "Sem estilo carregado — o assistente escreve num dos registos AI. Pede o carregamento do teu .md ao super-utilizador."}
+        </p>
+      </div>
+
+      <div className="task-actions">
+        {running ? (
+          <button type="button" className="btn-danger btn-sm" onClick={stop}>
+            Cancelar
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn-primary btn-sm"
+            disabled={!canSubmit}
+            onClick={() => void generate()}
+          >
+            Gerar texto
+          </button>
+        )}
+      </div>
+
+      {error && <p className="task-error">{error}</p>}
+
+      {output !== null && (
+        <div className="wrt-output">
+          <div className="wrt-output-head">
+            <span className="wrt-output-title">Texto gerado</span>
+            <button type="button" className="task-link" onClick={() => void copy()}>
+              {copied ? "Copiado" : "Copiar"}
+            </button>
+          </div>
+          <div className="wrt-output-body">{output}</div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Move `dragId` para a posição de `targetId` na lista de ordem. Reordenação é
 // só no cliente (Fase B); persistir a ordem por trabalhador fica para a Fase C.
@@ -670,7 +878,13 @@ function TaskCard({
             : "Liga as ferramentas em falta em «As minhas conexões»."}
         </p>
       ) : (
-        <AssistedConsole assignmentId={task.assignmentId} />
+        <>
+          {task.taskRuntime === "assistant.writing" ? (
+            <WritingConsole assignmentId={task.assignmentId} styleAvailable={false} />
+          ) : (
+            <AssistedConsole assignmentId={task.assignmentId} />
+          )}
+        </>
       )}
 
       {historyOpen && (

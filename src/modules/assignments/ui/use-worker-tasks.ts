@@ -159,11 +159,12 @@ export async function openAssisted(
   assignmentId: string,
   onEvent: (e: StreamEvent) => void,
   signal: AbortSignal,
+  input: Record<string, unknown> = {},
 ): Promise<void> {
   const res = await fetch(`/api/assignments/${assignmentId}/assisted`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: "{}",
+    body: JSON.stringify({ input }),
     signal,
   });
   if (!res.ok || !res.body) throw await httpError(res);

@@ -1915,3 +1915,53 @@ button.btn-danger:disabled {
 .wf-app .wf-tasks-rail .wf-feed-when { font-size: 10px; }
 .wf-app .wf-tasks-rail .status-pill { font-size: 10px; padding: 2px 7px; gap: 4px; }
 .wf-app .wf-tasks-rail .wf-widget-more { font-size: 11px; margin-top: 10px; }
+
+/* ---- Consola de escrita (assistant.writing, Painel do Trabalhador) ---- */
+/* Prefixo wrt- para não colidir; paleta wf (painel claro), verde nativo no on. */
+.wrt { display: flex; flex-direction: column; gap: 14px; }
+.wrt-field { display: flex; flex-direction: column; gap: 8px; }
+.wrt-label { font-size: 12px; font-weight: 600; color: var(--wf-muted); }
+.wrt-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wrt-mode {
+  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  padding: 10px 12px; border: 1px solid var(--wf-line);
+  border-radius: var(--wf-r-md); background: var(--wf-surface);
+  color: var(--wf-ink); cursor: pointer; transition: border-color .12s, background .12s;
+}
+.wrt-mode:hover { border-color: var(--wf-green); }
+.wrt-mode.is-on { border-color: var(--wf-green); background: var(--wf-tint); }
+.wrt-mode-title { font-size: 13px; font-weight: 600; color: var(--wf-ink); }
+.wrt-mode-sub { font-size: 11px; color: var(--wf-muted); }
+.wrt-textarea {
+  width: 100%; min-height: 74px; resize: vertical; padding: 10px 12px;
+  border: 1px solid var(--wf-line); border-radius: var(--wf-r-md);
+  background: var(--wf-surface); color: var(--wf-ink);
+  font: inherit; font-size: 13px; line-height: 1.5;
+}
+.wrt-textarea:focus { outline: none; border-color: var(--wf-green); }
+.wrt-textarea-sm { min-height: 52px; }
+.wrt-tones { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.wrt-tone {
+  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  padding: 9px 11px; border: 1px solid var(--wf-line);
+  border-radius: var(--wf-r-md); background: var(--wf-surface);
+  color: var(--wf-ink); cursor: pointer; transition: border-color .12s, background .12s;
+}
+.wrt-tone:hover:not(.is-blocked) { border-color: var(--wf-green); }
+.wrt-tone.is-on { border-color: var(--wf-green); background: var(--wf-tint); }
+.wrt-tone.is-blocked { opacity: .5; cursor: not-allowed; }
+.wrt-tone-title { font-size: 13px; font-weight: 600; color: var(--wf-ink); }
+.wrt-tone-sub { font-size: 11px; color: var(--wf-muted); }
+.wrt-output {
+  border: 1px solid var(--wf-line); border-radius: var(--wf-r-md);
+  background: var(--wf-bg); overflow: hidden;
+}
+.wrt-output-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border-bottom: 1px solid var(--wf-line2);
+}
+.wrt-output-title { font-size: 12px; font-weight: 600; color: var(--wf-muted); }
+.wrt-output-body {
+  padding: 12px; font-size: 13px; line-height: 1.6; color: var(--wf-ink);
+  white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow-y: auto;
+}
