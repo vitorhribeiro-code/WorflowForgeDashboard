@@ -1965,3 +1965,14 @@ button.btn-danger:disabled {
   padding: 12px; font-size: 13px; line-height: 1.6; color: var(--wf-ink);
   white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow-y: auto;
 }
+
+/* ---- Contador de validade da conexão (base + override .wf-app) ---- */
+.conn-validity {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; margin: 6px 0 0; color: var(--muted);
+}
+.conn-validity .ti { font-size: 14px; }
+.conn-validity-danger { color: var(--danger); font-weight: 500; }
+.wf-app .conn-validity { color: var(--wf-muted); font-size: 12.5px; margin: 8px 0 0; gap: 6px; }
+.wf-app .conn-validity-warning { color: var(--wf-amber-ink); }
+.wf-app .conn-validity-danger { color: var(--wf-red-ink); font-weight: 500; }

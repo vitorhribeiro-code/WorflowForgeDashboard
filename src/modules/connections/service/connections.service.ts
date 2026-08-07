@@ -15,6 +15,7 @@
 
 import {
   computeReady,
+  computeValidityCountdown,
   type ConnectionView,
   type OAuthCredentials,
 } from "../domain/connection.types";
@@ -107,6 +108,7 @@ export function createConnectionsService(
     const granted = conn?.grantedScopes ?? [];
     const status = conn?.status ?? "pending";
     const missing = missingScopes(requiredScopes, granted);
+    const connectedAt = conn?.connectedAt ?? null;
     return {
       id: conn?.id ?? "",
       toolId: tool.id,
@@ -118,7 +120,12 @@ export function createConnectionsService(
       requiredScopes: normalizeScopes(requiredScopes),
       missingScopes: missing,
       ready: computeReady(status, missing),
-      connectedAt: conn?.connectedAt ?? null,
+      connectedAt,
+      // Contador só faz sentido para uma conexão ativa.
+      validity:
+        status === "connected"
+          ? computeValidityCountdown(tool.key, connectedAt, now())
+          : null,
     };
   }
 

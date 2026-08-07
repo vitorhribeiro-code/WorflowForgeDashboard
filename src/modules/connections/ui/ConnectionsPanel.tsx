@@ -15,8 +15,29 @@ import {
   connectionTone,
   type ConnectionStatus,
   type ConnectionView,
+  type ValidityCountdown,
 } from "../domain/connection.types";
 import { useConnections } from "./use-connections";
+
+// Data curta pt-PT (dd/mm/aaaa) para a linha de validade.
+function formatValidityDate(d: Date): string {
+  return d.toLocaleDateString("pt-PT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function daysLeftLabel(days: number): string {
+  if (days <= 0) return "no limite";
+  if (days === 1) return "falta 1 dia";
+  return `faltam ${days} dias`;
+}
+
+function validityIcon(v: ValidityCountdown): string {
+  if (v.severity === "danger") return "ti-alert-triangle";
+  return v.kind === "expira" ? "ti-clock" : "ti-refresh";
+}
 
 const STATUS_LABEL: Record<ConnectionStatus, string> = {
   pending: "Por ligar",
@@ -56,6 +77,14 @@ function ConnectionCard({ conn, busy, onConnect, onRenew, onRevoke }: CardProps)
       <p className="conn-scopes">
         {conn.grantedScopes.length}/{conn.requiredScopes.length} permissões concedidas
       </p>
+
+      {conn.validity && (
+        <p className={`conn-validity conn-validity-${conn.validity.severity}`}>
+          <i className={`ti ${validityIcon(conn.validity)}`} aria-hidden="true" />
+          {conn.validity.kind === "expira" ? "expira a " : "rever até "}
+          {formatValidityDate(conn.validity.date)} · {daysLeftLabel(conn.validity.daysLeft)}
+        </p>
+      )}
 
       {conn.missingScopes.length > 0 && (
         <p className="conn-missing">Faltam: {conn.missingScopes.join(", ")}</p>

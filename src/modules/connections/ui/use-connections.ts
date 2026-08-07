@@ -1,7 +1,7 @@
 // Único ponto da UI que conhece endpoints. Os componentes não sabem de URLs.
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import type { ConnectionView } from "../domain/connection.types";
+import type { ConnectionView, ValidityCountdown } from "../domain/connection.types";
 
 type Status = "idle" | "loading" | "ready" | "error";
 
@@ -12,8 +12,19 @@ interface State {
   busyToolId: string | null; // ferramenta com ação em curso (desativa os seus botões)
 }
 
-function rehydrate(c: ConnectionView & { connectedAt: string | null }): ConnectionView {
-  return { ...c, connectedAt: c.connectedAt ? new Date(c.connectedAt) : null };
+// A vista chega via JSON — datas vêm como string. Reidratamos connectedAt e a
+// data do contador de validade para Date.
+type RawConnection = Omit<ConnectionView, "connectedAt" | "validity"> & {
+  connectedAt: string | null;
+  validity: (Omit<ValidityCountdown, "date"> & { date: string }) | null;
+};
+
+function rehydrate(c: RawConnection): ConnectionView {
+  return {
+    ...c,
+    connectedAt: c.connectedAt ? new Date(c.connectedAt) : null,
+    validity: c.validity ? { ...c.validity, date: new Date(c.validity.date) } : null,
+  };
 }
 
 export function useConnections() {
@@ -29,7 +40,7 @@ export function useConnections() {
     try {
       const res = await fetch("/api/connections");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as Array<ConnectionView & { connectedAt: string | null }>;
+      const data = (await res.json()) as RawConnection[];
       setState({ status: "ready", connections: data.map(rehydrate), error: null, busyToolId: null });
     } catch (e) {
       setState({ status: "error", connections: [], error: (e as Error).message, busyToolId: null });
