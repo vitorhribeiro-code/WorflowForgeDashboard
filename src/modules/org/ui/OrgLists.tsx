@@ -27,10 +27,12 @@ export function UserList({
   users,
   onToggleSuspended,
   onGenerateLink,
+  onOpenStyle,
 }: {
   users: User[] | null;
   onToggleSuspended?: (id: string, suspended: boolean) => void;
   onGenerateLink?: (id: string) => void;
+  onOpenStyle?: (id: string, email: string) => void;
 }) {
   if (!users) return <div className="users-skeleton">A carregar…</div>;
   if (users.length === 0) return <div className="users-empty">Sem utilizadores.</div>;
@@ -54,6 +56,11 @@ export function UserList({
               {onGenerateLink ? (
                 <button type="button" onClick={() => onGenerateLink(u.id)}>
                   Link de acesso
+                </button>
+              ) : null}
+              {onOpenStyle && u.role === "worker" ? (
+                <button type="button" onClick={() => onOpenStyle(u.id, u.email)}>
+                  Estilo de escrita
                 </button>
               ) : null}
               <button type="button" onClick={() => onToggleSuspended?.(u.id, !u.suspended)}>

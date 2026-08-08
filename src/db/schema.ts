@@ -546,3 +546,32 @@ export const aiBindingsRelations = relations(aiBindings, ({ one }) => ({
     references: [organizations.id],
   }),
 }));
+
+/* -------------------------------------------------------------------------- */
+/*  Estilos de escrita por trabalhador (o .md de estilo — texto opaco)         */
+/*  1 linha por worker, substituível. O conteúdo vive na BD (não no Drive).    */
+/* -------------------------------------------------------------------------- */
+
+export const writingStyles = pgTable(
+  "writing_styles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workerId: uuid("worker_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // O .md carregado, tal e qual. Sem parsing — texto de confiança.
+    contentMd: text("content_md").notNull(),
+    sourceFilename: text("source_filename"),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // Um estilo por trabalhador (upsert por worker_id).
+    workerUq: uniqueIndex("writing_styles_worker_uq").on(t.workerId),
+  }),
+);
+
+export const writingStylesRelations = relations(writingStyles, ({ one }) => ({
+  worker: one(users, { fields: [writingStyles.workerId], references: [users.id] }),
+}));

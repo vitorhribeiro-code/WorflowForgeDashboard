@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AreaList, UserList } from "@/modules/org/ui/OrgLists";
 import { useAreas, useUsers } from "@/modules/org/ui/hooks";
 import type { Role } from "@/modules/org/domain/types";
+import { WritingStyleModal } from "@/modules/writing-styles/ui/WritingStyleModal";
 
 function AreasBlock() {
   const { areas, error, create, remove } = useAreas();
@@ -43,6 +44,7 @@ function AreasBlock() {
 
 function UsersBlock() {
   const { users, error, invite, setSuspended, generateSetPasswordLink } = useUsers();
+  const [styleWorker, setStyleWorker] = useState<{ id: string; email: string } | null>(null);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("worker");
   const [busy, setBusy] = useState(false);
@@ -126,7 +128,15 @@ function UsersBlock() {
           </div>
         </div>
       ) : null}
-      <UserList users={users} onToggleSuspended={setSuspended} onGenerateLink={genLink} />
+      <UserList
+        users={users}
+        onToggleSuspended={setSuspended}
+        onGenerateLink={genLink}
+        onOpenStyle={(id, email) => setStyleWorker({ id, email })}
+      />
+      {styleWorker ? (
+        <WritingStyleModal worker={styleWorker} onClose={() => setStyleWorker(null)} />
+      ) : null}
     </div>
   );
 }
