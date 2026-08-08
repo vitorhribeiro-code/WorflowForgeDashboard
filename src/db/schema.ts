@@ -94,6 +94,9 @@ export const users = pgTable(
     // Ponteiro (não parsing) para o documento de mapeamento que fundamentou
     // a configuração deste trabalhador. Rastreabilidade, não uma FK real.
     mappingRef: text("mapping_ref"),
+    // Preferências pessoais (jsonb livre; normalizado pelo módulo `preferences`).
+    // Hoje só o fundo do painel; cresce por chave, sem novas migrações.
+    preferences: jsonb("preferences").$type<Record<string, unknown>>().notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

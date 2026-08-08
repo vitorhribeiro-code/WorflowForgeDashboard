@@ -21,6 +21,11 @@ import { useRouter } from "next/navigation";
 import { ConnectionsPanel } from "@/modules/connections/ui/ConnectionsPanel";
 import { WorkerTasksPanel } from "@/modules/assignments/ui/WorkerTasksPanel";
 import { NextRunWidget, RecentRunsWidget } from "@/modules/assignments/ui/SidebarWidgets";
+import {
+  BACKGROUND_SWATCHES,
+  DEFAULT_BACKGROUND,
+  type BackgroundToken,
+} from "@/modules/preferences/domain/preferences";
 
 type View = "tasks" | "connections" | "settings" | "help";
 type Banner = { tone: "ok" | "err"; text: string } | null;
@@ -77,11 +82,43 @@ function AdminNote() {
   );
 }
 
-export function WorkerApp({ role, banner }: { role: string; banner: Banner }) {
+export function WorkerApp({
+  role,
+  banner,
+  background = DEFAULT_BACKGROUND,
+}: {
+  role: string;
+  banner: Banner;
+  background?: BackgroundToken;
+}) {
   const isAdmin = role === "super_admin";
   const [view, setView] = useState<View>(banner ? "connections" : "tasks");
   const [loggingOut, setLoggingOut] = useState(false);
   const router = useRouter();
+
+  // Fundo pessoal do painel (só trabalhadores). O token é uma classe na raiz
+  // `.wf-app`; a troca é otimista (preview imediato) e persiste no PUT.
+  const showBackground = !isAdmin;
+  const [bg, setBg] = useState<BackgroundToken>(background);
+  const [bgError, setBgError] = useState<string | null>(null);
+
+  async function chooseBackground(token: BackgroundToken) {
+    if (token === bg) return;
+    const prev = bg;
+    setBg(token);
+    setBgError(null);
+    try {
+      const res = await fetch("/api/me/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ background: token }),
+      });
+      if (!res.ok) throw new Error("save failed");
+    } catch {
+      setBg(prev);
+      setBgError("Não foi possível guardar o fundo. Tenta de novo.");
+    }
+  }
 
   async function logout() {
     setLoggingOut(true);
@@ -114,8 +151,10 @@ export function WorkerApp({ role, banner }: { role: string; banner: Banner }) {
   const initials = isAdmin ? "SA" : "EU";
   const roleLabel = isAdmin ? "Super-utilizador" : "Trabalhador";
 
+  const bgClass = showBackground && bg !== "default" ? ` wf-bg-${bg}` : "";
+
   return (
-    <div className="wf-app">
+    <div className={`wf-app${bgClass}`}>
       <div className="wf-dock">
         <aside className="wf-side">
           <div className="wf-brand">
@@ -207,8 +246,43 @@ export function WorkerApp({ role, banner }: { role: string; banner: Banner }) {
           </div>
           <div className="wf-panel">
             <h2>Definições pessoais</h2>
-            <p>Preferências da tua conta. Ainda a preparar — em breve poderás ajustá-las aqui.</p>
-            <span className="wf-soon">Em breve</span>
+            {showBackground ? (
+              <>
+                <p>Preferências da tua conta.</p>
+                <div className="wf-bg-field">
+                  <p className="wf-bg-label">Fundo do painel</p>
+                  <div
+                    className="wf-bg-swatches"
+                    role="radiogroup"
+                    aria-label="Fundo do painel"
+                  >
+                    {BACKGROUND_SWATCHES.map((s) => (
+                      <button
+                        key={s.token}
+                        type="button"
+                        className="wf-bg-swatch"
+                        style={{ background: s.swatch }}
+                        role="radio"
+                        aria-checked={bg === s.token}
+                        aria-pressed={bg === s.token}
+                        aria-label={s.label}
+                        title={s.label}
+                        onClick={() => chooseBackground(s.token)}
+                      />
+                    ))}
+                  </div>
+                  <p className="wf-bg-hint">
+                    Escolhe o tom da tela. Os cartões mantêm-se legíveis em qualquer fundo.
+                  </p>
+                  {bgError && <p className="wf-bg-error">{bgError}</p>}
+                </div>
+              </>
+            ) : (
+              <p>
+                As preferências de fundo são pessoais de cada trabalhador. Como
+                super-utilizador, geres tudo na consola.
+              </p>
+            )}
           </div>
           {isAdmin && (
             <div className="wf-panel">

@@ -1976,3 +1976,36 @@ button.btn-danger:disabled {
 .wf-app .conn-validity { color: var(--wf-muted); font-size: 12.5px; margin: 8px 0 0; gap: 6px; }
 .wf-app .conn-validity-warning { color: var(--wf-amber-ink); }
 .wf-app .conn-validity-danger { color: var(--wf-red-ink); font-weight: 500; }
+
+/* ---- Fundo pessoal do painel (Definições) — tela ATRÁS dos cartões -------- */
+/* A cor escolhida pinta só a tela (--wf-bg). Os cartões e painéis têm fundo   */
+/* próprio (--wf-surface, opaco) e NUNCA mudam, por isso o texto dentro deles  */
+/* fica sempre legível. O único texto que vive sobre a tela é o cabeçalho de   */
+/* página; esse acompanha a luminância via --wf-canvas-ink/--wf-canvas-muted.  */
+.wf-app { --wf-canvas-ink: var(--wf-ink); --wf-canvas-muted: var(--wf-muted); }
+.wf-app .wf-page-head h1 { color: var(--wf-canvas-ink); }
+.wf-app .wf-page-head p { color: var(--wf-canvas-muted); }
+
+.wf-app.wf-bg-mist { --wf-bg: #e7ebe7; --wf-canvas-muted: #5c665e; }
+.wf-app.wf-bg-stone { --wf-bg: #d2d8d2; --wf-canvas-muted: #515b53; }
+.wf-app.wf-bg-slate { --wf-bg: #b3bbb4; --wf-canvas-ink: #141b16; --wf-canvas-muted: #414a43; }
+.wf-app.wf-bg-graphite { --wf-bg: #484d47; --wf-canvas-ink: #eef1ee; --wf-canvas-muted: #c1cac3; }
+.wf-app.wf-bg-coal { --wf-bg: #141614; --wf-canvas-ink: #eef1ee; --wf-canvas-muted: #aab2ac; }
+
+/* Seletor de fundo (amostras) */
+.wf-app .wf-bg-field { margin-top: 14px; }
+.wf-app .wf-bg-label { font-size: 13px; font-weight: 700; color: var(--wf-ink); margin: 0 0 8px; }
+.wf-app .wf-bg-swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+.wf-app .wf-bg-swatch {
+  width: 34px; height: 34px; border-radius: 10px; cursor: pointer; padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  box-shadow: 0 1px 2px rgba(20, 40, 28, 0.08);
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+.wf-app .wf-bg-swatch:hover { transform: translateY(-1px); }
+.wf-app .wf-bg-swatch:focus-visible { outline: 2px solid var(--wf-green); outline-offset: 2px; }
+.wf-app .wf-bg-swatch[aria-checked="true"] {
+  box-shadow: 0 0 0 2px var(--wf-surface), 0 0 0 4px var(--wf-green);
+}
+.wf-app .wf-bg-hint { font-size: 12px; color: var(--wf-muted); margin: 10px 0 0; }
+.wf-app .wf-bg-error { font-size: 12px; color: var(--wf-red-ink); margin: 8px 0 0; }

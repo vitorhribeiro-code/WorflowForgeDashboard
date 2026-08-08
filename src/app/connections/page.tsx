@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSession, type SessionContext } from "@/lib/session";
+import { getPreferencesService } from "@/modules/preferences/container";
+import { DEFAULT_BACKGROUND } from "@/modules/preferences/domain/preferences";
 import { WorkerApp } from "./WorkerApp";
 
 // Server Component: verifica a sessão (como /dashboard) e monta o shell do
@@ -27,7 +29,14 @@ export default async function ConnectionsPage({
   const sp = await searchParams;
   const banner = bannerFor(sp);
 
-  return <WorkerApp role={session.role} banner={banner} />;
+  // O fundo pessoal é só dos trabalhadores; o super-utilizador vive na consola
+  // escura. Resolve-se no servidor para aplicar já no 1.º render (sem flash).
+  const background =
+    session.role === "worker"
+      ? (await getPreferencesService().get(session)).background
+      : DEFAULT_BACKGROUND;
+
+  return <WorkerApp role={session.role} banner={banner} background={background} />;
 }
 
 function bannerFor(sp: {
