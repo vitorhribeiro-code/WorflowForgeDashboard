@@ -2032,3 +2032,10 @@ button.btn-danger:disabled {
 .ws-hint { font-size: 11.5px; color: var(--muted); }
 .ws-ok { margin: 0; font-size: 12.5px; color: #4caf7d; }
 .ws-err { margin: 0; font-size: 12.5px; color: var(--danger); }
+
+/* ---- Toggle "Usar estilo" na matriz (só tarefas assistant.writing) ---- */
+.matrix-style {
+  display: flex; align-items: center; gap: 6px; margin-top: 8px;
+  font-size: 11.5px; color: var(--muted); cursor: pointer;
+}
+.matrix-style input { cursor: pointer; }

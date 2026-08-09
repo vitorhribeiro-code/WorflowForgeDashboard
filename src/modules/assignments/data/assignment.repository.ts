@@ -23,6 +23,7 @@ export interface AssignmentRepository {
   setEnabled(id: string, patch: EnablePatch): Promise<TaskAssignment | null>;
   updateConfig(id: string, config: Record<string, unknown> | null): Promise<TaskAssignment | null>;
   updateSchedule(id: string, schedule: string | null): Promise<TaskAssignment | null>;
+  setUseWritingStyle(id: string, enabled: boolean): Promise<TaskAssignment | null>;
   // Persiste a ordem do board: position = índice, escopado ao próprio worker.
   reorderForWorker(workerId: string, orderedIds: string[]): Promise<void>;
   // Suspensão em massa (propagação de despublicar/revogar).
@@ -36,6 +37,7 @@ function toAssignment(row: typeof taskAssignments.$inferSelect): TaskAssignment 
     taskId: row.taskId,
     workerId: row.workerId,
     enabled: row.enabled,
+    useWritingStyle: row.useWritingStyle,
     schedule: row.schedule,
     delivery: row.delivery,
     config: (row.config as Record<string, unknown> | null) ?? null,
@@ -133,6 +135,15 @@ export class DrizzleAssignmentRepository implements AssignmentRepository {
     const [row] = await this.db
       .update(taskAssignments)
       .set({ schedule })
+      .where(eq(taskAssignments.id, id))
+      .returning();
+    return row ? toAssignment(row) : null;
+  }
+
+  async setUseWritingStyle(id: string, enabled: boolean): Promise<TaskAssignment | null> {
+    const [row] = await this.db
+      .update(taskAssignments)
+      .set({ useWritingStyle: enabled })
       .where(eq(taskAssignments.id, id))
       .returning();
     return row ? toAssignment(row) : null;

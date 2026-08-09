@@ -113,5 +113,17 @@ export function useMatrix() {
     });
   }, []);
 
-  return { matrix, loading, error, refetch, setCell, setSchedule };
+  // Liga/desliga o uso do estilo de escrita do worker (só assistant.writing).
+  const setWritingStyle = useCallback(
+    async (assignmentId: string, enabled: boolean) => {
+      await api(`/api/assignments/${assignmentId}/use-writing-style`, {
+        method: "PUT",
+        body: JSON.stringify({ enabled }),
+      });
+      refetch();
+    },
+    [refetch],
+  );
+
+  return { matrix, loading, error, refetch, setCell, setSchedule, setWritingStyle };
 }

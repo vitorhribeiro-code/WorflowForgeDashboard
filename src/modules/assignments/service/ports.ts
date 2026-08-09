@@ -84,12 +84,13 @@ export type MatrixCell = {
   workerId: string;
   assignmentId: string | null; // null = ainda não atribuída
   enabled: boolean;
+  useWritingStyle: boolean; // só faz sentido em tarefas assistant.writing
   schedule: string | null; // cron da atribuição (só relevante em automáticas)
   readiness: AssignmentReadiness;
 };
 
 export type AssignmentMatrix = {
-  tasks: Array<{ id: string; name: string; type: TaskType; published: boolean }>;
+  tasks: Array<{ id: string; name: string; type: TaskType; runtime: string; published: boolean }>;
   workers: WorkerSummary[];
   cells: MatrixCell[];
 };

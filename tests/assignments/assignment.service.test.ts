@@ -21,6 +21,7 @@ function mkAssignment(input: NewAssignment): TaskAssignment {
     taskId: input.taskId,
     workerId: input.workerId,
     enabled: false,
+    useWritingStyle: false,
     schedule: input.schedule ?? null,
     delivery: input.delivery ?? null,
     config: input.config ?? null,
@@ -80,6 +81,11 @@ class FakeRepo implements AssignmentRepository {
   async updateSchedule(id: string, schedule: string | null) {
     const a = this.rows.find((x) => x.id === id);
     if (a) a.schedule = schedule;
+    return a ?? null;
+  }
+  async setUseWritingStyle(id: string, enabled: boolean) {
+    const a = this.rows.find((x) => x.id === id);
+    if (a) a.useWritingStyle = enabled;
     return a ?? null;
   }
   async suspendForTask() {
@@ -282,5 +288,28 @@ describe("reorderForWorker", () => {
     // 'other' (de w2) não foi tocado; a1 (de w1) recebeu posição.
     expect(repo.rows.find((x) => x.id === other.id)?.position).toBeNull();
     expect(repo.rows.find((x) => x.id === a1.id)?.position).toBe(0);
+  });
+});
+
+describe("setWritingStyleFlag", () => {
+  it("liga/desliga o flag e regista auditoria (admin)", async () => {
+    const { service, audit } = setup(true);
+    const a = await service.create(ADMIN, { taskId: "t2", workerId: "w1" });
+    expect(a.useWritingStyle).toBe(false);
+
+    const on = await service.setWritingStyleFlag(ADMIN, a.id, true);
+    expect(on.useWritingStyle).toBe(true);
+    expect(audit.actions()).toContain("assignment.config_updated");
+
+    const off = await service.setWritingStyleFlag(ADMIN, a.id, false);
+    expect(off.useWritingStyle).toBe(false);
+  });
+
+  it("recusa a um worker (requer admin)", async () => {
+    const { service } = setup(true);
+    const a = await service.create(ADMIN, { taskId: "t2", workerId: "w1" });
+    await expect(service.setWritingStyleFlag(WORKER, a.id, true)).rejects.toMatchObject({
+      status: 403,
+    });
   });
 });

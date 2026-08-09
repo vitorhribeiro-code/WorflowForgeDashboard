@@ -43,6 +43,13 @@
       "when": 1786320000000,
       "tag": "0005_writing_styles",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786340000000,
+      "tag": "0006_assignment_use_writing_style",
+      "breakpoints": true
     }
   ]
 }

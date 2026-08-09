@@ -25,13 +25,27 @@ function missingText(r: AssignmentReadiness): string {
 }
 
 export function MatrixSection() {
-  const { matrix, loading, error, refetch, setCell, setSchedule } = useMatrix();
+  const { matrix, loading, error, refetch, setCell, setSchedule, setWritingStyle } = useMatrix();
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   // Edição de agenda: qual célula tem o construtor aberto. O rascunho vive
   // DENTRO do RecurrenceBuilder (montado com key=cellKey), por isso não há
   // estado de agenda partilhado entre células — nada vaza de uma para outra.
   const [editKey, setEditKey] = useState<string | null>(null);
+
+  async function onSetWritingStyle(cell: MatrixCell, enabled: boolean) {
+    if (!cell.assignmentId) return;
+    const key = `${cell.taskId}:${cell.workerId}`;
+    setBusyKey(key);
+    setActionError(null);
+    try {
+      await setWritingStyle(cell.assignmentId, enabled);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Não foi possível concluir");
+    } finally {
+      setBusyKey(null);
+    }
+  }
 
   async function onToggle(cell: MatrixCell, enabled: boolean) {
     const key = `${cell.taskId}:${cell.workerId}`;
@@ -144,6 +158,7 @@ export function MatrixSection() {
             <tbody>
               {matrix!.tasks.map((t) => {
                 const isAuto = t.type === "automation";
+                const isWriting = t.runtime === "assistant.writing";
                 return (
                   <tr key={t.id}>
                     <th scope="row" className="matrix-task">
@@ -213,6 +228,18 @@ export function MatrixSection() {
                                 </div>
                               )}
                             </div>
+                          ) : null}
+
+                          {isWriting && cell.assignmentId ? (
+                            <label className="matrix-style" title="Usar o .md de estilo deste trabalhador nas gerações de escrita">
+                              <input
+                                type="checkbox"
+                                checked={cell.useWritingStyle}
+                                disabled={busy}
+                                onChange={(e) => onSetWritingStyle(cell, e.target.checked)}
+                              />
+                              <span>Usar estilo</span>
+                            </label>
                           ) : null}
                         </td>
                       );

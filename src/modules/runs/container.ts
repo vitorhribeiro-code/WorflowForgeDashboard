@@ -20,6 +20,8 @@ import { createGmailInputProvider } from "@/platform/acquisition/gmail-input-pro
 import { createEmailEnrichmentProvider } from "@/platform/ai/email-enrichment";
 import { getLlmResolver } from "@/modules/ai/container";
 import type { LlmResolver } from "@/modules/ai/service/resolver";
+import { DrizzleAssignmentRepository } from "@/modules/assignments/data/assignment.repository";
+import { createDrizzleWritingStyleRepository } from "@/modules/writing-styles/data/writing-style.repository";
 
 let cached: RunsService | null = null;
 
@@ -103,6 +105,19 @@ export function getRunsService(): RunsService {
     createAssistantWritingHandler({ resolver: llmResolver }),
   ];
 
+  // Estilo de escrita a montante das assistidas (§5.2 Fatia 3): quando a
+  // atribuição tem "usar estilo" ligado e o worker tem um .md, entra no input.
+  const assignmentsRepo = new DrizzleAssignmentRepository(db);
+  const writingStyleRepo = createDrizzleWritingStyleRepository(db);
+  const writingStyle = {
+    async resolveForAssistedRun(assignmentId: string, workerId: string): Promise<string | null> {
+      const a = await assignmentsRepo.getById(assignmentId);
+      if (!a?.useWritingStyle) return null;
+      const row = await writingStyleRepo.getByWorker(workerId);
+      return row?.contentMd ?? null;
+    },
+  };
+
   cached = createRunsService({
     repo: createDrizzleRunsRepository(db),
     queue: createPgBossQueue(boss),
@@ -111,6 +126,7 @@ export function getRunsService(): RunsService {
     artifacts,
     audit: createDrizzleAudit(db),
     inputProvider,
+    writingStyle,
   });
   return cached;
 }

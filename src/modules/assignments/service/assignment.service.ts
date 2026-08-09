@@ -158,6 +158,7 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
             workerId: w.id,
             assignmentId: a?.id ?? null,
             enabled: a?.enabled ?? false,
+            useWritingStyle: a?.useWritingStyle ?? false,
             schedule: a?.schedule ?? null,
             readiness: r,
           });
@@ -169,6 +170,7 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
           id: t.id,
           name: t.name,
           type: t.type,
+          runtime: t.runtime,
           published: t.published,
         })),
         workers: workerList,
@@ -293,6 +295,26 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
         action: "assignment.config_updated",
         entity: "task_assignment",
         entityId: id,
+      });
+      return updated!;
+    },
+
+    // Ligar/desligar o uso do estilo de escrita do worker nesta atribuição.
+    // Flag de comportamento (fora do config jsonb → sem revalidar config_schema).
+    async setWritingStyleFlag(
+      session: SessionContext,
+      id: string,
+      enabled: boolean,
+    ): Promise<TaskAssignment> {
+      requireAdmin(session);
+      await load(session, id); // valida existência + escopo à org
+      const updated = await repo.setUseWritingStyle(id, enabled);
+      await safeAudit(audit, {
+        actorId: session.userId,
+        action: "assignment.config_updated",
+        entity: "task_assignment",
+        entityId: id,
+        metadata: { useWritingStyle: enabled },
       });
       return updated!;
     },

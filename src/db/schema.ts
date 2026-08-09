@@ -249,6 +249,9 @@ export const taskAssignments = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     enabled: boolean("enabled").notNull().default(false),
+    // Flag de comportamento do admin (NÃO é config de formulário): quando true,
+    // as gerações assistidas de escrita deste worker usam o .md de estilo dele.
+    useWritingStyle: boolean("use_writing_style").notNull().default(false),
     // Só relevante para automáticas: cron ou identificador de evento.
     schedule: text("schedule"),
     // Como o output chega ao trabalhador (inbox, email, ...).

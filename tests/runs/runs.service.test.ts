@@ -531,3 +531,51 @@ describe("saveSummaryToWeekly", () => {
     });
   });
 });
+
+describe("runAssisted + estilo de escrita (Fatia 3)", () => {
+  it("injeta input.style e força tom 'meu' quando o provider devolve um .md", async () => {
+    const repo = new FakeRunsRepo();
+    const service = createRunsService({
+      repo,
+      queue: new FakeQueue(),
+      readiness: new FakeReadiness(),
+      handlers: createHandlerRegistry([echoHandler]),
+      artifacts: new FakeArtifacts(),
+      audit: new FakeAudit(),
+      writingStyle: {
+        resolveForAssistedRun: async () => "A minha voz de escrita.",
+      },
+      now,
+    });
+    repo.seedContext(ctx({ type: "assistant" }));
+
+    let result: any;
+    for await (const e of service.runAssisted(WORKER, "asg-1", {})) {
+      if (e.type === "result") result = e.data;
+    }
+    expect(result.echo.style).toBe("A minha voz de escrita.");
+    expect(result.echo.tone).toBe("meu");
+  });
+
+  it("não injeta nada quando o provider devolve null (flag desligado)", async () => {
+    const repo = new FakeRunsRepo();
+    const service = createRunsService({
+      repo,
+      queue: new FakeQueue(),
+      readiness: new FakeReadiness(),
+      handlers: createHandlerRegistry([echoHandler]),
+      artifacts: new FakeArtifacts(),
+      audit: new FakeAudit(),
+      writingStyle: { resolveForAssistedRun: async () => null },
+      now,
+    });
+    repo.seedContext(ctx({ type: "assistant" }));
+
+    let result: any;
+    for await (const e of service.runAssisted(WORKER, "asg-1", { tone: "formal" })) {
+      if (e.type === "result") result = e.data;
+    }
+    expect(result.echo.style).toBeUndefined();
+    expect(result.echo.tone).toBe("formal");
+  });
+});

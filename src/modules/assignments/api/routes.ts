@@ -5,6 +5,7 @@ import {
   editConfigSchema,
   reorderSchema,
   setScheduleSchema,
+  setWritingStyleSchema,
   toggleSchema,
 } from "../validation/schemas";
 import { json, readJson, withSession } from "./http";
@@ -67,6 +68,12 @@ export const togglePOST = withSession(async (session, req, ctx) => {
 export const configPUT = withSession(async (session, req, ctx) => {
   const { config } = await readJson(req, editConfigSchema);
   return json(await assignmentService.editConfig(session, id(ctx), config));
+});
+
+// PUT /api/assignments/[id]/use-writing-style — { enabled } (admin).
+export const useWritingStylePUT = withSession(async (session, req, ctx) => {
+  const { enabled } = await readJson(req, setWritingStyleSchema);
+  return json(await assignmentService.setWritingStyleFlag(session, id(ctx), enabled));
 });
 
 // PUT /api/assignments/[id]/schedule — { schedule|null }.

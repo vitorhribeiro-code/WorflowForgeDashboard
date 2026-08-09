@@ -46,6 +46,11 @@ export interface RunsServiceDeps {
   // Aquisição de input a montante do handler (ex.: Gmail → email.digest).
   // Opcional: sem ele, o input do run passa tal e qual (pass-through).
   inputProvider?: InputProvider;
+  // Estilo de escrita a montante das assistidas: devolve o .md do worker SE a
+  // atribuição tiver o flag ligado (senão null). Opcional (sem ele, sem estilo).
+  writingStyle?: {
+    resolveForAssistedRun(assignmentId: string, workerId: string): Promise<string | null>;
+  };
   maxAttempts?: number; // default 3
   now?: () => Date;
 }
@@ -393,13 +398,27 @@ export function createRunsService(deps: RunsServiceDeps) {
       entityId: row.id,
     });
 
+    // Injeção a montante: se a atribuição tiver "usar estilo" ligado e o worker
+    // tiver um .md, entra como input.style + tom "meu" (o handler embute-o no
+    // system). Não se grava no input do run (mantém a linha leve).
+    let streamInput = input;
+    if (deps.writingStyle && input.style === undefined) {
+      const styleMd = await deps.writingStyle.resolveForAssistedRun(
+        assignmentId,
+        assignment.workerId,
+      );
+      if (styleMd && styleMd.trim()) {
+        streamInput = { ...input, style: styleMd, tone: "meu" };
+      }
+    }
+
     const controller = new AbortController();
     externalSignal?.addEventListener("abort", () => controller.abort());
 
     let result: Record<string, unknown> | undefined;
     try {
       for await (const event of handler.stream({
-        input,
+        input: streamInput,
         config: assignment.config,
         orgId: task.orgId,
         signal: controller.signal,

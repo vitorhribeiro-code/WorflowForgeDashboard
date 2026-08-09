@@ -7,6 +7,7 @@ export type TaskAssignment = {
   taskId: string;
   workerId: string;
   enabled: boolean;
+  useWritingStyle: boolean; // admin: usar o .md de estilo do worker nas escritas
   schedule: string | null; // cron — só relevante para type=automation
   delivery: string | null; // como o output chega (inbox, email, ...)
   config: Record<string, unknown> | null;
