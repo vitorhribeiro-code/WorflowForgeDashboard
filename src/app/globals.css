@@ -1837,84 +1837,105 @@ button.btn-danger:disabled {
 
 @media (max-width: 640px) { .wf-stats { grid-template-columns: 1fr; } }
 
-/* -------------------------------------------------------------------------- */
-/*  Fase C2 (revisto 2) — cartões numa coluna à direita do conteúdo, ancorada    */
-/*  no topo e a descer ao lado do board. A sidebar volta a ser só navegação.     */
-/* -------------------------------------------------------------------------- */
-.wf-app .wf-tasks-layout {
-  display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 18px; align-items: start;
-}
-.wf-app .wf-tasks-col { min-width: 0; }
-.wf-app .wf-tasks-rail {
-  display: flex; flex-direction: column; gap: 16px; min-width: 0;
-  position: sticky; top: 22px;
-}
-.wf-app .wf-widget {
-  background: var(--wf-surface); border: 1px solid var(--wf-line);
-  border-radius: var(--wf-r-lg); padding: 16px; box-shadow: var(--wf-shadow); min-width: 0;
-}
-.wf-app .wf-widget-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.wf-app .wf-widget-title { font-weight: 700; font-size: 13.5px; color: var(--wf-ink); }
-.wf-app .wf-widget-refresh {
-  margin-left: auto; display: grid; place-items: center; width: 26px; height: 26px;
-  border: 0; background: transparent; cursor: pointer; color: var(--wf-faint); border-radius: 8px;
-}
-.wf-app .wf-widget-refresh:hover { background: #f0f4f0; color: var(--wf-green-hero-1); }
-.wf-app .wf-widget-refresh:disabled { opacity: .5; cursor: default; }
-.wf-app .wf-widget-empty { margin: 0; color: var(--wf-muted); font-size: 12.5px; }
-
-/* Próxima ação */
-.wf-app .wf-next { display: flex; flex-direction: column; gap: 4px; }
-.wf-app .wf-next-rel {
-  font-size: 20px; font-weight: 800; letter-spacing: -.02em; color: var(--wf-green-hero-1); line-height: 1.15;
-}
-.wf-app .wf-next-task { font-size: 13.5px; font-weight: 700; color: var(--wf-ink); }
-.wf-app .wf-next-sub { font-size: 12px; color: var(--wf-muted); }
-.wf-app .wf-next-warn {
-  margin-top: 6px; align-self: flex-start; font-size: 10.5px; font-weight: 700;
-  color: var(--wf-amber-ink); background: var(--wf-amber-tint); padding: 2px 9px; border-radius: 999px;
+.wf-app .wf-topcards {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; align-items: stretch;
 }
 
-/* Ações recentes */
-.wf-app .wf-feed { display: flex; flex-direction: column; gap: 10px; }
-.wf-app .wf-feed-item { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.wf-app .wf-feed-item + .wf-feed-item { border-top: 1px solid var(--wf-line2); padding-top: 10px; }
-.wf-app .wf-feed-task {
-  font-size: 13px; font-weight: 600; color: var(--wf-ink);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.wf-app .wf-tc {
+  background: var(--wf-surface); border: 1px solid var(--wf-line); border-radius: 12px;
+  padding: 8px 14px; box-shadow: var(--wf-shadow); min-width: 0;
+  display: flex; flex-direction: column; gap: 4px;
 }
-.wf-app .wf-feed-meta { display: flex; align-items: center; gap: 8px; }
-.wf-app .wf-feed-when { font-size: 11.5px; color: var(--wf-faint); }
-.wf-app .wf-feed-skel {
-  height: 38px; border-radius: 10px;
+.wf-app .wf-tc-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.wf-app .wf-tc-head .wf-tc-btn { margin-left: auto; }
+.wf-app .wf-tc-ic {
+  width: 20px; height: 20px; border-radius: 6px; flex: none; display: grid; place-items: center;
+  background: var(--wf-tint); color: var(--wf-green-hero-1);
+}
+.wf-app .wf-tc-ic svg { width: 12px; height: 12px; }
+.wf-app .wf-tc-title { font-size: 11px; font-weight: 600; color: var(--wf-muted); white-space: nowrap; }
+.wf-app .wf-tc-btn {
+  width: 22px; height: 22px; flex: none; display: grid; place-items: center;
+  border: 1px solid var(--wf-line); background: var(--wf-surface); color: var(--wf-muted);
+  border-radius: 7px; cursor: pointer; padding: 0;
+}
+.wf-app .wf-tc-btn:hover:not(:disabled) { border-color: var(--wf-green); color: var(--wf-green-hero-1); background: var(--wf-tint); }
+.wf-app .wf-tc-btn:disabled { opacity: .5; cursor: default; }
+.wf-app .wf-tc-btn svg { width: 13px; height: 13px; }
+
+.wf-app .wf-tc-line { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.wf-app .wf-tc-rel {
+  font-size: 15px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; flex: none;
+  color: var(--wf-green-hero-1);
+}
+.wf-app .wf-tc-cap {
+  font-size: 11px; color: var(--wf-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.wf-app .wf-tc-task {
+  font-size: 13px; font-weight: 700; color: var(--wf-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.wf-app .wf-tc-line .status-pill { flex: none; }
+.wf-app .wf-tc-when { font-size: 11px; color: var(--wf-faint); margin-left: auto; flex: none; }
+.wf-app .wf-tc-empty { margin: 0; color: var(--wf-muted); font-size: 12px; }
+.wf-app .wf-tc-skel {
+  display: block; height: 16px; width: 60%; border-radius: 6px;
   background: linear-gradient(90deg, #eef1ee, #f6f8f6, #eef1ee);
   background-size: 200% 100%; animation: wf-shimmer 1.3s ease-in-out infinite;
 }
 @keyframes wf-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-.wf-app .wf-widget-more {
-  margin-top: 12px; border: 0; background: transparent; cursor: pointer;
-  font: inherit; font-size: 12px; font-weight: 700; color: var(--wf-green-hero-1); padding: 0;
-}
-.wf-app .wf-widget-more:hover { text-decoration: underline; }
 
-/* Coluna estreita (160px): tipos reduzidos proporcionalmente. Fica SEMPRE à
-   direita — NÃO empilha nas reduções da janela; quem encolhe é o board. */
-.wf-app .wf-tasks-rail .wf-widget { padding: 13px; }
-.wf-app .wf-tasks-rail .wf-widget-head { margin-bottom: 9px; gap: 6px; }
-.wf-app .wf-tasks-rail .wf-widget-title { font-size: 11.5px; min-width: 0; overflow-wrap: anywhere; }
-.wf-app .wf-tasks-rail .wf-widget-refresh { width: 22px; height: 22px; }
-.wf-app .wf-tasks-rail .wf-widget-empty { font-size: 11px; }
-.wf-app .wf-tasks-rail .wf-next-rel { font-size: 16px; line-height: 1.2; }
-.wf-app .wf-tasks-rail .wf-next-task { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wf-app .wf-tasks-rail .wf-next-sub { font-size: 10.5px; line-height: 1.3; }
-.wf-app .wf-tasks-rail .wf-next-warn { font-size: 9.5px; padding: 2px 7px; }
-.wf-app .wf-tasks-rail .wf-feed { gap: 8px; }
-.wf-app .wf-tasks-rail .wf-feed-item { gap: 5px; }
-.wf-app .wf-tasks-rail .wf-feed-item + .wf-feed-item { padding-top: 8px; }
-.wf-app .wf-tasks-rail .wf-feed-task { font-size: 11px; }
-.wf-app .wf-tasks-rail .wf-feed-when { font-size: 10px; }
-.wf-app .wf-tasks-rail .status-pill { font-size: 10px; padding: 2px 7px; gap: 4px; }
-.wf-app .wf-tasks-rail .wf-widget-more { font-size: 11px; margin-top: 10px; }
+/* Cartão hero (Próxima ação): mesma família do stat "hero" que saiu do topo. */
+.wf-app .wf-tc--hero {
+  background: linear-gradient(135deg, var(--wf-green-hero-1), var(--wf-green-hero-2));
+  border-color: transparent; color: #fff;
+}
+.wf-app .wf-tc--hero .wf-tc-ic { background: rgba(255, 255, 255, .16); color: #fff; }
+.wf-app .wf-tc--hero .wf-tc-title { color: rgba(255, 255, 255, .82); }
+.wf-app .wf-tc--hero .wf-tc-rel { color: #fff; }
+.wf-app .wf-tc--hero .wf-tc-cap { color: rgba(255, 255, 255, .82); }
+.wf-app .wf-tc--hero .wf-tc-btn { background: rgba(255, 255, 255, .14); border-color: rgba(255, 255, 255, .28); color: #fff; }
+.wf-app .wf-tc--hero .wf-tc-btn:hover:not(:disabled) { background: rgba(255, 255, 255, .26); color: #fff; }
+
+/* Popup = cartão (mesma letra + mesmo padding). Montado DENTRO do .wf-app,
+   por isso herda os tokens --wf-* (o cartão do popup fica opaco). */
+.wf-app .wf-pop-overlay {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px;
+  background: rgba(15, 25, 19, .5);
+}
+.wf-app .wf-pop {
+  width: min(380px, 94vw); background: var(--wf-surface); border: 1px solid var(--wf-line);
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 1px 2px rgba(20, 40, 28, .06), 0 22px 50px rgba(20, 40, 28, .24);
+}
+.wf-app .wf-pop-head { display: flex; align-items: center; gap: 7px; padding: 8px 14px; border-bottom: 1px solid var(--wf-line2); }
+.wf-app .wf-pop-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.wf-app .wf-pop-close { font-size: 15px; line-height: 1; }
+.wf-app .wf-pop-seg { display: flex; gap: 6px; padding: 8px 14px 2px; align-items: center; }
+.wf-app .wf-pop-seg-lbl { font-size: 11px; color: var(--wf-muted); margin-right: 2px; }
+.wf-app .wf-pop-seg-btn {
+  border: 1px solid var(--wf-line); background: var(--wf-surface); color: var(--wf-muted);
+  border-radius: 999px; padding: 4px 12px; font-size: 11.5px; font-weight: 700; cursor: pointer;
+}
+.wf-app .wf-pop-seg-btn:hover { border-color: var(--wf-green); }
+.wf-app .wf-pop-seg-btn.on { background: var(--wf-tint); border-color: transparent; color: var(--wf-green-hero-1); }
+.wf-app .wf-pop-body { padding: 2px 14px 8px; max-height: 56vh; overflow: auto; }
+.wf-app .wf-pop-item { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 9px 0; }
+.wf-app .wf-pop-item + .wf-pop-item { border-top: 1px solid var(--wf-line2); }
+.wf-app .wf-pop-item .status-pill { flex: none; }
+.wf-app .wf-pop-task {
+  font-size: 13px; font-weight: 700; color: var(--wf-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.wf-app .wf-pop-when { font-size: 11px; color: var(--wf-faint); margin-left: auto; flex: none; }
+.wf-app .wf-pop-next { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 9px 0; }
+.wf-app .wf-pop-next + .wf-pop-next { border-top: 1px solid var(--wf-line2); }
+.wf-app .wf-pop-next-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.wf-app .wf-pop-next-cad { font-size: 11px; color: var(--wf-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-app .wf-pop-next-rel { margin-left: auto; flex: none; font-size: 13px; font-weight: 800; letter-spacing: -.02em; color: var(--wf-green-hero-1); white-space: nowrap; }
+
+@media (max-width: 640px) { .wf-app .wf-topcards { grid-template-columns: 1fr; } }
 
 /* ---- Consola de escrita (assistant.writing, Painel do Trabalhador) ---- */
 /* Prefixo wrt- para não colidir; paleta wf (painel claro), verde nativo no on. */

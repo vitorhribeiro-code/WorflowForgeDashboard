@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { ConnectionsPanel } from "@/modules/connections/ui/ConnectionsPanel";
 import { WorkerTasksPanel } from "@/modules/assignments/ui/WorkerTasksPanel";
 import { NextRunWidget, RecentRunsWidget } from "@/modules/assignments/ui/SidebarWidgets";
+import { WorkerActivityStats } from "@/modules/assignments/ui/WorkerActivityStats";
 import {
   BACKGROUND_SWATCHES,
   DEFAULT_BACKGROUND,
@@ -211,19 +212,17 @@ export function WorkerApp({
               <AdminNote />
             </>
           ) : (
-            <div className="wf-tasks-layout">
-              <div className="wf-tasks-col">
-                <div className="wf-page-head">
-                  <h1>As minhas tarefas</h1>
-                  <p>Executa as automáticas quando precisares e acompanha o histórico.</p>
-                </div>
-                <WorkerTasksPanel />
+            <>
+              <div className="wf-page-head">
+                <h1>As minhas tarefas</h1>
+                <p>Executa as automáticas quando precisares e acompanha o histórico.</p>
               </div>
-              <aside className="wf-tasks-rail" aria-label="Resumo">
+              <div className="wf-topcards">
                 <NextRunWidget />
                 <RecentRunsWidget />
-              </aside>
-            </div>
+              </div>
+              <WorkerTasksPanel />
+            </>
           )}
         </section>
 
@@ -284,6 +283,13 @@ export function WorkerApp({
               </p>
             )}
           </div>
+          {showBackground && (
+            <div className="wf-panel">
+              <h2>A tua atividade</h2>
+              <p>Um resumo das tuas tarefas neste momento.</p>
+              <WorkerActivityStats />
+            </div>
+          )}
           {isAdmin && (
             <div className="wf-panel">
               <h2>Consola de super-utilizador</h2>

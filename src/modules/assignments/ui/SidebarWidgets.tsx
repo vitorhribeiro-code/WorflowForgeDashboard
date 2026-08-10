@@ -1,20 +1,21 @@
 "use client";
 
 /**
- * Cartões da sidebar do Painel do Trabalhador (Fase C2 do redesign, revisto).
+ * Cartões compactos do TOPO do Painel do Trabalhador (redesign do topo).
  *
- *  - NextRunWidget: a próxima AÇÃO agendada, derivada do cron das próprias
- *    atribuições (auto-suficiente — busca-as sozinho). Avaliação em UTC, como
- *    todo o motor; o fuso da org fica para §5.3.
- *  - RecentRunsWidget: feed das últimas AÇÕES do trabalhador (GET /api/runs/mine),
- *    com "ver mais" a expandir de 2 para 6.
+ *  - NextRunWidget: cartão "Próxima ação" (hero). Mostra a ação agendada mais
+ *    próxima (uma linha: "daqui a…" + tarefa · cadência). Um "+" abre um popup
+ *    ESTILO-CARTÃO com as PRÓXIMAS ações agendadas.
+ *  - RecentRunsWidget: cartão "Ações recentes". Mostra a última ação (tarefa +
+ *    estado + hora). Um "+" abre um popup com as últimas ações (3/5/10).
  *
- * Vivem numa coluna à direita do conteúdo (ancorada no topo, a descer ao lado
- * do board), com o estilo folgado base de `.wf-widget`. Design system do projeto
- * (globals.css, CSS-vars), tudo em `.wf-app`.
+ * Ambos são auto-suficientes (buscam os próprios dados) e vivem em `.wf-topcards`
+ * no topo da vista de tarefas. Os popups são montados DENTRO do `.wf-app`, para
+ * herdarem os tokens `--wf-*` (senão o cartão do popup fica sem fundo). Avaliação
+ * de cron em UTC, como o motor; o fuso da org fica para §5.3.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { WorkerAssignmentView } from "@/modules/assignments";
 import { nextRunAfter } from "../domain/cron";
 import { describeCron } from "../domain/recurrence";
@@ -33,8 +34,27 @@ function Pill({ tone, label }: { tone: Tone; label: string }) {
   );
 }
 
+/* --- Ícones (SVG inline; os "ti ti-*" do Tabler não existem na app) -------- */
+
+const IcClock = (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+    <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.7" />
+    <path d="M12 8v4l2.5 1.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+  </svg>
+);
+const IcHistory = (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path d="M4 12a8 8 0 108-8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M4 4v4h4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const IcPlus = (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+  </svg>
+);
 const RefreshIcon = (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden>
     <path
       d="M20 11a8 8 0 10-.6 4M20 5v5h-5"
       stroke="currentColor"
@@ -45,24 +65,62 @@ const RefreshIcon = (
   </svg>
 );
 
-/* --- Próxima execução ----------------------------------------------------- */
+/* --- Popup estilo-cartão (overlay + card; Esc e clique-fora fecham) -------- */
+
+function CardPopup({
+  label,
+  icon,
+  onClose,
+  headExtra,
+  children,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClose: () => void;
+  headExtra?: ReactNode;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="wf-pop-overlay" role="presentation" onClick={onClose}>
+      <div
+        className="wf-pop"
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="wf-pop-head">
+          <span className="wf-tc-ic">{icon}</span>
+          <span className="wf-tc-title">{label}</span>
+          <div className="wf-pop-actions">
+            {headExtra}
+            <button
+              type="button"
+              className="wf-tc-btn wf-pop-close"
+              aria-label="Fechar"
+              onClick={onClose}
+            >
+              &#215;
+            </button>
+          </div>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* --- Próxima ação --------------------------------------------------------- */
 
 type NextRun = { task: WorkerAssignmentView; at: Date; schedule: string };
-
-// A execução agendada mais próxima entre as atribuições automáticas ativas com
-// agenda. Não promete nada de assistidas (não têm schedule) nem de desativadas.
-function soonestNextRun(tasks: WorkerAssignmentView[], from: Date): NextRun | null {
-  let best: NextRun | null = null;
-  for (const t of tasks) {
-    if (!t.enabled || t.taskType !== "automation" || !t.schedule) continue;
-    const at = nextRunAfter(t.schedule, from);
-    if (!at) continue;
-    if (!best || at.getTime() < best.at.getTime()) {
-      best = { task: t, at, schedule: t.schedule };
-    }
-  }
-  return best;
-}
 
 // Distância legível em PT, zona-agnóstica (só depende do delta).
 function formatRelative(ms: number): string {
@@ -78,11 +136,29 @@ function formatRelative(ms: number): string {
   return remH ? `daqui a ${d} d ${remH} h` : `daqui a ${d} d`;
 }
 
+// Próximas execuções agendadas (automáticas ativas com agenda), por ordem de
+// proximidade. Assistidas (sem schedule) e desativadas não entram.
+function upcomingRuns(tasks: WorkerAssignmentView[], from: Date, limit: number): NextRun[] {
+  const out: NextRun[] = [];
+  for (const t of tasks) {
+    if (!t.enabled || t.taskType !== "automation" || !t.schedule) continue;
+    const at = nextRunAfter(t.schedule, from);
+    if (!at) continue;
+    out.push({ task: t, at, schedule: t.schedule });
+  }
+  out.sort((a, b) => a.at.getTime() - b.at.getTime());
+  return out.slice(0, limit);
+}
+
+const UPCOMING_MAX = 8;
+
 export function NextRunWidget() {
-  // Auto-suficiente: busca as próprias atribuições (vive na sidebar, longe do
-  // painel). Tick de 30s para o "daqui a…" não ficar preso e a próxima rolar.
+  // Auto-suficiente: busca as próprias atribuições. Tick de 30s para o "daqui
+  // a…" não ficar preso e a próxima rolar.
   const [tasks, setTasks] = useState<WorkerAssignmentView[]>([]);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  const [open, setOpen] = useState(false);
+
   useEffect(() => {
     let alive = true;
     void fetchMineAssignments()
@@ -90,7 +166,7 @@ export function NextRunWidget() {
         if (alive) setTasks(t);
       })
       .catch(() => {
-        /* silencioso: o widget é acessório */
+        /* silencioso: o cartão é acessório */
       });
     return () => {
       alive = false;
@@ -101,30 +177,65 @@ export function NextRunWidget() {
     return () => clearInterval(id);
   }, []);
 
-  const next = useMemo(() => soonestNextRun(tasks, new Date(nowMs)), [tasks, nowMs]);
+  const upcoming = useMemo(
+    () => upcomingRuns(tasks, new Date(nowMs), UPCOMING_MAX),
+    [tasks, nowMs],
+  );
+  const next = upcoming[0] ?? null;
 
   return (
-    <section className="wf-widget" aria-label="Próxima ação">
-      <div className="wf-widget-head">
-        <span className="wf-widget-title">Próxima ação</span>
+    <section className="wf-tc wf-tc--hero" aria-label="Próxima ação">
+      <div className="wf-tc-head">
+        <span className="wf-tc-ic">{IcClock}</span>
+        <span className="wf-tc-title">Próxima ação</span>
+        <button
+          type="button"
+          className="wf-tc-btn"
+          onClick={() => setOpen(true)}
+          aria-label="Ver próximas ações"
+          title="Ver próximas"
+        >
+          {IcPlus}
+        </button>
       </div>
+
       {next ? (
-        <div className="wf-next">
-          <span className="wf-next-rel">{formatRelative(next.at.getTime() - nowMs)}</span>
-          <span className="wf-next-task">{next.task.taskName}</span>
-          <span className="wf-next-sub">{describeCron(next.schedule)}</span>
-          {!next.task.ready && (
-            <span className="wf-next-warn">Requer conexões para correr</span>
-          )}
+        <div className="wf-tc-line">
+          <span className="wf-tc-rel">{formatRelative(next.at.getTime() - nowMs)}</span>
+          <span className="wf-tc-cap">
+            {next.task.taskName} · {describeCron(next.schedule)}
+          </span>
         </div>
       ) : (
-        <p className="wf-widget-empty">Sem ações agendadas.</p>
+        <p className="wf-tc-empty">Sem ações agendadas.</p>
+      )}
+
+      {open && (
+        <CardPopup label="Próximas ações" icon={IcClock} onClose={() => setOpen(false)}>
+          <div className="wf-pop-body">
+            {upcoming.length === 0 ? (
+              <p className="wf-tc-empty">Sem ações agendadas.</p>
+            ) : (
+              upcoming.map((u) => (
+                <div key={u.task.assignmentId} className="wf-pop-next">
+                  <span className="wf-pop-next-main">
+                    <span className="wf-pop-task">{u.task.taskName}</span>
+                    <span className="wf-pop-next-cad">{describeCron(u.schedule)}</span>
+                  </span>
+                  <span className="wf-pop-next-rel">
+                    {formatRelative(u.at.getTime() - nowMs)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </CardPopup>
       )}
     </section>
   );
 }
 
-/* --- Execuções recentes --------------------------------------------------- */
+/* --- Ações recentes ------------------------------------------------------- */
 
 function runPill(run: MineRunRow): { tone: Tone; label: string } {
   if (run.status === "success") return { tone: "green", label: "Concluído" };
@@ -144,20 +255,21 @@ function formatWhen(iso: string): string {
   });
 }
 
-const COLLAPSED = 2;
-const EXPANDED = 6;
+// Busca até 10 (o popup mostra 3/5/10; o cartão mostra só a 1.ª).
+const RECENT_MAX = 10;
 
 export function RecentRunsWidget() {
   const [runs, setRuns] = useState<MineRunRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [limit, setLimit] = useState(5);
 
   const load = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
-      setRuns(await fetchMineRuns(EXPANDED));
+      setRuns(await fetchMineRuns(RECENT_MAX));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -169,61 +281,91 @@ export function RecentRunsWidget() {
     void load();
   }, [load]);
 
-  const shown = runs ? runs.slice(0, expanded ? EXPANDED : COLLAPSED) : [];
-  const hiddenCount = runs ? Math.min(runs.length, EXPANDED) - COLLAPSED : 0;
+  const last = runs && runs.length > 0 ? runs[0]! : null;
+  const lastPill = last ? runPill(last) : null;
+  const shown = runs ? runs.slice(0, limit) : [];
 
   return (
-    <section className="wf-widget" aria-label="Ações recentes">
-      <div className="wf-widget-head">
-        <span className="wf-widget-title">Ações recentes</span>
+    <section className="wf-tc" aria-label="Ações recentes">
+      <div className="wf-tc-head">
+        <span className="wf-tc-ic">{IcHistory}</span>
+        <span className="wf-tc-title">Ações recentes</span>
         <button
           type="button"
-          className="wf-widget-refresh"
-          onClick={() => void load()}
-          disabled={busy}
-          aria-label="Atualizar"
-          title="Atualizar"
+          className="wf-tc-btn"
+          onClick={() => setOpen(true)}
+          aria-label="Ver todas as ações"
+          title="Ver todas"
         >
-          {RefreshIcon}
+          {IcPlus}
         </button>
       </div>
 
       {error ? (
-        <p className="wf-widget-empty">{error}</p>
+        <p className="wf-tc-empty">{error}</p>
       ) : runs === null ? (
-        <div className="wf-feed" aria-busy>
-          {[0, 1].map((i) => (
-            <div key={i} className="wf-feed-skel" />
-          ))}
+        <div className="wf-tc-line">
+          <span className="wf-tc-skel" />
         </div>
-      ) : runs.length === 0 ? (
-        <p className="wf-widget-empty">Ainda sem ações.</p>
+      ) : last === null || lastPill === null ? (
+        <p className="wf-tc-empty">Ainda sem ações.</p>
       ) : (
-        <>
-          <div className="wf-feed">
-            {shown.map((run) => {
-              const pill = runPill(run);
-              return (
-                <div key={run.id} className="wf-feed-item">
-                  <span className="wf-feed-task">{run.taskName}</span>
-                  <span className="wf-feed-meta">
-                    <Pill tone={pill.tone} label={pill.label} />
-                    <span className="wf-feed-when">{formatWhen(run.createdAt)}</span>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          {hiddenCount > 0 && (
+        <div className="wf-tc-line">
+          <span className="wf-tc-task">{last.taskName}</span>
+          <Pill tone={lastPill.tone} label={lastPill.label} />
+          <span className="wf-tc-when">{formatWhen(last.createdAt)}</span>
+        </div>
+      )}
+
+      {open && (
+        <CardPopup
+          label="Ações recentes"
+          icon={IcHistory}
+          onClose={() => setOpen(false)}
+          headExtra={
             <button
               type="button"
-              className="wf-widget-more"
-              onClick={() => setExpanded((v) => !v)}
+              className="wf-tc-btn"
+              onClick={() => void load()}
+              disabled={busy}
+              aria-label="Atualizar"
+              title="Atualizar"
             >
-              {expanded ? "Ver menos" : `Ver mais (${hiddenCount})`}
+              {RefreshIcon}
             </button>
-          )}
-        </>
+          }
+        >
+          <div className="wf-pop-seg" role="group" aria-label="Quantas mostrar">
+            <span className="wf-pop-seg-lbl">Mostrar</span>
+            {[3, 5, 10].map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`wf-pop-seg-btn${limit === n ? " on" : ""}`}
+                aria-pressed={limit === n}
+                onClick={() => setLimit(n)}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <div className="wf-pop-body">
+            {shown.length === 0 ? (
+              <p className="wf-tc-empty">Ainda sem ações.</p>
+            ) : (
+              shown.map((run) => {
+                const pill = runPill(run);
+                return (
+                  <div key={run.id} className="wf-pop-item">
+                    <span className="wf-pop-task">{run.taskName}</span>
+                    <Pill tone={pill.tone} label={pill.label} />
+                    <span className="wf-pop-when">{formatWhen(run.createdAt)}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </CardPopup>
       )}
     </section>
   );
