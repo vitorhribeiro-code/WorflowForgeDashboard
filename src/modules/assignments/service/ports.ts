@@ -56,6 +56,13 @@ export interface WorkerDirectoryPort {
   listWorkers(orgId: string): Promise<WorkerSummary[]>;
 }
 
+// §5.2: presença do estilo de escrita (.md) de um trabalhador. Só um booleano —
+// nunca expõe o conteúdo. Alimenta o selo do painel («a usar o teu estilo» vs
+// «estilo pendente») sem duplicar a leitura do .md que já vive no writing-styles.
+export interface WritingStylePresencePort {
+  hasStyle(workerId: string): Promise<boolean>;
+}
+
 /* --- Expostos ------------------------------------------------------------- */
 
 // M4 (despublicar) e M6 (revogar/expirar) chamam isto para propagar a suspensão.
@@ -110,4 +117,10 @@ export type WorkerAssignmentView = {
   schedule: string | null;
   ready: boolean;
   missing: MissingDep[];
+  // §5.2 (selo do estilo de escrita): dois sinais independentes.
+  //  - useWritingStyle: o admin ligou «usar estilo» NESTA atribuição (por-atrib.)
+  //  - hasWritingStyle: existe um .md de estilo para este trabalhador (por-worker)
+  // A UI combina-os: ambos → «a usar o teu estilo»; só o 1.º → «estilo pendente».
+  useWritingStyle: boolean;
+  hasWritingStyle: boolean;
 };

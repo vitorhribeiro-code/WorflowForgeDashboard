@@ -22,6 +22,7 @@ import type {
   TaskDepsPort,
   WorkerAssignmentView,
   WorkerDirectoryPort,
+  WritingStylePresencePort,
 } from "./ports";
 
 export type AssignmentServiceDeps = {
@@ -31,6 +32,9 @@ export type AssignmentServiceDeps = {
   schema: SchemaValidatorPort; // ajv
   workers: WorkerDirectoryPort; // M2
   audit: AuditPort;
+  // §5.2 (opcional): presença do .md de estilo do worker, para o selo do painel.
+  // Ausente ⇒ hasWritingStyle degrada para false (comportamento pré-selo).
+  writingStyle?: WritingStylePresencePort;
   now: () => Date;
 };
 
@@ -55,7 +59,7 @@ function isConfigValid(
 }
 
 export function createAssignmentService(deps: AssignmentServiceDeps) {
-  const { repo, taskDeps, readiness, schema, workers, audit, now } = deps;
+  const { repo, taskDeps, readiness, schema, workers, audit, writingStyle, now } = deps;
 
   async function loadTaskInOrg(taskId: string, orgId: string): Promise<TaskContext> {
     const ctx = await taskDeps.getTaskContext(taskId);
@@ -189,6 +193,12 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
       ]);
       const taskById = new Map(orgTasks.map((t) => [t.id, t]));
 
+      // Presença do .md é por-worker (igual para todas as atribuições desta
+      // vista) → lê-se UMA vez. Sem a dep, degrada para false.
+      const hasWritingStyle = writingStyle
+        ? await writingStyle.hasStyle(session.userId)
+        : false;
+
       const views: WorkerAssignmentView[] = [];
       for (const a of assignments) {
         const t = taskById.get(a.taskId);
@@ -210,6 +220,8 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
           schedule: a.schedule,
           ready: r.eligible,
           missing: r.connections.missing,
+          useWritingStyle: a.useWritingStyle,
+          hasWritingStyle,
         });
       }
       return views;

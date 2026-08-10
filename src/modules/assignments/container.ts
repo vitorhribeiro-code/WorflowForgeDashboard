@@ -10,8 +10,13 @@ import {
   createAssignmentService,
   createAssignmentSuspender,
 } from "./service/assignment.service";
-import type { ReadinessPort, TaskDepsPort } from "./service/ports";
+import type {
+  ReadinessPort,
+  TaskDepsPort,
+  WritingStylePresencePort,
+} from "./service/ports";
 import { createAjvSchemaValidator } from "./infra/ajv-schema-validator";
+import { createDrizzleWritingStyleRepository } from "@/modules/writing-styles/data/writing-style.repository";
 
 const repo = new DrizzleAssignmentRepository(db);
 const audit = createDrizzleAudit(db);
@@ -24,6 +29,16 @@ const taskDeps: TaskDepsPort = taskCatalogPort;
 // M6 (seam): prontidão de conexões sobre worker_connections, sem precisar do M6.
 const readiness: ReadinessPort = createDrizzleReadiness(db);
 
+// §5.2 (selo): presença do .md de estilo do worker. Só devolve booleano — o
+// conteúdo do estilo nunca sai daqui (a injeção real vive no runs/container).
+const writingStyleRepo = createDrizzleWritingStyleRepository(db);
+const writingStyle: WritingStylePresencePort = {
+  async hasStyle(workerId) {
+    const row = await writingStyleRepo.getByWorker(workerId);
+    return Boolean(row && row.contentMd.trim());
+  },
+};
+
 export const assignmentService = createAssignmentService({
   repo,
   taskDeps,
@@ -31,6 +46,7 @@ export const assignmentService = createAssignmentService({
   schema: createAjvSchemaValidator(), // reutiliza o validador do M4
   workers: createDrizzleWorkerDirectory(db),
   audit,
+  writingStyle,
   now: () => new Date(),
 });
 

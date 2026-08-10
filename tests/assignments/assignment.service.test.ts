@@ -7,6 +7,7 @@ import type {
   TaskDepsPort,
   TaskSummary,
   WorkerDirectoryPort,
+  WritingStylePresencePort,
 } from "@/modules/assignments/service/ports";
 import type { NewAssignment, TaskAssignment } from "@/modules/assignments/domain/types";
 import type { SessionContext } from "@/lib/session";
@@ -156,7 +157,13 @@ function readinessFor(ready: boolean): ReadinessPort {
 const ADMIN: SessionContext = { userId: "a1", orgId: "o1", role: "super_admin" };
 const WORKER: SessionContext = { userId: "w1", orgId: "o1", role: "worker" };
 
-function setup(ready: boolean) {
+// Presença de estilo controlável por teste (undefined ⇒ sem dep, como produção
+// antes do selo). Só devolve booleano — espelha o WritingStylePresencePort real.
+function fakePresence(has: boolean): WritingStylePresencePort {
+  return { async hasStyle() { return has; } };
+}
+
+function setup(ready: boolean, style?: { has: boolean }) {
   const repo = new FakeRepo();
   const audit = new FakeAudit();
   const service = createAssignmentService({
@@ -166,6 +173,7 @@ function setup(ready: boolean) {
     schema: fakeSchema,
     workers: fakeWorkers,
     audit,
+    writingStyle: style ? fakePresence(style.has) : undefined,
     now: () => new Date("2026-07-26T00:00:00Z"),
   });
   return { repo, audit, service };
@@ -259,6 +267,29 @@ describe("listForWorker", () => {
     await service.create(ADMIN, { taskId: "t1", workerId: "w1" });
     const other: SessionContext = { userId: "w2", orgId: "o1", role: "worker" };
     expect(await service.listForWorker(other)).toHaveLength(0);
+  });
+
+  it("sem dep de estilo: useWritingStyle e hasWritingStyle são false (pré-selo)", async () => {
+    const { service } = setup(true); // sem writingStyle
+    await service.create(ADMIN, { taskId: "t2", workerId: "w1" });
+    const mine = await service.listForWorker(WORKER);
+    expect(mine[0]).toMatchObject({ useWritingStyle: false, hasWritingStyle: false });
+  });
+
+  it("flag ligado + há .md → «a usar o teu estilo» (ambos true)", async () => {
+    const { service } = setup(true, { has: true });
+    const a = await service.create(ADMIN, { taskId: "t2", workerId: "w1" });
+    await service.setWritingStyleFlag(ADMIN, a.id, true);
+    const mine = await service.listForWorker(WORKER);
+    expect(mine[0]).toMatchObject({ useWritingStyle: true, hasWritingStyle: true });
+  });
+
+  it("flag ligado + sem .md → «estilo pendente» (só o flag)", async () => {
+    const { service } = setup(true, { has: false });
+    const a = await service.create(ADMIN, { taskId: "t2", workerId: "w1" });
+    await service.setWritingStyleFlag(ADMIN, a.id, true);
+    const mine = await service.listForWorker(WORKER);
+    expect(mine[0]).toMatchObject({ useWritingStyle: true, hasWritingStyle: false });
   });
 });
 

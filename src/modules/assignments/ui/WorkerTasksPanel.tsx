@@ -61,6 +61,31 @@ function readinessPill(t: WorkerAssignmentView): { tone: Tone; label: string } {
   return { tone: "green", label: "Pronta" };
 }
 
+// Selo do estilo de escrita (§5.2). Só faz sentido em `assistant.writing` com o
+// flag «usar estilo» ligado pelo admin. Três estados:
+//  - flag ligado + há .md  → «a usar o teu estilo» (o output sai na voz do worker)
+//  - flag ligado + sem .md → «estilo pendente» (o admin quer, falta carregar o .md)
+//  - flag desligado        → sem selo (null)
+function writingStyleBadge(
+  t: WorkerAssignmentView,
+): { tone: "green" | "grey"; label: string; title: string } | null {
+  if (t.taskRuntime !== "assistant.writing" || !t.useWritingStyle) return null;
+  if (t.hasWritingStyle) {
+    return {
+      tone: "green",
+      label: "A usar o teu estilo",
+      title:
+        "As gerações desta tarefa saem na tua voz, a partir do teu ficheiro de estilo (.md).",
+    };
+  }
+  return {
+    tone: "grey",
+    label: "Estilo pendente",
+    title:
+      "O super-utilizador ligou «usar estilo», mas ainda não há um .md teu carregado. Pede o carregamento para a escrita passar a sair na tua voz.",
+  };
+}
+
 function runPill(run: RunRow): { tone: Tone; label: string } {
   if (run.status === "success") return { tone: "green", label: "Concluído" };
   if (run.status === "queued") return { tone: "amber", label: "Em fila" };
@@ -361,8 +386,9 @@ function WritingConsole({
   styleAvailable,
 }: {
   assignmentId: string;
-  // Fatia 1: sempre false (a tabela de estilos ainda não existe). Fatias 2/3
-  // passam a alimentar isto por atribuição.
+  // Presença do .md de estilo do worker (§5.2). Desbloqueia o tom «O meu estilo»
+  // e alinha o texto de ajuda com o selo do cartão. O handler defende à mesma
+  // (coerceTone «meu»→«informal» sem estilo), por isso isto é só UX honesta.
   styleAvailable: boolean;
 }) {
   const [mode, setMode] = useState<WritingMode>("fim");
@@ -791,6 +817,7 @@ function TaskCard({
   const [summaryOpen, setSummaryOpen] = useState(false);
   const isDigest = task.taskRuntime === "email.digest";
   const pill = readinessPill(task);
+  const styleBadge = writingStyleBadge(task);
   const blocked = !task.enabled || !task.ready;
 
   const onRunNow = useCallback(async () => {
@@ -838,6 +865,15 @@ function TaskCard({
         <span>{metaLine(task)}</span>
       </div>
 
+      {styleBadge && (
+        <div className="wrt-badge-row">
+          <span className={`wrt-badge wrt-badge--${styleBadge.tone}`} title={styleBadge.title}>
+            <span className="wrt-badge-dot" aria-hidden />
+            {styleBadge.label}
+          </span>
+        </div>
+      )}
+
       {task.taskType === "automation" ? (
         <>
           <div className="task-actions">
@@ -880,7 +916,7 @@ function TaskCard({
       ) : (
         <>
           {task.taskRuntime === "assistant.writing" ? (
-            <WritingConsole assignmentId={task.assignmentId} styleAvailable={false} />
+            <WritingConsole assignmentId={task.assignmentId} styleAvailable={task.hasWritingStyle} />
           ) : (
             <AssistedConsole assignmentId={task.assignmentId} />
           )}
