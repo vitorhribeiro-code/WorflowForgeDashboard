@@ -578,8 +578,9 @@ function WritingConsole({
   );
 }
 
-// Move `dragId` para a posição de `targetId` na lista de ordem. Reordenação é
-// só no cliente (Fase B); persistir a ordem por trabalhador fica para a Fase C.
+// Move `dragId` para a posição de `targetId` na lista de ordem. A reordenação é
+// otimista no cliente e persiste por trabalhador via `saveOrder` no `onDragEnd`
+// (PATCH /api/assignments/mine/order).
 function moveTo(order: string[], dragId: string, targetId: string): string[] {
   if (dragId === targetId) return order;
   const next = order.filter((id) => id !== dragId);
@@ -929,8 +930,8 @@ function TaskCard({
 export function WorkerTasksPanel() {
   const { status, tasks, error, refresh } = useWorkerTasks();
 
-  // Ordem dos cartões (só no cliente, Fase B). Reconcilia com as tarefas:
-  // mantém a ordem já escolhida e acrescenta novas no fim.
+  // Ordem dos cartões, persistida por trabalhador (ver `saveOrder`/`onDragEnd`).
+  // Reconcilia com as tarefas: mantém a ordem já escolhida e acrescenta novas no fim.
   const [order, setOrder] = useState<string[]>([]);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
