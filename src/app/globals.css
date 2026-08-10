@@ -1824,6 +1824,11 @@ button.btn-danger:disabled {
 .wf-app .wf-board {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start;
 }
+/* Packing (masonry, Fase A): faixas pequenas + row-span calculado no cliente
+   (useMasonry) fecham os gaps verticais e reflowam quando um cartão cresce. */
+.wf-app .wf-board.wf-masonry { grid-auto-rows: 8px; }
+.wf-app .wf-board.wf-masonry .wf-cell { min-width: 0; }
+.wf-app .wf-board.wf-masonry .wf-cell > .task-card { height: 100%; }
 .wf-app .wf-board .task-card { transition: border-color .15s, box-shadow .15s, opacity .15s; }
 .wf-app .wf-board .task-card:hover { border-color: #dfe6df; box-shadow: 0 6px 20px rgba(20, 40, 28, .07); }
 .wf-app .task-card.wf-dragging { opacity: .55; border-style: dashed; border-color: var(--wf-green); box-shadow: none; }

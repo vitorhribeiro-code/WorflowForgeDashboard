@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import type { WorkerAssignmentView } from "@/modules/assignments";
 import { describeCron } from "../domain/recurrence";
+import { useMasonry } from "./useMasonry";
 import {
   cancelRun,
   fetchHistory,
@@ -933,6 +934,7 @@ export function WorkerTasksPanel() {
   const [order, setOrder] = useState<string[]>([]);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setOrder((prev) => {
@@ -942,6 +944,10 @@ export function WorkerTasksPanel() {
       return [...kept, ...added];
     });
   }, [tasks]);
+
+  // Packing (masonry): fecha os gaps verticais e reflowa quando um cartão cresce.
+  // Recalcula ao reordenar (order) e ao carregar/mudar tarefas (tasks).
+  useMasonry(boardRef, [order, tasks]);
 
   const onHandleDragStart = useCallback(
     (id: string) => (e: DragEvent<HTMLSpanElement>) => {
@@ -1026,17 +1032,18 @@ export function WorkerTasksPanel() {
     .filter((t): t is WorkerAssignmentView => Boolean(t));
 
   return (
-    <div className="wf-board">
-        {ordered.map((t) => (
+    <div className="wf-board wf-masonry" ref={boardRef}>
+      {ordered.map((t) => (
+        <div className="wf-cell" key={t.assignmentId}>
           <TaskCard
-            key={t.assignmentId}
             task={t}
             dragging={draggingId === t.assignmentId}
             onHandleDragStart={onHandleDragStart(t.assignmentId)}
             onCardDragEnter={onCardDragEnter(t.assignmentId)}
             onDragEnd={onDragEnd}
           />
-        ))}
-      </div>
+        </div>
+      ))}
+    </div>
   );
 }
