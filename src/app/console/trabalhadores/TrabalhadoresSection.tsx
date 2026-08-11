@@ -15,6 +15,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { WritingStyleModal } from "@/modules/writing-styles/ui/WritingStyleModal";
+import {
+  BACKGROUND_SWATCHES,
+  type BackgroundToken,
+} from "@/modules/preferences/domain/preferences";
 
 /* --- Formas do JSON das APIs (espelham as views do servidor) --------------- */
 
@@ -153,6 +157,7 @@ function WorkerFicha({
   const [conns, setConns] = useState<ConnectionView[] | undefined>(undefined);
   const [connErr, setConnErr] = useState<string | null>(null);
   const [styleOpen, setStyleOpen] = useState(false);
+  const [bg, setBg] = useState<BackgroundToken | undefined>(undefined); // undefined = a carregar
 
   const loadStyle = useCallback(() => {
     getJson<{ style: StyleView }>(`/api/workers/${worker.id}/writing-style`)
@@ -164,6 +169,7 @@ function WorkerFicha({
     setStyle(undefined);
     setConns(undefined);
     setConnErr(null);
+    setBg(undefined);
     loadStyle();
     getJson<ConnectionView[]>(`/api/workers/${worker.id}/connections`)
       .then(setConns)
@@ -171,7 +177,12 @@ function WorkerFicha({
         setConns([]);
         setConnErr(e instanceof Error ? e.message : "Erro");
       });
+    getJson<{ background: BackgroundToken }>(`/api/workers/${worker.id}/preferences`)
+      .then((p) => setBg(p.background))
+      .catch(() => setBg("default"));
   }, [worker.id, loadStyle]);
+
+  const swatch = BACKGROUND_SWATCHES.find((s) => s.token === bg) ?? null;
 
   const rollup = useMemo(() => rollupFor(matrix.cells, worker.id), [matrix.cells, worker.id]);
   const hasStyle = style != null;
@@ -222,6 +233,24 @@ function WorkerFicha({
           <p className="muted">
             <span className="wk-pill wk-pill-muted">sem estilo</span> Ainda não há um .md de
             estilo para este trabalhador.
+          </p>
+        )}
+      </div>
+
+      {/* Fundo do painel (leitura) */}
+      <div className="wk-block">
+        <h3>Fundo do painel</h3>
+        {bg === undefined ? (
+          <p className="muted">A carregar…</p>
+        ) : (
+          <p className="wk-bg">
+            <span
+              className="wk-bg-swatch"
+              style={{ background: swatch?.swatch ?? "#f4f6f4" }}
+              aria-hidden="true"
+            />
+            <span>{swatch?.label ?? "Claro"}</span>
+            {bg === "default" ? <span className="muted"> · por defeito</span> : null}
           </p>
         )}
       </div>

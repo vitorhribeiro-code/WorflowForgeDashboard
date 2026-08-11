@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { users } from "@/db/schema";
 import { normalizePreferences, type UserPreferences } from "../domain/preferences";
@@ -6,6 +6,8 @@ import { normalizePreferences, type UserPreferences } from "../domain/preference
 export interface PreferencesRepository {
   get(userId: string): Promise<UserPreferences>;
   save(userId: string, prefs: UserPreferences): Promise<UserPreferences>;
+  /** Valida que o utilizador pertence à org (isolamento tenant na leitura admin). */
+  workerInOrg(orgId: string, workerId: string): Promise<boolean>;
 }
 
 // A coluna users.preferences é jsonb livre (Record<string, unknown>); o domínio
@@ -28,6 +30,15 @@ export function createDrizzlePreferencesRepository(db: Db): PreferencesRepositor
         .where(eq(users.id, userId))
         .returning({ p: users.preferences });
       return normalizePreferences(row?.p);
+    },
+
+    async workerInOrg(orgId, workerId) {
+      const [row] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.id, workerId), eq(users.organizationId, orgId)))
+        .limit(1);
+      return !!row;
     },
   };
 }

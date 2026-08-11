@@ -16,8 +16,11 @@ import type { SessionContext } from "@/lib/session";
 
 const worker: SessionContext = { userId: "u1", orgId: "o1", role: "worker" };
 
-function fakeRepo(initial?: UserPreferences): PreferencesRepository & { peek(): UserPreferences } {
+function fakeRepo(
+  initial?: UserPreferences,
+): PreferencesRepository & { peek(): UserPreferences; membership: Set<string> } {
   let store: UserPreferences = initial ?? { background: DEFAULT_BACKGROUND };
+  const membership = new Set<string>();
   return {
     async get() {
       return { ...store };
@@ -26,6 +29,10 @@ function fakeRepo(initial?: UserPreferences): PreferencesRepository & { peek(): 
       store = { ...prefs };
       return { ...store };
     },
+    async workerInOrg(orgId, workerId) {
+      return membership.has(`${orgId}:${workerId}`);
+    },
+    membership,
     peek() {
       return store;
     },
@@ -78,5 +85,31 @@ describe("preferences — serviço", () => {
     svc = createPreferencesService({ repo });
     await expect(svc.setBackground(worker, "neon")).rejects.toMatchObject({ status: 400 });
     expect(repo.peek().background).toBe("mist");
+  });
+});
+
+describe("preferences — getForWorker (leitura admin)", () => {
+  const admin: SessionContext = { userId: "a1", orgId: "o1", role: "super_admin" };
+
+  it("admin lê o fundo de um worker da sua org", async () => {
+    const repo = fakeRepo({ background: "graphite" });
+    repo.membership.add("o1:u1");
+    const svc = createPreferencesService({ repo });
+    expect((await svc.getForWorker(admin, "u1")).background).toBe("graphite");
+  });
+
+  it("bloqueia o worker (não é leitura de worker)", async () => {
+    const repo = fakeRepo();
+    repo.membership.add("o1:u1");
+    const svc = createPreferencesService({ repo });
+    await expect(svc.getForWorker(worker, "u1")).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("nega (not_found) um worker fora da org do admin — isolamento tenant", async () => {
+    const repo = fakeRepo();
+    const svc = createPreferencesService({ repo });
+    await expect(svc.getForWorker(admin, "intruso")).rejects.toMatchObject({
+      code: "not_found",
+    });
   });
 });
