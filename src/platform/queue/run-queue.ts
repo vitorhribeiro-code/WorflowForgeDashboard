@@ -1,4 +1,4 @@
-import { PgBoss } from "pg-boss";
+import { PgBoss, type ConstructorOptions } from "pg-boss";
 
 // Port da fila EXATAMENTE como o M7 o consome:
 //   queue.enqueue(runId)            — enfileira
@@ -8,6 +8,33 @@ export interface RunQueuePort {
 }
 
 const QUEUE = "runs.process";
+
+export type BossRole = "web" | "worker";
+
+/**
+ * Política de LIGAÇÕES do pg-boss, centralizada e testável.
+ *
+ * Cada instância PgBoss abre o SEU pool interno (default ~10) — à parte do pool
+ * do Drizzle (`src/db/client.ts`, `max:5`). Em serverless cada lambda quente soma
+ * os dois pools; sem teto, sob concorrência esgota as ligações do Postgres gerido
+ * (Railway trial/Hobby tem poucas) e a query seguinte rebenta com `connection
+ * timeout`. Por isso capamos o `max` por papel:
+ *  - **web** (serverless): o boss só ENFILEIRA (`send`) e cada lambda tem o seu
+ *    pool → teto BAIXO. `supervise`/`schedule` OFF (o worker é que supervisiona
+ *    e agenda) para não segurar timers/ligações entre pedidos.
+ *  - **worker** (processo único persistente): supervisiona + processa → teto
+ *    modesto (o suficiente para fetch/complete/manutenção sem esgotar o servidor).
+ *
+ * SSL fica de fora de propósito: resolve-se pela própria connection string (a web
+ * usa `sslmode` no URL; o worker fala em rede interna com `DATABASE_SSL=false`).
+ * Mexer nisso aqui arriscaria uma regressão sem relação com o pooling.
+ */
+export function bossOptions(connectionString: string, role: BossRole): ConstructorOptions {
+  const common = { connectionString, application_name: `wff-${role}-boss` };
+  return role === "web"
+    ? { ...common, max: 2, supervise: false, schedule: false }
+    : { ...common, max: 5 };
+}
 
 // Adaptador pg-boss (usa o próprio Postgres como broker — dispensa Redis).
 //
@@ -44,7 +71,7 @@ export async function startRunWorker(
   connectionString: string,
   processRun: (runId: string) => Promise<unknown>,
 ): Promise<PgBoss> {
-  const boss = new PgBoss({ connectionString });
+  const boss = new PgBoss(bossOptions(connectionString, "worker"));
   // Um erro do pg-boss não deve derrubar o worker (senão os digests param).
   boss.on("error", (e) => console.error("[pg-boss:worker]", e));
   await boss.start();

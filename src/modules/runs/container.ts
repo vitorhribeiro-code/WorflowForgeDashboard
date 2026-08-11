@@ -5,7 +5,7 @@
 import { db } from "@/db/client";
 import { createDrizzleAudit } from "@/lib/audit.drizzle";
 import { PgBoss } from "pg-boss";
-import { createPgBossQueue } from "@/platform/queue/run-queue";
+import { bossOptions, createPgBossQueue } from "@/platform/queue/run-queue";
 import { createDrizzleReadinessChecker } from "@/platform/readiness/readiness-checker.drizzle";
 import { loadEnv } from "@/platform/config/env";
 import { createDrizzleRunsRepository } from "./data/runs.repository";
@@ -61,17 +61,11 @@ export function getRunsService(): RunsService {
     },
   };
 
-  // Lado WEB (serverless): o boss só ENFILEIRA. Desligamos a supervisão e o
-  // agendador (o `send` não precisa deles) — assim não ficam timers de manutenção
-  // (__pgboss__send-it / onCron) vivos entre pedidos a segurar ligações ao
-  // Postgres e a rebentar a instância. O worker persistente é que supervisiona.
-  // O listener de `error` evita que um erro do pg-boss vire unhandled rejection
-  // (era isto que dava `exit 128` no Vercel).
-  const boss = new PgBoss({
-    connectionString: env.DATABASE_URL,
-    supervise: false,
-    schedule: false,
-  });
+  // Lado WEB (serverless): o boss só ENFILEIRA. O teto de ligações e os flags
+  // supervise/schedule OFF vivem em `bossOptions("web")` (política centralizada
+  // e testada — ver run-queue.ts). O listener de `error` evita que um erro do
+  // pg-boss vire unhandled rejection (era isto que dava `exit 128` no Vercel).
+  const boss = new PgBoss(bossOptions(env.DATABASE_URL, "web"));
   boss.on("error", (e) => console.error("[pg-boss:web]", e));
 
   // Aquisição a montante (Gmail → email.digest). Só liga se houver
