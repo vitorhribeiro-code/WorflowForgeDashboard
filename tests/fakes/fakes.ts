@@ -247,6 +247,8 @@ export class FakeRepo implements ConnectionsRepository {
   /** listRequiredTools: key = workerId → linhas (tool + scopes). */
   requiredTools = new Map<string, RequiredToolRow[]>();
   suspendCalls: Array<{ workerId: string; toolId: string }> = [];
+  /** workerInOrg: `${orgId}:${workerId}` presente → o worker pertence à org. */
+  membership = new Set<string>();
 
   private conns = new Map<string, ConnectionRow>();
   private seq = 0;
@@ -289,5 +291,8 @@ export class FakeRepo implements ConnectionsRepository {
   async suspendAssignmentsDependingOn(workerId: string, toolId: string): Promise<number> {
     this.suspendCalls.push({ workerId, toolId });
     return 2;
+  }
+  async workerInOrg(orgId: string, workerId: string): Promise<boolean> {
+    return this.membership.has(`${orgId}:${workerId}`);
   }
 }

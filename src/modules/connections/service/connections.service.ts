@@ -48,6 +48,15 @@ export interface ConnectionsServiceDeps {
 export interface ConnectionsService {
   /** Painel "As minhas conexões": estado por ferramenta exigida. */
   listMyConnections(session: SessionContext): Promise<ConnectionView[]>;
+  /**
+   * Leitura admin (consola «Trabalhadores»): estado das conexões de um
+   * trabalhador da org. Só super_admin; valida tenant. Reutiliza a mesma
+   * projeção `ConnectionView` — que NUNCA inclui tokens (só status/scopes).
+   */
+  listWorkerConnections(
+    session: SessionContext,
+    workerId: string,
+  ): Promise<ConnectionView[]>;
   /** Inicia OAuth: devolve o URL de consentimento. */
   startConnection(
     session: SessionContext,
@@ -79,6 +88,13 @@ export function createConnectionsService(
     // Só o próprio trabalhador gere as suas conexões (matriz de permissões).
     if (session.role !== "worker") {
       throw forbidden("Só o trabalhador gere as próprias conexões.");
+    }
+  }
+
+  function assertAdmin(session: SessionContext) {
+    // Leitura admin (só ver estado, nunca tokens): exclusiva do super_admin.
+    if (session.role !== "super_admin") {
+      throw forbidden("Só o super-utilizador consulta as conexões de um trabalhador.");
     }
   }
 
@@ -155,6 +171,22 @@ export function createConnectionsService(
       const views: ConnectionView[] = [];
       for (const { tool, requiredScopes } of required) {
         const conn = await repo.getConnection(session.userId, tool.id);
+        views.push(toView(tool, conn, requiredScopes));
+      }
+      return views;
+    },
+
+    async listWorkerConnections(session, workerId) {
+      assertAdmin(session);
+      // Isolamento tenant: o admin só vê trabalhadores da sua própria org.
+      // notFound (não forbidden) para não revelar a existência de ids de outras orgs.
+      if (!(await repo.workerInOrg(session.orgId, workerId))) {
+        throw notFound("Trabalhador inexistente.", { workerId });
+      }
+      const required = await repo.listRequiredTools(workerId);
+      const views: ConnectionView[] = [];
+      for (const { tool, requiredScopes } of required) {
+        const conn = await repo.getConnection(workerId, tool.id);
         views.push(toView(tool, conn, requiredScopes));
       }
       return views;

@@ -230,3 +230,66 @@ describe("listMyConnections", () => {
     expect(view!.missingScopes).toEqual(["drive.write"]);
   });
 });
+
+describe("listWorkerConnections (leitura admin)", () => {
+  function seedWorkerWithConn(repo: FakeRepo) {
+    repo.requiredTools.set("w1", [
+      {
+        tool: {
+          id: "t-google",
+          key: "google",
+          name: "Google",
+          authType: "oauth",
+          availableScopes: ["drive.read", "drive.write"],
+        },
+        requiredScopes: ["drive.read", "drive.write"],
+      },
+    ]);
+  }
+
+  it("admin vê o estado das conexões de um worker da sua org (prontidão + scopes)", async () => {
+    const { repo, service } = setup();
+    repo.membership.add("o1:w1");
+    seedWorkerWithConn(repo);
+    await repo.upsertConnection({
+      workerId: "w1",
+      toolId: "t-google",
+      grantedScopes: ["drive.read"], // falta drive.write
+      credentialsEncrypted: cipher.encrypt("{}"),
+      status: "connected",
+      connectedAt: new Date("2026-07-01T00:00:00Z"),
+    });
+
+    const views = await service.listWorkerConnections(ADMIN, "w1");
+    expect(views).toHaveLength(1);
+    const v = views[0]!;
+    expect(v.toolKey).toBe("google");
+    expect(v.ready).toBe(false);
+    expect(v.missingScopes).toEqual(["drive.write"]);
+    // Nunca expõe credenciais — a projeção é ConnectionView (sem tokens).
+    expect(Object.keys(v)).not.toContain("credentialsEncrypted");
+  });
+
+  it("bloqueia o worker (não é leitura de worker)", async () => {
+    const { repo, service } = setup();
+    repo.membership.add("o1:w1");
+    await expect(service.listWorkerConnections(WORKER, "w1")).rejects.toMatchObject({
+      code: "forbidden",
+    });
+  });
+
+  it("nega (not_found) um worker fora da org do admin — isolamento tenant", async () => {
+    const { service } = setup();
+    // Sem membership → worker não pertence à org da sessão.
+    await expect(service.listWorkerConnections(ADMIN, "intruso")).rejects.toMatchObject({
+      code: "not_found",
+    });
+  });
+
+  it("worker sem ferramentas exigidas devolve lista vazia", async () => {
+    const { repo, service } = setup();
+    repo.membership.add("o1:w1");
+    const views = await service.listWorkerConnections(ADMIN, "w1");
+    expect(views).toEqual([]);
+  });
+});

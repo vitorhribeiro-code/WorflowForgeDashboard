@@ -58,6 +58,8 @@ export interface ConnectionsRepository {
   updateStatus(connectionId: string, status: ConnectionStatus): Promise<void>;
   /** Suspende (enabled=false) as atribuições do worker que dependem desta tool. */
   suspendAssignmentsDependingOn(workerId: string, toolId: string): Promise<number>;
+  /** Valida que o trabalhador pertence à org (isolamento tenant na leitura admin). */
+  workerInOrg(orgId: string, workerId: string): Promise<boolean>;
 }
 
 /* --------------------------- Implementação Drizzle ------------------------ */
@@ -69,6 +71,7 @@ import {
   taskAssignments,
   taskRequiredTools,
   tasks,
+  users,
   workerConnections,
 } from "@/db/schema";
 // Tipo do cliente Drizzle (pg). Mantém genérico para não acoplar ao driver.
@@ -228,6 +231,15 @@ export function createDrizzleConnectionsRepository(db: any): ConnectionsReposito
         )
         .returning({ id: taskAssignments.id });
       return (res as any[]).length;
+    },
+
+    async workerInOrg(orgId, workerId) {
+      const [row] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.id, workerId), eq(users.organizationId, orgId)))
+        .limit(1);
+      return !!row;
     },
   };
 }
