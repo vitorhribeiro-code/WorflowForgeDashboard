@@ -246,7 +246,15 @@ function WorkerFicha({
           <p className="wk-bg">
             <span
               className="wk-bg-swatch"
-              style={{ background: swatch?.swatch ?? "#f4f6f4" }}
+              style={
+                swatch?.image
+                  ? {
+                      backgroundImage: `url(${swatch.image})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }
+                  : { background: swatch?.swatch ?? "#f4f6f4" }
+              }
               aria-hidden="true"
             />
             <span>{swatch?.label ?? "Claro"}</span>

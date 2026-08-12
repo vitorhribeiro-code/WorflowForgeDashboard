@@ -24,6 +24,7 @@ import { NextRunWidget, RecentRunsWidget } from "@/modules/assignments/ui/Sideba
 import { WorkerActivityStats } from "@/modules/assignments/ui/WorkerActivityStats";
 import {
   BACKGROUND_SWATCHES,
+  BACKGROUND_IMAGE_CREDIT,
   DEFAULT_BACKGROUND,
   type BackgroundToken,
 } from "@/modules/preferences/domain/preferences";
@@ -259,8 +260,12 @@ export function WorkerApp({
                       <button
                         key={s.token}
                         type="button"
-                        className="wf-bg-swatch"
-                        style={{ background: s.swatch }}
+                        className={s.image ? "wf-bg-swatch is-image" : "wf-bg-swatch"}
+                        style={
+                          s.image
+                            ? { backgroundImage: `url(${s.image})` }
+                            : { background: s.swatch }
+                        }
                         role="radio"
                         aria-checked={bg === s.token}
                         aria-pressed={bg === s.token}
@@ -272,6 +277,15 @@ export function WorkerApp({
                   </div>
                   <p className="wf-bg-hint">
                     Escolhe o tom da tela. Os cartões mantêm-se legíveis em qualquer fundo.
+                  </p>
+                  <p className="wf-bg-credit">
+                    <a
+                      href={BACKGROUND_IMAGE_CREDIT.href}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      {BACKGROUND_IMAGE_CREDIT.text}
+                    </a>
                   </p>
                   {bgError && <p className="wf-bg-error">{bgError}</p>}
                 </div>

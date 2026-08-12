@@ -7,7 +7,8 @@
 /*  a tela (o cabeçalho de página) acompanha a luminância, via CSS.           */
 /* -------------------------------------------------------------------------- */
 
-// Tokens de fundo, do mais claro (default) ao mais escuro.
+// Tokens de fundo. Primeiro a rampa de cor (do mais claro ao mais escuro),
+// depois os fundos de imagem (assets estáticos em /public/backgrounds).
 export const BACKGROUND_TOKENS = [
   "default",
   "mist",
@@ -15,6 +16,9 @@ export const BACKGROUND_TOKENS = [
   "slate",
   "graphite",
   "coal",
+  "mesh",
+  "flux",
+  "code",
 ] as const;
 
 export type BackgroundToken = (typeof BACKGROUND_TOKENS)[number];
@@ -31,11 +35,14 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
 };
 
 // Paleta apresentável (rótulo PT + cor da amostra). Fonte única para a UI —
-// a cor da amostra é a MESMA cor da tela aplicada no CSS por token.
+// a cor da amostra é a MESMA cor da tela aplicada no CSS por token. Para os
+// fundos de imagem, `image` aponta ao asset; `swatch` é a cor média (fallback
+// da amostra enquanto a imagem carrega).
 export const BACKGROUND_SWATCHES: ReadonlyArray<{
   token: BackgroundToken;
   label: string;
   swatch: string;
+  image?: string;
 }> = [
   { token: "default", label: "Claro", swatch: "#f4f6f4" },
   { token: "mist", label: "Névoa", swatch: "#e7ebe7" },
@@ -43,7 +50,19 @@ export const BACKGROUND_SWATCHES: ReadonlyArray<{
   { token: "slate", label: "Ardósia", swatch: "#b3bbb4" },
   { token: "graphite", label: "Grafite", swatch: "#484d47" },
   { token: "coal", label: "Carvão", swatch: "#141614" },
+  { token: "mesh", label: "Rede", swatch: "#dbecf8", image: "/backgrounds/mesh.webp" },
+  { token: "flux", label: "Fluxo", swatch: "#b0c0d7", image: "/backgrounds/flux.webp" },
+  { token: "code", label: "Código", swatch: "#233e39", image: "/backgrounds/code.webp" },
 ];
+
+// Linha de créditos exigida pela licença GRÁTIS da Freepik para as imagens de
+// fundo, mostrada no seletor. TODO(vitor): "flux" e "code" vieram sem ficheiro
+// de licença — confirma o autor exato de cada na tua página de download da
+// Freepik e completa esta linha (o "mesh" é comprovadamente de starline).
+export const BACKGROUND_IMAGE_CREDIT: { text: string; href: string } = {
+  text: "Imagens de fundo por starline / Freepik e Freepik",
+  href: "https://www.freepik.com",
+};
 
 export function isBackgroundToken(v: unknown): v is BackgroundToken {
   return typeof v === "string" && (BACKGROUND_TOKENS as readonly string[]).includes(v);

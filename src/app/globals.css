@@ -2033,6 +2033,33 @@ button.btn-danger:disabled {
 .wf-app.wf-bg-graphite { --wf-bg: #484d47; --wf-canvas-ink: #eef1ee; --wf-canvas-muted: #c1cac3; }
 .wf-app.wf-bg-coal { --wf-bg: #141614; --wf-canvas-ink: #eef1ee; --wf-canvas-muted: #aab2ac; }
 
+/* Fundos de IMAGEM (assets em /public/backgrounds). A imagem cobre a tela; um  */
+/* wash uniforme suaviza-a (os cartões opacos sobressaem) e o cabeçalho leva     */
+/* halo para ficar legível sobre qualquer mancha. mesh/flux são claras (ink      */
+/* escuro); code é escura (ink claro).                                           */
+.wf-app.wf-bg-mesh, .wf-app.wf-bg-flux, .wf-app.wf-bg-code {
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+}
+.wf-app.wf-bg-mesh {
+  --wf-bg: #dbecf8; --wf-canvas-ink: #16202a; --wf-canvas-muted: #45535f;
+  background-image: linear-gradient(rgba(233, 241, 247, .34), rgba(233, 241, 247, .34)), url("/backgrounds/mesh.webp");
+}
+.wf-app.wf-bg-flux {
+  --wf-bg: #b0c0d7; --wf-canvas-ink: #17202c; --wf-canvas-muted: #3c4756;
+  background-image: linear-gradient(rgba(206, 215, 229, .30), rgba(206, 215, 229, .30)), url("/backgrounds/flux.webp");
+}
+.wf-app.wf-bg-code {
+  --wf-bg: #233e39; --wf-canvas-ink: #eaf3ec; --wf-canvas-muted: #a9c3b2;
+  background-image: linear-gradient(rgba(10, 20, 15, .40), rgba(10, 20, 15, .40)), url("/backgrounds/code.webp");
+}
+.wf-app.wf-bg-mesh .wf-page-head h1, .wf-app.wf-bg-mesh .wf-page-head p,
+.wf-app.wf-bg-flux .wf-page-head h1, .wf-app.wf-bg-flux .wf-page-head p {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, .55);
+}
+.wf-app.wf-bg-code .wf-page-head h1, .wf-app.wf-bg-code .wf-page-head p {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+}
+
 /* Seletor de fundo (amostras) */
 .wf-app .wf-bg-field { margin-top: 14px; }
 .wf-app .wf-bg-label { font-size: 13px; font-weight: 700; color: var(--wf-ink); margin: 0 0 8px; }
@@ -2050,6 +2077,9 @@ button.btn-danger:disabled {
 }
 .wf-app .wf-bg-hint { font-size: 12px; color: var(--wf-muted); margin: 10px 0 0; }
 .wf-app .wf-bg-error { font-size: 12px; color: var(--wf-red-ink); margin: 8px 0 0; }
+.wf-app .wf-bg-swatch.is-image { background-size: cover; background-position: center; }
+.wf-app .wf-bg-credit { font-size: 11px; color: var(--wf-faint); margin: 9px 0 0; }
+.wf-app .wf-bg-credit a { color: var(--wf-muted); text-decoration: underline; }
 
 /* ---- Estilo de escrita (modal na consola: reutiliza .wt-modal, tema escuro) ---- */
 .ws-modal { max-width: 560px; }
