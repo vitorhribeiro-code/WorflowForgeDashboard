@@ -2043,10 +2043,14 @@ button.btn-danger:disabled {
 .wf-app.wf-bg-mesh {
   --wf-bg: #dbecf8; --wf-canvas-ink: #16202a; --wf-canvas-muted: #45535f;
   background-image: linear-gradient(rgba(233, 241, 247, .34), rgba(233, 241, 247, .34)), url("/backgrounds/mesh.webp");
+  --wf-green: #22619f; --wf-green-600: #1c5288; --wf-green-hero-1: #164171;
+  --wf-tint: #e2ecf6; --wf-tint2: #cfe0f1;
 }
 .wf-app.wf-bg-flux {
   --wf-bg: #b0c0d7; --wf-canvas-ink: #17202c; --wf-canvas-muted: #3c4756;
   background-image: linear-gradient(rgba(206, 215, 229, .30), rgba(206, 215, 229, .30)), url("/backgrounds/flux.webp");
+  --wf-green: #2b4f88; --wf-green-600: #233f6e; --wf-green-hero-1: #1c3357;
+  --wf-tint: #e5eaf4; --wf-tint2: #d3ddee;
 }
 .wf-app.wf-bg-code {
   --wf-bg: #233e39; --wf-canvas-ink: #eaf3ec; --wf-canvas-muted: #a9c3b2;
