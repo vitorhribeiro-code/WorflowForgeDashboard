@@ -18,6 +18,7 @@ import { WritingStyleModal } from "@/modules/writing-styles/ui/WritingStyleModal
 import {
   BACKGROUND_SWATCHES,
   type BackgroundToken,
+  type ModeToken,
 } from "@/modules/preferences/domain/preferences";
 
 /* --- Formas do JSON das APIs (espelham as views do servidor) --------------- */
@@ -158,6 +159,7 @@ function WorkerFicha({
   const [connErr, setConnErr] = useState<string | null>(null);
   const [styleOpen, setStyleOpen] = useState(false);
   const [bg, setBg] = useState<BackgroundToken | undefined>(undefined); // undefined = a carregar
+  const [mode, setMode] = useState<ModeToken | undefined>(undefined); // undefined = a carregar
 
   const loadStyle = useCallback(() => {
     getJson<{ style: StyleView }>(`/api/workers/${worker.id}/writing-style`)
@@ -170,6 +172,7 @@ function WorkerFicha({
     setConns(undefined);
     setConnErr(null);
     setBg(undefined);
+    setMode(undefined);
     loadStyle();
     getJson<ConnectionView[]>(`/api/workers/${worker.id}/connections`)
       .then(setConns)
@@ -177,9 +180,17 @@ function WorkerFicha({
         setConns([]);
         setConnErr(e instanceof Error ? e.message : "Erro");
       });
-    getJson<{ background: BackgroundToken }>(`/api/workers/${worker.id}/preferences`)
-      .then((p) => setBg(p.background))
-      .catch(() => setBg("default"));
+    getJson<{ background: BackgroundToken; mode: ModeToken }>(
+      `/api/workers/${worker.id}/preferences`,
+    )
+      .then((p) => {
+        setBg(p.background);
+        setMode(p.mode);
+      })
+      .catch(() => {
+        setBg("default");
+        setMode("light");
+      });
   }, [worker.id, loadStyle]);
 
   const swatch = BACKGROUND_SWATCHES.find((s) => s.token === bg) ?? null;
@@ -257,9 +268,12 @@ function WorkerFicha({
               }
               aria-hidden="true"
             />
-            <span>{swatch?.label ?? "Claro"}</span>
+            <span>{swatch?.label ?? "Neutro"}</span>
             {bg === "default" ? <span className="muted"> · por defeito</span> : null}
           </p>
+        )}
+        {mode !== undefined && (
+          <p className="muted wk-mode">Modo: {mode === "dark" ? "Escuro" : "Claro"}</p>
         )}
       </div>
 

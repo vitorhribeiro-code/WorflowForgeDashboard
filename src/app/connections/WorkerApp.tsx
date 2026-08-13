@@ -26,7 +26,10 @@ import {
   BACKGROUND_SWATCHES,
   BACKGROUND_IMAGE_CREDIT,
   DEFAULT_BACKGROUND,
+  DEFAULT_MODE,
+  MODE_OPTIONS,
   type BackgroundToken,
+  type ModeToken,
 } from "@/modules/preferences/domain/preferences";
 
 type View = "tasks" | "connections" | "settings" | "help";
@@ -70,6 +73,18 @@ const IcLogout = (
   </svg>
 );
 
+const IcSun = (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+    <circle cx="12" cy="12" r="4.2" stroke="currentColor" strokeWidth="2.1" />
+    <path d="M12 2v2.4M12 19.6V22M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2 12h2.4M19.6 12H22M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" />
+  </svg>
+);
+const IcMoon = (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 // Tarefas e conexões são pessoais do trabalhador. Um super-utilizador que abra
 // esta área vê uma nota (e tem o atalho para a consola nas Definições).
 function AdminNote() {
@@ -88,10 +103,12 @@ export function WorkerApp({
   role,
   banner,
   background = DEFAULT_BACKGROUND,
+  mode: modeProp = DEFAULT_MODE,
 }: {
   role: string;
   banner: Banner;
   background?: BackgroundToken;
+  mode?: ModeToken;
 }) {
   const isAdmin = role === "super_admin";
   const [view, setView] = useState<View>(banner ? "connections" : "tasks");
@@ -103,6 +120,11 @@ export function WorkerApp({
   const showBackground = !isAdmin;
   const [bg, setBg] = useState<BackgroundToken>(background);
   const [bgError, setBgError] = useState<string | null>(null);
+
+  // Modo claro/escuro (só trabalhadores). É a classe `wf-theme-dark` na raiz
+  // `.wf-app`, ortogonal ao fundo. Troca otimista + persistência no mesmo PUT.
+  const [mode, setMode] = useState<ModeToken>(modeProp);
+  const [modeError, setModeError] = useState<string | null>(null);
 
   async function chooseBackground(token: BackgroundToken) {
     if (token === bg) return;
@@ -119,6 +141,24 @@ export function WorkerApp({
     } catch {
       setBg(prev);
       setBgError("Não foi possível guardar o fundo. Tenta de novo.");
+    }
+  }
+
+  async function chooseMode(token: ModeToken) {
+    if (token === mode) return;
+    const prev = mode;
+    setMode(token);
+    setModeError(null);
+    try {
+      const res = await fetch("/api/me/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: token }),
+      });
+      if (!res.ok) throw new Error("save failed");
+    } catch {
+      setMode(prev);
+      setModeError("Não foi possível guardar o modo. Tenta de novo.");
     }
   }
 
@@ -154,9 +194,10 @@ export function WorkerApp({
   const roleLabel = isAdmin ? "Super-utilizador" : "Trabalhador";
 
   const bgClass = showBackground && bg !== "default" ? ` wf-bg-${bg}` : "";
+  const modeClass = showBackground && mode === "dark" ? " wf-theme-dark" : "";
 
   return (
-    <div className={`wf-app${bgClass}`}>
+    <div className={`wf-app${bgClass}${modeClass}`}>
       <div className="wf-dock">
         <aside className="wf-side">
           <div className="wf-brand">
@@ -249,6 +290,34 @@ export function WorkerApp({
             {showBackground ? (
               <>
                 <p>Preferências da tua conta.</p>
+                <div className="wf-bg-field wf-mode-field">
+                  <p className="wf-bg-label">Modo</p>
+                  <div
+                    className="wf-mode-seg"
+                    role="radiogroup"
+                    aria-label="Modo do painel"
+                  >
+                    {MODE_OPTIONS.map((m) => (
+                      <button
+                        key={m.token}
+                        type="button"
+                        role="radio"
+                        aria-checked={mode === m.token}
+                        aria-label={m.label}
+                        title={m.label}
+                        onClick={() => chooseMode(m.token)}
+                      >
+                        {m.token === "dark" ? IcMoon : IcSun}
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="wf-bg-hint">
+                    O claro é o atual. O escuro escurece a tela e os cartões e clareia o
+                    texto — combina com qualquer fundo.
+                  </p>
+                  {modeError && <p className="wf-bg-error">{modeError}</p>}
+                </div>
                 <div className="wf-bg-field">
                   <p className="wf-bg-label">Fundo do painel</p>
                   <div

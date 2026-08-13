@@ -3,7 +3,11 @@ import {
   BACKGROUND_SWATCHES,
   BACKGROUND_TOKENS,
   DEFAULT_BACKGROUND,
+  DEFAULT_MODE,
+  MODE_OPTIONS,
+  MODE_TOKENS,
   isBackgroundToken,
+  isModeToken,
   normalizePreferences,
   type UserPreferences,
 } from "@/modules/preferences/domain/preferences";
@@ -17,9 +21,13 @@ import type { SessionContext } from "@/lib/session";
 const worker: SessionContext = { userId: "u1", orgId: "o1", role: "worker" };
 
 function fakeRepo(
-  initial?: UserPreferences,
+  initial?: Partial<UserPreferences>,
 ): PreferencesRepository & { peek(): UserPreferences; membership: Set<string> } {
-  let store: UserPreferences = initial ?? { background: DEFAULT_BACKGROUND };
+  let store: UserPreferences = {
+    background: DEFAULT_BACKGROUND,
+    mode: DEFAULT_MODE,
+    ...initial,
+  };
   const membership = new Set<string>();
   return {
     async get() {
@@ -60,6 +68,29 @@ describe("preferences — domínio", () => {
     expect(normalizePreferences({ background: 7 }).background).toBe("default");
     expect(normalizePreferences({ background: "slate" }).background).toBe("slate");
   });
+
+  it("MODE_OPTIONS cobre exatamente os modos declarados", () => {
+    expect(MODE_OPTIONS.map((m) => m.token).sort()).toEqual([...MODE_TOKENS].sort());
+  });
+
+  it("isModeToken aceita 'light'/'dark' e rejeita o resto", () => {
+    expect(isModeToken("light")).toBe(true);
+    expect(isModeToken("dark")).toBe(true);
+    expect(isModeToken("cinza")).toBe(false);
+    expect(isModeToken(0)).toBe(false);
+    expect(isModeToken(null)).toBe(false);
+  });
+
+  it("normalizePreferences resolve o modo com default seguro", () => {
+    expect(normalizePreferences(null).mode).toBe("light");
+    expect(normalizePreferences({}).mode).toBe("light");
+    expect(normalizePreferences({ mode: "lixo" }).mode).toBe("light");
+    expect(normalizePreferences({ mode: "dark" }).mode).toBe("dark");
+    expect(normalizePreferences({ background: "slate", mode: "dark" })).toEqual({
+      background: "slate",
+      mode: "dark",
+    });
+  });
 });
 
 describe("preferences — serviço", () => {
@@ -85,6 +116,29 @@ describe("preferences — serviço", () => {
     svc = createPreferencesService({ repo });
     await expect(svc.setBackground(worker, "neon")).rejects.toMatchObject({ status: 400 });
     expect(repo.peek().background).toBe("mist");
+  });
+
+  it("setMode grava um modo válido e persiste-o", async () => {
+    repo = fakeRepo();
+    svc = createPreferencesService({ repo });
+    const out = await svc.setMode(worker, "dark");
+    expect(out.mode).toBe("dark");
+    expect(repo.peek().mode).toBe("dark");
+  });
+
+  it("setMode rejeita um modo inválido (400) e não escreve", async () => {
+    repo = fakeRepo({ mode: "dark" });
+    svc = createPreferencesService({ repo });
+    await expect(svc.setMode(worker, "sepia")).rejects.toMatchObject({ status: 400 });
+    expect(repo.peek().mode).toBe("dark");
+  });
+
+  it("setMode preserva o fundo já escolhido (merge no jsonb)", async () => {
+    repo = fakeRepo({ background: "graphite" });
+    svc = createPreferencesService({ repo });
+    const out = await svc.setMode(worker, "dark");
+    expect(out.background).toBe("graphite");
+    expect(out.mode).toBe("dark");
   });
 });
 

@@ -1,6 +1,6 @@
 import { DomainError } from "@/lib/errors";
 import { getPreferencesService } from "../container";
-import { setBackgroundSchema } from "../validation/preferences.schema";
+import { setPreferencesSchema } from "../validation/preferences.schema";
 import { json, readJson, withSession } from "./http";
 
 // GET /api/me/preferences — as preferências do próprio utilizador.
@@ -16,8 +16,13 @@ export const workerPreferencesGET = withSession(async (session, _req, ctx) => {
   return json(await getPreferencesService().getForWorker(session, workerId));
 });
 
-// PUT /api/me/preferences — define o fundo do painel do próprio utilizador.
+// PUT /api/me/preferences — define o fundo e/ou o modo do painel do próprio
+// utilizador. O corpo pode trazer `background`, `mode`, ou ambos.
 export const preferencesPUT = withSession(async (session, req) => {
-  const { background } = await readJson(req, setBackgroundSchema);
-  return json(await getPreferencesService().setBackground(session, background));
+  const { background, mode } = await readJson(req, setPreferencesSchema);
+  const svc = getPreferencesService();
+  let prefs = await svc.get(session);
+  if (background !== undefined) prefs = await svc.setBackground(session, background);
+  if (mode !== undefined) prefs = await svc.setMode(session, mode);
+  return json(prefs);
 });

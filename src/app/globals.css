@@ -2064,6 +2064,58 @@ button.btn-danger:disabled {
   text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
 }
 
+/* Modo escuro: inverte a luminancia por tokens (tela+cartoes escuros, texto */
+/* claro). Vem depois dos fundos para ganhar --wf-bg nos fundos de cor. O */
+/* semaforo (#7ee08a, ambar, vermelho) e semantico e fica intocado. */
+.wf-app.wf-theme-dark {
+  --wf-green: #35c56e; --wf-green-600: #2ba75d;
+  --wf-green-hero-1: #1f7a45; --wf-green-hero-2: #123f28;
+  --wf-tint: #16271c; --wf-tint2: #1d3325;
+  --wf-amber: #e0a53f; --wf-amber-tint: #2a2113; --wf-amber-ink: #edc684;
+  --wf-red: #e0685f; --wf-red-tint: #2c1a18; --wf-red-ink: #f0a49d;
+  --wf-bg: #0f1411; --wf-surface: #1a221d;
+  --wf-ink: #e8ece9; --wf-muted: #9caaa2; --wf-faint: #6f7d75;
+  --wf-line: #29322c; --wf-line2: #212925;
+  --wf-canvas-ink: #e8ece9; --wf-canvas-muted: #9caaa2;
+  --wf-shadow: 0 1px 2px rgba(0, 0, 0, .42), 0 10px 26px rgba(0, 0, 0, .40);
+}
+/* pill de estado (chrome) legivel sobre a tint escura */
+.wf-app.wf-theme-dark .status-pill.status-green { color: var(--wf-green); }
+
+/* dark + fundos de imagem: escurecer o wash e clarear o cabecalho (0,3,x vence) */
+.wf-app.wf-theme-dark.wf-bg-mesh {
+  background-image: linear-gradient(rgba(9, 13, 11, .60), rgba(9, 13, 11, .60)), url("/backgrounds/mesh.webp");
+}
+.wf-app.wf-theme-dark.wf-bg-flux {
+  background-image: linear-gradient(rgba(9, 13, 11, .60), rgba(9, 13, 11, .60)), url("/backgrounds/flux.webp");
+}
+.wf-app.wf-theme-dark.wf-bg-code {
+  background-image: linear-gradient(rgba(9, 13, 11, .48), rgba(9, 13, 11, .48)), url("/backgrounds/code.webp");
+}
+.wf-app.wf-theme-dark.wf-bg-mesh .wf-page-head h1, .wf-app.wf-theme-dark.wf-bg-mesh .wf-page-head p,
+.wf-app.wf-theme-dark.wf-bg-flux .wf-page-head h1, .wf-app.wf-theme-dark.wf-bg-flux .wf-page-head p,
+.wf-app.wf-theme-dark.wf-bg-code .wf-page-head h1, .wf-app.wf-theme-dark.wf-bg-code .wf-page-head p {
+  color: var(--wf-canvas-ink); text-shadow: 0 1px 3px rgba(0, 0, 0, .55);
+}
+
+/* Controlo de modo (segmentado, token-driven: re-tematiza no claro e no escuro) */
+.wf-app .wf-mode-field { margin-bottom: 4px; }
+.wf-app .wf-mode-seg {
+  display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px;
+  background: var(--wf-tint2); border: 1px solid var(--wf-line);
+}
+.wf-app .wf-mode-seg button {
+  border: 0; background: transparent; color: var(--wf-muted);
+  font: 700 13px/1 "Plus Jakarta Sans", system-ui, sans-serif; padding: 8px 16px;
+  border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+  transition: background .18s ease, color .18s ease;
+}
+.wf-app .wf-mode-seg button[aria-checked="true"] {
+  background: var(--wf-surface); color: var(--wf-ink); box-shadow: var(--wf-shadow);
+}
+.wf-app .wf-mode-seg svg { width: 16px; height: 16px; }
+@media (prefers-reduced-motion: reduce) { .wf-app .wf-mode-seg button { transition: none; } }
+
 /* Seletor de fundo (amostras) */
 .wf-app .wf-bg-field { margin-top: 14px; }
 .wf-app .wf-bg-label { font-size: 13px; font-weight: 700; color: var(--wf-ink); margin: 0 0 8px; }

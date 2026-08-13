@@ -1,12 +1,13 @@
 import { DomainError, forbidden, notFound } from "@/lib/errors";
 import type { SessionContext } from "@/lib/session";
-import { isBackgroundToken, type UserPreferences } from "../domain/preferences";
+import { isBackgroundToken, isModeToken, type UserPreferences } from "../domain/preferences";
 import type { PreferencesRepository } from "../data/preferences.repository";
 
 export interface PreferencesService {
   // As preferências do PRÓPRIO utilizador da sessão (self-service).
   get(session: SessionContext): Promise<UserPreferences>;
   setBackground(session: SessionContext, background: string): Promise<UserPreferences>;
+  setMode(session: SessionContext, mode: string): Promise<UserPreferences>;
   /**
    * Leitura admin (consola «Trabalhadores»): o fundo escolhido por um
    * trabalhador da org. Só super_admin; valida tenant. Só leitura — o admin
@@ -31,6 +32,15 @@ export function createPreferencesService(deps: {
       }
       const current = await repo.get(session.userId);
       return repo.save(session.userId, { ...current, background });
+    },
+
+    async setMode(session, mode) {
+      // Validado contra os modos declarados (fonte única no domínio).
+      if (!isModeToken(mode)) {
+        throw new DomainError("BAD_INPUT", "Modo inválido", 400);
+      }
+      const current = await repo.get(session.userId);
+      return repo.save(session.userId, { ...current, mode });
     },
 
     async getForWorker(session, workerId) {
