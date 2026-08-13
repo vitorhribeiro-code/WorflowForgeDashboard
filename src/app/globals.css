@@ -2082,15 +2082,25 @@ button.btn-danger:disabled {
 /* pill de estado (chrome) legivel sobre a tint escura */
 .wf-app.wf-theme-dark .status-pill.status-green { color: var(--wf-green); }
 
+/* dark + fundos de COR: cada tela mantem o seu matiz (escuro). Sem isto, o */
+/* --wf-bg base do tema (0,2,0) colapsava os cinco no mesmo preto — Nevoa vs */
+/* Pedra ficavam iguais. Estas (0,3,0) vencem a base do fundo E a do tema; */
+/* rampa verde-neutra da mais clara (mist) a mais funda (coal), toda < surface. */
+.wf-app.wf-theme-dark.wf-bg-mist { --wf-bg: #151d18; }
+.wf-app.wf-theme-dark.wf-bg-stone { --wf-bg: #111813; }
+.wf-app.wf-theme-dark.wf-bg-slate { --wf-bg: #0d130f; }
+.wf-app.wf-theme-dark.wf-bg-graphite { --wf-bg: #0a0f0c; }
+.wf-app.wf-theme-dark.wf-bg-coal { --wf-bg: #070a08; }
+
 /* dark + fundos de imagem: escurecer o wash e clarear o cabecalho (0,3,x vence) */
 .wf-app.wf-theme-dark.wf-bg-mesh {
-  background-image: linear-gradient(rgba(9, 13, 11, .60), rgba(9, 13, 11, .60)), url("/backgrounds/mesh.webp");
+  background-image: linear-gradient(rgba(6, 12, 26, .60), rgba(6, 12, 26, .60)), url("/backgrounds/mesh.webp");
 }
 .wf-app.wf-theme-dark.wf-bg-flux {
-  background-image: linear-gradient(rgba(9, 13, 11, .60), rgba(9, 13, 11, .60)), url("/backgrounds/flux.webp");
+  background-image: linear-gradient(rgba(16, 19, 24, .50), rgba(16, 19, 24, .50)), url("/backgrounds/flux.webp");
 }
 .wf-app.wf-theme-dark.wf-bg-code {
-  background-image: linear-gradient(rgba(9, 13, 11, .48), rgba(9, 13, 11, .48)), url("/backgrounds/code.webp");
+  background-image: linear-gradient(rgba(7, 15, 11, .50), rgba(7, 15, 11, .50)), url("/backgrounds/code.webp");
 }
 .wf-app.wf-theme-dark.wf-bg-mesh .wf-page-head h1, .wf-app.wf-theme-dark.wf-bg-mesh .wf-page-head p,
 .wf-app.wf-theme-dark.wf-bg-flux .wf-page-head h1, .wf-app.wf-theme-dark.wf-bg-flux .wf-page-head p,
