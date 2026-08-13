@@ -1630,7 +1630,7 @@ button.btn-danger:disabled {
 }
 .wf-avatar {
   width: 32px; height: 32px; border-radius: 50%; flex: none;
-  background: linear-gradient(135deg, #2bb56a, #0f6a39); color: #fff;
+  background: linear-gradient(135deg, var(--wf-green), var(--wf-green-hero-1)); color: #fff;
   display: grid; place-items: center; font-weight: 700; font-size: 12px;
 }
 .wf-who { min-width: 0; }
@@ -2043,13 +2043,13 @@ button.btn-danger:disabled {
 .wf-app.wf-bg-mesh {
   --wf-bg: #dbecf8; --wf-canvas-ink: #16202a; --wf-canvas-muted: #45535f;
   background-image: linear-gradient(rgba(233, 241, 247, .34), rgba(233, 241, 247, .34)), url("/backgrounds/mesh.webp");
-  --wf-green: #22619f; --wf-green-600: #1c5288; --wf-green-hero-1: #164171;
+  --wf-green: #22619f; --wf-green-600: #1c5288; --wf-green-hero-1: #164171; --wf-green-hero-2: #0f2e4d;
   --wf-tint: #e2ecf6; --wf-tint2: #cfe0f1;
 }
 .wf-app.wf-bg-flux {
   --wf-bg: #b0c0d7; --wf-canvas-ink: #17202c; --wf-canvas-muted: #3c4756;
   background-image: linear-gradient(rgba(206, 215, 229, .30), rgba(206, 215, 229, .30)), url("/backgrounds/flux.webp");
-  --wf-green: #2b4f88; --wf-green-600: #233f6e; --wf-green-hero-1: #1c3357;
+  --wf-green: #2b4f88; --wf-green-600: #233f6e; --wf-green-hero-1: #1c3357; --wf-green-hero-2: #12233d;
   --wf-tint: #e5eaf4; --wf-tint2: #d3ddee;
 }
 .wf-app.wf-bg-code {
