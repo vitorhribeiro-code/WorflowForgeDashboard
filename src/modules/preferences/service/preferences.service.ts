@@ -1,6 +1,12 @@
 import { DomainError, forbidden, notFound } from "@/lib/errors";
 import type { SessionContext } from "@/lib/session";
-import { isBackgroundToken, isModeToken, type UserPreferences } from "../domain/preferences";
+import {
+  DEFAULT_BACKGROUND,
+  isBackgroundToken,
+  isModeToken,
+  isValidCustomBackground,
+  type UserPreferences,
+} from "../domain/preferences";
 import type { PreferencesRepository } from "../data/preferences.repository";
 
 export interface PreferencesService {
@@ -8,6 +14,15 @@ export interface PreferencesService {
   get(session: SessionContext): Promise<UserPreferences>;
   setBackground(session: SessionContext, background: string): Promise<UserPreferences>;
   setMode(session: SessionContext, mode: string): Promise<UserPreferences>;
+  /**
+   * Define (string data URL) ou limpa (null) a imagem de fundo personalizada do
+   * próprio utilizador. Definir seleciona automaticamente o fundo "custom";
+   * limpar, se estava em custom, volta ao fundo default.
+   */
+  setCustomBackground(
+    session: SessionContext,
+    value: string | null,
+  ): Promise<UserPreferences>;
   /**
    * Leitura admin (consola «Trabalhadores»): o fundo escolhido por um
    * trabalhador da org. Só super_admin; valida tenant. Só leitura — o admin
@@ -31,7 +46,30 @@ export function createPreferencesService(deps: {
         throw new DomainError("BAD_INPUT", "Fundo inválido", 400);
       }
       const current = await repo.get(session.userId);
+      // Não se aplica "custom" sem uma imagem válida guardada.
+      if (background === "custom" && !isValidCustomBackground(current.customBackground)) {
+        throw new DomainError("BAD_INPUT", "Sem imagem personalizada para aplicar", 400);
+      }
       return repo.save(session.userId, { ...current, background });
+    },
+
+    async setCustomBackground(session, value) {
+      const current = await repo.get(session.userId);
+      if (value === null) {
+        // Limpar: remove os bytes; se estava em custom, cai no default.
+        const background =
+          current.background === "custom" ? DEFAULT_BACKGROUND : current.background;
+        return repo.save(session.userId, { ...current, customBackground: null, background });
+      }
+      if (!isValidCustomBackground(value)) {
+        throw new DomainError("BAD_INPUT", "Imagem de fundo inválida", 400);
+      }
+      // Definir a imagem seleciona logo o fundo personalizado (um só PUT).
+      return repo.save(session.userId, {
+        ...current,
+        customBackground: value,
+        background: "custom",
+      });
     },
 
     async setMode(session, mode) {
@@ -51,7 +89,10 @@ export function createPreferencesService(deps: {
       if (!(await repo.workerInOrg(session.orgId, workerId))) {
         throw notFound("Trabalhador inexistente.", { workerId });
       }
-      return repo.get(workerId);
+      // O admin vê o rótulo (background === "custom" → "Personalizado"), nunca os
+      // bytes da imagem do trabalhador — projeção enxuta e sem dados pessoais.
+      const prefs = await repo.get(workerId);
+      return { ...prefs, customBackground: null };
     },
   };
 }

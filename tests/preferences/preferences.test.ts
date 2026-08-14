@@ -6,8 +6,10 @@ import {
   DEFAULT_MODE,
   MODE_OPTIONS,
   MODE_TOKENS,
+  MAX_CUSTOM_BACKGROUND_BYTES,
   isBackgroundToken,
   isModeToken,
+  isValidCustomBackground,
   normalizePreferences,
   type UserPreferences,
 } from "@/modules/preferences/domain/preferences";
@@ -20,12 +22,17 @@ import type { SessionContext } from "@/lib/session";
 
 const worker: SessionContext = { userId: "u1", orgId: "o1", role: "worker" };
 
+// Data URL WebP mínimo mas com envelope válido (o validador não descodifica a
+// imagem — só valida prefixo + base64 + tamanho).
+const SMALL_WEBP = "data:image/webp;base64,AAAA";
+
 function fakeRepo(
   initial?: Partial<UserPreferences>,
 ): PreferencesRepository & { peek(): UserPreferences; membership: Set<string> } {
   let store: UserPreferences = {
     background: DEFAULT_BACKGROUND,
     mode: DEFAULT_MODE,
+    customBackground: null,
     ...initial,
   };
   const membership = new Set<string>();
@@ -89,7 +96,41 @@ describe("preferences — domínio", () => {
     expect(normalizePreferences({ background: "slate", mode: "dark" })).toEqual({
       background: "slate",
       mode: "dark",
+      customBackground: null,
     });
+  });
+
+  it("isValidCustomBackground só aceita data URL WebP dentro do teto", () => {
+    expect(isValidCustomBackground(SMALL_WEBP)).toBe(true);
+    // mime errado
+    expect(isValidCustomBackground("data:image/png;base64,AAAA")).toBe(false);
+    // base64 malformado (não múltiplo de 4)
+    expect(isValidCustomBackground("data:image/webp;base64,AAA")).toBe(false);
+    // não é data URL
+    expect(isValidCustomBackground("olá")).toBe(false);
+    expect(isValidCustomBackground(123)).toBe(false);
+    expect(isValidCustomBackground(null)).toBe(false);
+    // acima do teto (base64 decodifica a ~3/4 do comprimento, logo 2·MAX chars
+    // → ~1.5·MAX bytes, garantidamente acima do teto)
+    const tooBig = "data:image/webp;base64," + "A".repeat(MAX_CUSTOM_BACKGROUND_BYTES * 2);
+    expect(isValidCustomBackground(tooBig)).toBe(false);
+  });
+
+  it("normalizePreferences resolve o fundo personalizado e a sua coerência", () => {
+    expect(normalizePreferences({}).customBackground).toBeNull();
+    expect(normalizePreferences({ customBackground: SMALL_WEBP }).customBackground).toBe(
+      SMALL_WEBP,
+    );
+    // lixo em customBackground cai em null
+    expect(
+      normalizePreferences({ customBackground: "data:image/png;base64,AAAA" }).customBackground,
+    ).toBeNull();
+    // "custom" SEM imagem válida → volta ao default (guarda de coerência)
+    expect(normalizePreferences({ background: "custom" }).background).toBe("default");
+    // "custom" COM imagem válida → mantém-se
+    expect(
+      normalizePreferences({ background: "custom", customBackground: SMALL_WEBP }),
+    ).toEqual({ background: "custom", mode: "light", customBackground: SMALL_WEBP });
   });
 });
 
@@ -139,6 +180,60 @@ describe("preferences — serviço", () => {
     const out = await svc.setMode(worker, "dark");
     expect(out.background).toBe("graphite");
     expect(out.mode).toBe("dark");
+  });
+
+  it("setCustomBackground grava a imagem e seleciona o fundo custom", async () => {
+    repo = fakeRepo();
+    svc = createPreferencesService({ repo });
+    const out = await svc.setCustomBackground(worker, SMALL_WEBP);
+    expect(out.customBackground).toBe(SMALL_WEBP);
+    expect(out.background).toBe("custom");
+  });
+
+  it("setCustomBackground rejeita imagem inválida (400) e não escreve", async () => {
+    repo = fakeRepo({ background: "mist" });
+    svc = createPreferencesService({ repo });
+    await expect(
+      svc.setCustomBackground(worker, "data:image/png;base64,AAAA"),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(repo.peek().background).toBe("mist");
+    expect(repo.peek().customBackground).toBeNull();
+  });
+
+  it("setCustomBackground(null) limpa os bytes e, se estava em custom, volta ao default", async () => {
+    repo = fakeRepo({ background: "custom", customBackground: SMALL_WEBP });
+    svc = createPreferencesService({ repo });
+    const out = await svc.setCustomBackground(worker, null);
+    expect(out.customBackground).toBeNull();
+    expect(out.background).toBe("default");
+  });
+
+  it("setCustomBackground(null) preserva um fundo NÃO-custom", async () => {
+    repo = fakeRepo({ background: "slate", customBackground: SMALL_WEBP });
+    svc = createPreferencesService({ repo });
+    const out = await svc.setCustomBackground(worker, null);
+    expect(out.background).toBe("slate");
+    expect(out.customBackground).toBeNull();
+  });
+
+  it("setCustomBackground preserva o modo (merge no jsonb)", async () => {
+    repo = fakeRepo({ mode: "dark" });
+    svc = createPreferencesService({ repo });
+    const out = await svc.setCustomBackground(worker, SMALL_WEBP);
+    expect(out.mode).toBe("dark");
+  });
+
+  it("setBackground('custom') sem imagem é rejeitado (400)", async () => {
+    repo = fakeRepo();
+    svc = createPreferencesService({ repo });
+    await expect(svc.setBackground(worker, "custom")).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("setBackground('custom') com imagem guardada é aceite", async () => {
+    repo = fakeRepo({ customBackground: SMALL_WEBP });
+    svc = createPreferencesService({ repo });
+    const out = await svc.setBackground(worker, "custom");
+    expect(out.background).toBe("custom");
   });
 });
 

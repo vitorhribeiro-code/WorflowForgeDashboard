@@ -35,6 +35,7 @@ export default async function ConnectionsPage({
     session.role === "worker" ? await getPreferencesService().get(session) : null;
   const background = prefs ? prefs.background : DEFAULT_BACKGROUND;
   const mode = prefs ? prefs.mode : DEFAULT_MODE;
+  const customBackground = prefs ? prefs.customBackground : null;
 
   return (
     <WorkerApp
@@ -42,6 +43,7 @@ export default async function ConnectionsPage({
       banner={banner}
       background={background}
       mode={mode}
+      customBackground={customBackground}
     />
   );
 }

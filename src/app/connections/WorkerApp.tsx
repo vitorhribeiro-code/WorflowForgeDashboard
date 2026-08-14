@@ -16,8 +16,9 @@
  * a descer ao lado do board.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { fileToReducedWebp } from "./imageDownscale";
 import { ConnectionsPanel } from "@/modules/connections/ui/ConnectionsPanel";
 import { WorkerTasksPanel } from "@/modules/assignments/ui/WorkerTasksPanel";
 import { NextRunWidget, RecentRunsWidget } from "@/modules/assignments/ui/SidebarWidgets";
@@ -104,11 +105,13 @@ export function WorkerApp({
   banner,
   background = DEFAULT_BACKGROUND,
   mode: modeProp = DEFAULT_MODE,
+  customBackground = null,
 }: {
   role: string;
   banner: Banner;
   background?: BackgroundToken;
   mode?: ModeToken;
+  customBackground?: string | null;
 }) {
   const isAdmin = role === "super_admin";
   const [view, setView] = useState<View>(banner ? "connections" : "tasks");
@@ -125,6 +128,13 @@ export function WorkerApp({
   // `.wf-app`, ortogonal ao fundo. Troca otimista + persistência no mesmo PUT.
   const [mode, setMode] = useState<ModeToken>(modeProp);
   const [modeError, setModeError] = useState<string | null>(null);
+
+  // Fundo personalizado (Fase 1: origem = ficheiro local). Os bytes (WebP data
+  // URL reduzido) entram como var CSS `--wf-custom-image` na raiz. A redução é
+  // no cliente; guarda-se com um PUT que também seleciona o fundo "custom".
+  const [customBg, setCustomBg] = useState<string | null>(customBackground);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   async function chooseBackground(token: BackgroundToken) {
     if (token === bg) return;
@@ -162,6 +172,53 @@ export function WorkerApp({
     }
   }
 
+  async function onPickCustom(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permite re-selecionar o mesmo ficheiro
+    if (!file) return;
+    const prevBg = bg;
+    const prevCustom = customBg;
+    setUploading(true);
+    setBgError(null);
+    try {
+      const dataUrl = await fileToReducedWebp(file);
+      setCustomBg(dataUrl); // preview otimista
+      setBg("custom");
+      const res = await fetch("/api/me/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customBackground: dataUrl }),
+      });
+      if (!res.ok) throw new Error("save failed");
+    } catch {
+      setCustomBg(prevCustom);
+      setBg(prevBg);
+      setBgError("Não foi possível carregar a imagem. Tenta outra, ou uma mais pequena.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function removeCustom() {
+    const prevBg = bg;
+    const prevCustom = customBg;
+    setCustomBg(null);
+    if (bg === "custom") setBg("default");
+    setBgError(null);
+    try {
+      const res = await fetch("/api/me/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customBackground: null }),
+      });
+      if (!res.ok) throw new Error("save failed");
+    } catch {
+      setCustomBg(prevCustom);
+      setBg(prevBg);
+      setBgError("Não foi possível remover a imagem. Tenta de novo.");
+    }
+  }
+
   async function logout() {
     setLoggingOut(true);
     try {
@@ -195,9 +252,13 @@ export function WorkerApp({
 
   const bgClass = showBackground && bg !== "default" ? ` wf-bg-${bg}` : "";
   const modeClass = showBackground && mode === "dark" ? " wf-theme-dark" : "";
+  const rootStyle =
+    showBackground && bg === "custom" && customBg
+      ? ({ "--wf-custom-image": `url("${customBg}")` } as React.CSSProperties)
+      : undefined;
 
   return (
-    <div className={`wf-app${bgClass}${modeClass}`}>
+    <div className={`wf-app${bgClass}${modeClass}`} style={rootStyle}>
       <div className="wf-dock">
         <aside className="wf-side">
           <div className="wf-brand">
@@ -325,7 +386,7 @@ export function WorkerApp({
                     role="radiogroup"
                     aria-label="Fundo do painel"
                   >
-                    {BACKGROUND_SWATCHES.map((s) => (
+                    {BACKGROUND_SWATCHES.filter((s) => s.token !== "custom").map((s) => (
                       <button
                         key={s.token}
                         type="button"
@@ -357,6 +418,58 @@ export function WorkerApp({
                     </a>
                   </p>
                   {bgError && <p className="wf-bg-error">{bgError}</p>}
+                </div>
+                <div className="wf-bg-field">
+                  <p className="wf-bg-label">Fundo personalizado</p>
+                  <div className="wf-bg-custom-row">
+                    {customBg && (
+                      <button
+                        type="button"
+                        className="wf-bg-swatch is-image"
+                        style={{ backgroundImage: `url("${customBg}")` }}
+                        role="radio"
+                        aria-checked={bg === "custom"}
+                        aria-pressed={bg === "custom"}
+                        aria-label="Aplicar o fundo personalizado"
+                        title="Aplicar o fundo personalizado"
+                        onClick={() => chooseBackground("custom")}
+                      />
+                    )}
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      hidden
+                      onChange={onPickCustom}
+                    />
+                    <button
+                      type="button"
+                      className="wf-bg-upload"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={uploading}
+                    >
+                      {uploading
+                        ? "A processar…"
+                        : customBg
+                          ? "Substituir imagem"
+                          : "Carregar imagem"}
+                    </button>
+                    {customBg && (
+                      <button
+                        type="button"
+                        className="wf-bg-remove"
+                        onClick={removeCustom}
+                        disabled={uploading}
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                  <p className="wf-bg-hint">
+                    Carrega uma imagem tua (é reduzida no teu dispositivo antes de guardar).
+                    Para melhor legibilidade, prefere imagens claras ou de baixo contraste —
+                    o ajuste automático de cor chega numa próxima fase.
+                  </p>
                 </div>
               </>
             ) : (

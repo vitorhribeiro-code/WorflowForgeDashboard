@@ -2064,6 +2064,19 @@ button.btn-danger:disabled {
   text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
 }
 
+/* Fundo PERSONALIZADO (imagem carregada pelo trabalhador). A imagem entra por  */
+/* --wf-custom-image (var inline na raiz, definida no cliente); o wash e o halo  */
+/* são neutros e generosos porque a imagem é arbitrária. A fase das cores        */
+/* automáticas afina o wash/cabeçalho pela luminância real da imagem.            */
+.wf-app.wf-bg-custom {
+  --wf-bg: #e7ebe7; --wf-canvas-ink: #16202a; --wf-canvas-muted: #3b4854;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  background-image: linear-gradient(rgba(244, 246, 244, .42), rgba(244, 246, 244, .42)), var(--wf-custom-image);
+}
+.wf-app.wf-bg-custom .wf-page-head h1, .wf-app.wf-bg-custom .wf-page-head p {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, .75), 0 0 7px rgba(255, 255, 255, .45);
+}
+
 /* Modo escuro: inverte a luminancia por tokens (tela+cartoes escuros, texto */
 /* claro). Vem depois dos fundos para ganhar --wf-bg nos fundos de cor. O */
 /* semaforo (#7ee08a, ambar, vermelho) e semantico e fica intocado. */
@@ -2102,9 +2115,13 @@ button.btn-danger:disabled {
 .wf-app.wf-theme-dark.wf-bg-code {
   background-image: linear-gradient(rgba(7, 15, 11, .50), rgba(7, 15, 11, .50)), url("/backgrounds/code.webp");
 }
+.wf-app.wf-theme-dark.wf-bg-custom {
+  background-image: linear-gradient(rgba(9, 13, 11, .55), rgba(9, 13, 11, .55)), var(--wf-custom-image);
+}
 .wf-app.wf-theme-dark.wf-bg-mesh .wf-page-head h1, .wf-app.wf-theme-dark.wf-bg-mesh .wf-page-head p,
 .wf-app.wf-theme-dark.wf-bg-flux .wf-page-head h1, .wf-app.wf-theme-dark.wf-bg-flux .wf-page-head p,
-.wf-app.wf-theme-dark.wf-bg-code .wf-page-head h1, .wf-app.wf-theme-dark.wf-bg-code .wf-page-head p {
+.wf-app.wf-theme-dark.wf-bg-code .wf-page-head h1, .wf-app.wf-theme-dark.wf-bg-code .wf-page-head p,
+.wf-app.wf-theme-dark.wf-bg-custom .wf-page-head h1, .wf-app.wf-theme-dark.wf-bg-custom .wf-page-head p {
   color: var(--wf-canvas-ink); text-shadow: 0 1px 3px rgba(0, 0, 0, .55);
 }
 
@@ -2146,6 +2163,25 @@ button.btn-danger:disabled {
 .wf-app .wf-bg-swatch.is-image { background-size: cover; background-position: center; }
 .wf-app .wf-bg-credit { font-size: 11px; color: var(--wf-faint); margin: 9px 0 0; }
 .wf-app .wf-bg-credit a { color: var(--wf-muted); text-decoration: underline; }
+
+/* Controlos do fundo PERSONALIZADO (token-driven: re-tematizam no escuro) */
+.wf-app .wf-bg-custom-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.wf-app .wf-bg-upload {
+  border: 1px solid var(--wf-line); background: var(--wf-surface); color: var(--wf-ink);
+  font: 700 13px/1 "Plus Jakarta Sans", system-ui, sans-serif;
+  padding: 9px 14px; border-radius: 10px; cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+.wf-app .wf-bg-upload:hover { border-color: var(--wf-green); }
+.wf-app .wf-bg-upload:focus-visible { outline: 2px solid var(--wf-green); outline-offset: 2px; }
+.wf-app .wf-bg-upload:disabled { opacity: .6; cursor: default; }
+.wf-app .wf-bg-remove {
+  border: 0; background: transparent; color: var(--wf-muted);
+  font: 600 13px/1 "Plus Jakarta Sans", system-ui, sans-serif;
+  padding: 9px 6px; cursor: pointer; text-decoration: underline;
+}
+.wf-app .wf-bg-remove:hover { color: var(--wf-red-ink); }
+.wf-app .wf-bg-remove:disabled { opacity: .6; cursor: default; text-decoration: none; }
 
 /* ---- Estilo de escrita (modal na consola: reutiliza .wt-modal, tema escuro) ---- */
 .ws-modal { max-width: 560px; }
