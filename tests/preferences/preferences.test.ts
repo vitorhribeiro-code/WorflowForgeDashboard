@@ -110,8 +110,12 @@ describe("preferences — domínio", () => {
   it("FONT_OPTIONS cobre exatamente os tokens de fonte e só o default não tem href", () => {
     expect(FONT_OPTIONS.map((f) => f.token).sort()).toEqual([...FONT_TOKENS].sort());
     expect(fontOptionFor("default").href).toBeUndefined();
+    // iA Writer Quattro é auto-alojada (SIL OFL) → sem href do Google.
+    expect(fontOptionFor("iawriter").href).toBeUndefined();
+    const selfHosted = new Set(["default", "iawriter"]);
     for (const f of FONT_OPTIONS) {
-      if (f.token !== "default") expect(f.href).toMatch(/^https:\/\/fonts\.googleapis\.com\//);
+      if (!selfHosted.has(f.token))
+        expect(f.href).toMatch(/^https:\/\/fonts\.googleapis\.com\//);
     }
   });
 

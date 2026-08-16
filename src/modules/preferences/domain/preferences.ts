@@ -53,6 +53,7 @@ export const FONT_TOKENS = [
   "archivo",
   "robotoslab",
   "outfit",
+  "iawriter",
 ] as const;
 export type FontToken = (typeof FONT_TOKENS)[number];
 export const DEFAULT_FONT: FontToken = "default";
@@ -105,6 +106,12 @@ export const FONT_OPTIONS: ReadonlyArray<FontOption> = [
     label: "Outfit",
     stack: '"Outfit", system-ui, sans-serif',
     href: "https://fonts.googleapis.com/css2?family=Outfit:wght@600;700&display=swap",
+  },
+  {
+    // Auto-alojada (SIL OFL); o @font-face vive em fonts.css. Sem href → sem <link>.
+    token: "iawriter",
+    label: "iA Writer Quattro",
+    stack: '"iA Writer Quattro", Georgia, "Times New Roman", serif',
   },
 ];
 
