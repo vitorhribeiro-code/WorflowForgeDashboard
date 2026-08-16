@@ -16,7 +16,6 @@ export default function LoginPage() {
             <span className="wf-auth__mark">W</span> Work Flow Forge
           </div>
           <div className="wf-auth__body">
-            <h1>dashboard</h1>
             <LoginForm
               onSuccess={(redirect) => {
                 // O cookie de sessão já foi definido pelo servidor. O destino

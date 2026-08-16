@@ -2335,7 +2335,7 @@ button.btn-danger:disabled {
 }
 .wf-auth {
   display: flex;
-  width: 760px;
+  width: 930px;
   max-width: 100%;
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -2343,14 +2343,17 @@ button.btn-danger:disabled {
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
 }
 .wf-auth__panel {
-  width: 50%;
-  height: 480px;
+  height: 320px;
 }
 .wf-auth__login {
+  width: 39%;
   background: var(--panel);
   padding: 34px 34px 28px;
   display: flex;
   flex-direction: column;
+}
+.wf-auth__media {
+  width: 61%;
 }
 .wf-auth__brand {
   display: flex;
@@ -2371,12 +2374,7 @@ button.btn-danger:disabled {
   font-size: 15px;
 }
 .wf-auth__body {
-  margin: auto 0;
-}
-.wf-auth__login h1 {
-  margin: 0 0 14px;
-  font-size: 15px;
-  font-weight: 700;
+  margin-top: 22px;
 }
 .wf-auth__login .login-form button {
   background: var(--sel-bg);
