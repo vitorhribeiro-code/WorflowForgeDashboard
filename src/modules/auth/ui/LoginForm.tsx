@@ -22,7 +22,7 @@ export function LoginForm({ onSuccess }: Props) {
   return (
     <div className="login-form">
       <label>
-        Email
+        utilizador
         <input
           type="email"
           value={email}
@@ -31,7 +31,7 @@ export function LoginForm({ onSuccess }: Props) {
         />
       </label>
       <label>
-        Password
+        pass
         <input
           type="password"
           value={password}
