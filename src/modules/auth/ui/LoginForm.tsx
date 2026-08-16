@@ -21,24 +21,22 @@ export function LoginForm({ onSuccess }: Props) {
 
   return (
     <div className="login-form">
-      <label>
-        utilizador
-        <input
-          type="email"
-          value={email}
-          autoComplete="username"
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </label>
-      <label>
-        pass
-        <input
-          type="password"
-          value={password}
-          autoComplete="current-password"
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </label>
+      <input
+        type="email"
+        value={email}
+        placeholder="utilizador"
+        aria-label="utilizador"
+        autoComplete="username"
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <input
+        type="password"
+        value={password}
+        placeholder="senha"
+        aria-label="senha"
+        autoComplete="current-password"
+        onChange={(e) => setPassword(e.target.value)}
+      />
       {error ? <p className="login-error">{error}</p> : null}
       <button type="button" disabled={busy || !email || !password} onClick={submit}>
         {busy ? "A entrar…" : "Entrar"}

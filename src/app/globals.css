@@ -2324,3 +2324,127 @@ button.btn-danger:disabled {
   width: 22px; height: 22px; border-radius: 6px; flex: none;
   border: 1px solid var(--border);
 }
+
+/* ---- Login em duas metades (login + slideshow colado) ---- */
+.wf-auth-shell {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+.wf-auth {
+  display: flex;
+  width: 760px;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+.wf-auth__panel {
+  width: 50%;
+  height: 480px;
+}
+.wf-auth__login {
+  background: var(--panel);
+  padding: 34px 34px 28px;
+  display: flex;
+  flex-direction: column;
+}
+.wf-auth__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 15px;
+}
+.wf-auth__mark {
+  width: 27px;
+  height: 27px;
+  border-radius: 8px;
+  background: var(--sel-bg);
+  color: var(--sel-fg);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 15px;
+}
+.wf-auth__body {
+  margin: auto 0;
+}
+.wf-auth__login h1 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.wf-auth__login .login-form button {
+  background: var(--sel-bg);
+  color: var(--sel-fg);
+}
+.wf-auth__login .login-form input::placeholder {
+  color: var(--muted);
+}
+.wf-auth__legal {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 13px;
+}
+.wf-auth__legal a {
+  color: var(--muted);
+  text-decoration: underline;
+}
+
+/* Metade do slideshow (deck do Gamma exportado em WebP) */
+.wf-auth__media {
+  position: relative;
+  overflow: hidden;
+  background: #0b1020;
+}
+.wf-slides {
+  position: absolute;
+  inset: 0;
+}
+.wf-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+.wf-slide.is-active {
+  opacity: 1;
+}
+.wf-slide__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(24px) saturate(1.08);
+  transform: scale(1.12);
+}
+.wf-slide__fg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Telemóvel: empilhar com o slideshow por cima do login */
+@media (max-width: 640px) {
+  .wf-auth {
+    flex-direction: column-reverse;
+    width: min(420px, 100%);
+  }
+  .wf-auth__panel {
+    width: 100%;
+    height: auto;
+  }
+  .wf-auth__media {
+    height: 210px;
+  }
+  .wf-auth__login {
+    padding: 28px 26px;
+  }
+}
