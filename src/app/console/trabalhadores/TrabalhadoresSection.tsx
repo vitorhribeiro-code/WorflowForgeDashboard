@@ -17,8 +17,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { WritingStyleModal } from "@/modules/writing-styles/ui/WritingStyleModal";
 import {
   BACKGROUND_SWATCHES,
+  fontOptionFor,
   type BackgroundToken,
   type ModeToken,
+  type FontToken,
 } from "@/modules/preferences/domain/preferences";
 
 /* --- Formas do JSON das APIs (espelham as views do servidor) --------------- */
@@ -160,6 +162,7 @@ function WorkerFicha({
   const [styleOpen, setStyleOpen] = useState(false);
   const [bg, setBg] = useState<BackgroundToken | undefined>(undefined); // undefined = a carregar
   const [mode, setMode] = useState<ModeToken | undefined>(undefined); // undefined = a carregar
+  const [font, setFont] = useState<FontToken | undefined>(undefined);
 
   const loadStyle = useCallback(() => {
     getJson<{ style: StyleView }>(`/api/workers/${worker.id}/writing-style`)
@@ -173,6 +176,7 @@ function WorkerFicha({
     setConnErr(null);
     setBg(undefined);
     setMode(undefined);
+    setFont(undefined);
     loadStyle();
     getJson<ConnectionView[]>(`/api/workers/${worker.id}/connections`)
       .then(setConns)
@@ -180,16 +184,18 @@ function WorkerFicha({
         setConns([]);
         setConnErr(e instanceof Error ? e.message : "Erro");
       });
-    getJson<{ background: BackgroundToken; mode: ModeToken }>(
+    getJson<{ background: BackgroundToken; mode: ModeToken; font: FontToken }>(
       `/api/workers/${worker.id}/preferences`,
     )
       .then((p) => {
         setBg(p.background);
         setMode(p.mode);
+        setFont(p.font);
       })
       .catch(() => {
         setBg("default");
         setMode("light");
+        setFont("default");
       });
   }, [worker.id, loadStyle]);
 
@@ -274,6 +280,9 @@ function WorkerFicha({
         )}
         {mode !== undefined && (
           <p className="muted wk-mode">Modo: {mode === "dark" ? "Escuro" : "Claro"}</p>
+        )}
+        {font !== undefined && (
+          <p className="muted wk-mode">Fonte: {fontOptionFor(font).label}</p>
         )}
       </div>
 

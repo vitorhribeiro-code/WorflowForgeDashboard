@@ -16,7 +16,7 @@
  * a descer ao lado do board.
  */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { reduceCustomBackground } from "./imageDownscale";
 import { ConnectionsPanel } from "@/modules/connections/ui/ConnectionsPanel";
@@ -28,9 +28,13 @@ import {
   BACKGROUND_IMAGE_CREDIT,
   DEFAULT_BACKGROUND,
   DEFAULT_MODE,
+  DEFAULT_FONT,
   MODE_OPTIONS,
+  FONT_OPTIONS,
+  fontOptionFor,
   type BackgroundToken,
   type ModeToken,
+  type FontToken,
   type CustomTokens,
 } from "@/modules/preferences/domain/preferences";
 
@@ -106,6 +110,7 @@ export function WorkerApp({
   banner,
   background = DEFAULT_BACKGROUND,
   mode: modeProp = DEFAULT_MODE,
+  font: fontProp = DEFAULT_FONT,
   customBackground = null,
   customTokens = null,
 }: {
@@ -113,6 +118,7 @@ export function WorkerApp({
   banner: Banner;
   background?: BackgroundToken;
   mode?: ModeToken;
+  font?: FontToken;
   customBackground?: string | null;
   customTokens?: CustomTokens | null;
 }) {
@@ -131,6 +137,24 @@ export function WorkerApp({
   // `.wf-app`, ortogonal ao fundo. Troca otimista + persistência no mesmo PUT.
   const [mode, setMode] = useState<ModeToken>(modeProp);
   const [modeError, setModeError] = useState<string | null>(null);
+
+  // Fonte dos títulos (só trabalhadores). Ortogonal ao fundo/modo. A escolha
+  // entra como var --wf-font-display na raiz; o <link> do Google Fonts é
+  // garantido no cliente (o servidor já emite o inicial, sem flash).
+  const [font, setFont] = useState<FontToken>(fontProp);
+  const [fontError, setFontError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!showBackground) return;
+    const opt = fontOptionFor(font);
+    if (!opt.href) return; // "default" usa a fonte base, sem <link>
+    if (document.querySelector(`link[data-wf-font="${font}"]`)) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = opt.href;
+    link.setAttribute("data-wf-font", font);
+    document.head.appendChild(link);
+  }, [font, showBackground]);
 
   // Fundo personalizado (Fase 1: origem = ficheiro local). Os bytes (WebP data
   // URL reduzido) entram como var CSS `--wf-custom-image` na raiz. A redução é
@@ -157,6 +181,24 @@ export function WorkerApp({
     } catch {
       setBg(prev);
       setBgError("Não foi possível guardar o fundo. Tenta de novo.");
+    }
+  }
+
+  async function chooseFont(token: FontToken) {
+    if (token === font) return;
+    const prev = font;
+    setFont(token);
+    setFontError(null);
+    try {
+      const res = await fetch("/api/me/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ font: token }),
+      });
+      if (!res.ok) throw new Error("save failed");
+    } catch {
+      setFont(prev);
+      setFontError("Não foi possível guardar a fonte. Tenta de novo.");
     }
   }
 
@@ -270,13 +312,23 @@ export function WorkerApp({
   const modeClass = showBackground && mode === "dark" ? " wf-theme-dark" : "";
   // Vars CSS na raiz: a imagem e, se houver, o acento derivado por modo. Os
   // valores são hex canónico (validados no domínio), seguros numa style inline.
-  const rootStyle = onCustom
-    ? ({
-        "--wf-custom-image": `url("${customBg}")`,
-        ...(customTk?.accentLight ? { "--wf-custom-accent": customTk.accentLight } : {}),
-        ...(customTk?.accentDark ? { "--wf-custom-accent-dark": customTk.accentDark } : {}),
-      } as React.CSSProperties)
-    : undefined;
+  const fontVar =
+    showBackground && font !== "default"
+      ? { "--wf-font-display": fontOptionFor(font).stack }
+      : {};
+  const rootStyle =
+    onCustom || Object.keys(fontVar).length
+      ? ({
+          ...(onCustom ? { "--wf-custom-image": `url("${customBg}")` } : {}),
+          ...(onCustom && customTk?.accentLight
+            ? { "--wf-custom-accent": customTk.accentLight }
+            : {}),
+          ...(onCustom && customTk?.accentDark
+            ? { "--wf-custom-accent-dark": customTk.accentDark }
+            : {}),
+          ...fontVar,
+        } as React.CSSProperties)
+      : undefined;
 
   return (
     <div className={`wf-app${bgClass}${modeClass}`} style={rootStyle}>
@@ -399,6 +451,26 @@ export function WorkerApp({
                     texto — combina com qualquer fundo.
                   </p>
                   {modeError && <p className="wf-bg-error">{modeError}</p>}
+                </div>
+                <div className="wf-bg-field">
+                  <p className="wf-bg-label">Fonte dos títulos</p>
+                  <select
+                    className="wf-font-select"
+                    aria-label="Fonte dos títulos"
+                    value={font}
+                    onChange={(e) => chooseFont(e.target.value as FontToken)}
+                  >
+                    {FONT_OPTIONS.map((f) => (
+                      <option key={f.token} value={f.token} style={{ fontFamily: f.stack }}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="wf-bg-hint">
+                    Aplica-se só aos títulos do painel. As fontes são carregadas do
+                    Google Fonts.
+                  </p>
+                  {fontError && <p className="wf-bg-error">{fontError}</p>}
                 </div>
                 <div className="wf-bg-field">
                   <p className="wf-bg-label">Fundo do painel</p>

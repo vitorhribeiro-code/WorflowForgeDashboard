@@ -5,6 +5,7 @@ import { z } from "zod";
 export const setPreferencesSchema = z.object({
   background: z.string().optional(),
   mode: z.string().optional(),
+  font: z.string().optional(),
   // string = definir a imagem; null = limpar; ausente = não mexer. O teto real
   // (formato WebP + tamanho) é validado no serviço; o max aqui é só um travão
   // grosso do corpo (o data URL ronda os ~270 KB de base64).

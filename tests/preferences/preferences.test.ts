@@ -6,6 +6,11 @@ import {
   DEFAULT_MODE,
   MODE_OPTIONS,
   MODE_TOKENS,
+  FONT_TOKENS,
+  FONT_OPTIONS,
+  DEFAULT_FONT,
+  fontOptionFor,
+  isFontToken,
   MAX_CUSTOM_BACKGROUND_BYTES,
   isBackgroundToken,
   isModeToken,
@@ -44,6 +49,7 @@ function fakeRepo(
   let store: UserPreferences = {
     background: DEFAULT_BACKGROUND,
     mode: DEFAULT_MODE,
+    font: DEFAULT_FONT,
     customBackground: null,
     customTokens: null,
     ...initial,
@@ -101,6 +107,31 @@ describe("preferences — domínio", () => {
     expect(isModeToken(null)).toBe(false);
   });
 
+  it("FONT_OPTIONS cobre exatamente os tokens de fonte e só o default não tem href", () => {
+    expect(FONT_OPTIONS.map((f) => f.token).sort()).toEqual([...FONT_TOKENS].sort());
+    expect(fontOptionFor("default").href).toBeUndefined();
+    for (const f of FONT_OPTIONS) {
+      if (f.token !== "default") expect(f.href).toMatch(/^https:\/\/fonts\.googleapis\.com\//);
+    }
+  });
+
+  it("isFontToken aceita a lista curada e rejeita o resto", () => {
+    expect(isFontToken("fraunces")).toBe(true);
+    expect(isFontToken("default")).toBe(true);
+    expect(isFontToken("comic-sans")).toBe(false);
+    expect(isFontToken(42)).toBe(false);
+  });
+
+  it("fontOptionFor cai no default para um token desconhecido", () => {
+    expect(fontOptionFor("xpto" as never).token).toBe("default");
+  });
+
+  it("normalizePreferences resolve a fonte com default seguro", () => {
+    expect(normalizePreferences(null).font).toBe("default");
+    expect(normalizePreferences({ font: "lixo" }).font).toBe("default");
+    expect(normalizePreferences({ font: "outfit" }).font).toBe("outfit");
+  });
+
   it("normalizePreferences resolve o modo com default seguro", () => {
     expect(normalizePreferences(null).mode).toBe("light");
     expect(normalizePreferences({}).mode).toBe("light");
@@ -109,6 +140,7 @@ describe("preferences — domínio", () => {
     expect(normalizePreferences({ background: "slate", mode: "dark" })).toEqual({
       background: "slate",
       mode: "dark",
+      font: "default",
       customBackground: null,
       customTokens: null,
     });
@@ -147,6 +179,7 @@ describe("preferences — domínio", () => {
     ).toEqual({
       background: "custom",
       mode: "light",
+      font: "default",
       customBackground: SMALL_WEBP,
       customTokens: null,
     });
@@ -199,6 +232,30 @@ describe("preferences — serviço", () => {
     const out = await svc.setMode(worker, "dark");
     expect(out.background).toBe("graphite");
     expect(out.mode).toBe("dark");
+  });
+
+  it("setFont grava uma fonte válida e persiste-a", async () => {
+    repo = fakeRepo();
+    svc = createPreferencesService({ repo });
+    const out = await svc.setFont(worker, "fraunces");
+    expect(out.font).toBe("fraunces");
+    expect(repo.peek().font).toBe("fraunces");
+  });
+
+  it("setFont rejeita uma fonte fora da lista (400) e não escreve", async () => {
+    repo = fakeRepo({ font: "outfit" });
+    svc = createPreferencesService({ repo });
+    await expect(svc.setFont(worker, "papyrus")).rejects.toMatchObject({ status: 400 });
+    expect(repo.peek().font).toBe("outfit");
+  });
+
+  it("setFont preserva fundo e modo (merge no jsonb)", async () => {
+    repo = fakeRepo({ background: "slate", mode: "dark" });
+    svc = createPreferencesService({ repo });
+    const out = await svc.setFont(worker, "archivo");
+    expect(out.background).toBe("slate");
+    expect(out.mode).toBe("dark");
+    expect(out.font).toBe("archivo");
   });
 
   it("setCustomBackground grava a imagem e seleciona o fundo custom", async () => {

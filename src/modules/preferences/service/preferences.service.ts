@@ -4,6 +4,7 @@ import {
   DEFAULT_BACKGROUND,
   isBackgroundToken,
   isModeToken,
+  isFontToken,
   isValidCustomBackground,
   normalizeCustomTokens,
   type CustomTokens,
@@ -16,6 +17,7 @@ export interface PreferencesService {
   get(session: SessionContext): Promise<UserPreferences>;
   setBackground(session: SessionContext, background: string): Promise<UserPreferences>;
   setMode(session: SessionContext, mode: string): Promise<UserPreferences>;
+  setFont(session: SessionContext, font: string): Promise<UserPreferences>;
   /**
    * Define (string data URL) ou limpa (null) a imagem de fundo personalizada do
    * próprio utilizador. Definir seleciona automaticamente o fundo "custom";
@@ -91,6 +93,15 @@ export function createPreferencesService(deps: {
       }
       const current = await repo.get(session.userId);
       return repo.save(session.userId, { ...current, mode });
+    },
+
+    async setFont(session, font) {
+      // Validado contra a lista curada (fonte única no domínio).
+      if (!isFontToken(font)) {
+        throw new DomainError("BAD_INPUT", "Fonte inválida", 400);
+      }
+      const current = await repo.get(session.userId);
+      return repo.save(session.userId, { ...current, font });
     },
 
     async getForWorker(session, workerId) {

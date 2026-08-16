@@ -2,7 +2,12 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSession, type SessionContext } from "@/lib/session";
 import { getPreferencesService } from "@/modules/preferences/container";
-import { DEFAULT_BACKGROUND, DEFAULT_MODE } from "@/modules/preferences/domain/preferences";
+import {
+  DEFAULT_BACKGROUND,
+  DEFAULT_MODE,
+  DEFAULT_FONT,
+  fontOptionFor,
+} from "@/modules/preferences/domain/preferences";
 import { WorkerApp } from "./WorkerApp";
 
 // Server Component: verifica a sessão (como /dashboard) e monta o shell do
@@ -37,16 +42,24 @@ export default async function ConnectionsPage({
   const mode = prefs ? prefs.mode : DEFAULT_MODE;
   const customBackground = prefs ? prefs.customBackground : null;
   const customTokens = prefs ? prefs.customTokens : null;
+  const font = prefs ? prefs.font : DEFAULT_FONT;
+  // <link> inicial da fonte escolhida (sem flash no 1.º render; o cliente
+  // mantém-no em sincronia nas trocas). "default" usa a fonte base, sem link.
+  const fontHref = fontOptionFor(font).href;
 
   return (
-    <WorkerApp
-      role={session.role}
-      banner={banner}
-      background={background}
-      mode={mode}
-      customBackground={customBackground}
-      customTokens={customTokens}
-    />
+    <>
+      {fontHref && <link rel="stylesheet" href={fontHref} />}
+      <WorkerApp
+        role={session.role}
+        banner={banner}
+        background={background}
+        mode={mode}
+        font={font}
+        customBackground={customBackground}
+        customTokens={customTokens}
+      />
+    </>
   );
 }
 

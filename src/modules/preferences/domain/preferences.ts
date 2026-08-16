@@ -41,6 +41,81 @@ export const MODE_OPTIONS: ReadonlyArray<{ token: ModeToken; label: string }> = 
   { token: "dark", label: "Escuro" },
 ];
 
+// Fonte dos TÍTULOS do painel (só trabalhadores). Lista CURADA (não texto livre):
+// o utilizador escolhe um token; a família e o href do Google Fonts vêm daqui
+// (fonte única — UI, injeção do <link> e CSS). "default" usa a fonte base da app
+// e não precisa de <link>. Aplica-se via --wf-font-display, só aos títulos.
+export const FONT_TOKENS = [
+  "default",
+  "fraunces",
+  "sourceserif",
+  "spacegrotesk",
+  "archivo",
+  "robotoslab",
+  "outfit",
+] as const;
+export type FontToken = (typeof FONT_TOKENS)[number];
+export const DEFAULT_FONT: FontToken = "default";
+
+export type FontOption = {
+  token: FontToken;
+  label: string;
+  // Stack CSS aplicada a --wf-font-display.
+  stack: string;
+  // URL do Google Fonts (só pesos de título). Ausente no "default" (fonte base).
+  href?: string;
+};
+
+const BASE_FONT_STACK = '"Plus Jakarta Sans", system-ui, -apple-system, sans-serif';
+
+export const FONT_OPTIONS: ReadonlyArray<FontOption> = [
+  { token: "default", label: "Padrão (Jakarta)", stack: BASE_FONT_STACK },
+  {
+    token: "fraunces",
+    label: "Fraunces (serifada)",
+    stack: '"Fraunces", Georgia, "Times New Roman", serif',
+    href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap",
+  },
+  {
+    token: "sourceserif",
+    label: "Source Serif",
+    stack: '"Source Serif 4", Georgia, serif',
+    href: "https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@600;700&display=swap",
+  },
+  {
+    token: "spacegrotesk",
+    label: "Space Grotesk",
+    stack: '"Space Grotesk", system-ui, sans-serif',
+    href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap",
+  },
+  {
+    token: "archivo",
+    label: "Archivo",
+    stack: '"Archivo", system-ui, sans-serif',
+    href: "https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&display=swap",
+  },
+  {
+    token: "robotoslab",
+    label: "Roboto Slab (slab)",
+    stack: '"Roboto Slab", Georgia, serif',
+    href: "https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@600;700&display=swap",
+  },
+  {
+    token: "outfit",
+    label: "Outfit",
+    stack: '"Outfit", system-ui, sans-serif',
+    href: "https://fonts.googleapis.com/css2?family=Outfit:wght@600;700&display=swap",
+  },
+];
+
+export function isFontToken(v: unknown): v is FontToken {
+  return typeof v === "string" && (FONT_TOKENS as readonly string[]).includes(v);
+}
+
+export function fontOptionFor(token: FontToken): FontOption {
+  return FONT_OPTIONS.find((f) => f.token === token) ?? FONT_OPTIONS[0]!;
+}
+
 // Preferências de um utilizador. Guardadas em users.preferences (jsonb).
 // customBackground: data URL de um WebP reduzido (≤ ~200 KB) OU null. Vive no
 // mesmo jsonb livre (sem migração, como background/mode). Servido de volta ao
@@ -62,6 +137,7 @@ export type CustomTokens = {
 export type UserPreferences = {
   background: BackgroundToken;
   mode: ModeToken;
+  font: FontToken;
   customBackground: string | null;
   customTokens: CustomTokens | null;
 };
@@ -69,6 +145,7 @@ export type UserPreferences = {
 export const DEFAULT_PREFERENCES: UserPreferences = {
   background: DEFAULT_BACKGROUND,
   mode: DEFAULT_MODE,
+  font: DEFAULT_FONT,
   customBackground: null,
   customTokens: null,
 };
@@ -165,6 +242,7 @@ export function normalizePreferences(raw: unknown): UserPreferences {
   const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const bg = "background" in obj ? obj.background : undefined;
   const mode = "mode" in obj ? obj.mode : undefined;
+  const font = "font" in obj ? obj.font : undefined;
   const cbg = "customBackground" in obj ? obj.customBackground : undefined;
   const ctk = "customTokens" in obj ? obj.customTokens : undefined;
 
@@ -179,6 +257,7 @@ export function normalizePreferences(raw: unknown): UserPreferences {
   return {
     background,
     mode: isModeToken(mode) ? mode : DEFAULT_MODE,
+    font: isFontToken(font) ? font : DEFAULT_FONT,
     customBackground,
     customTokens,
   };
