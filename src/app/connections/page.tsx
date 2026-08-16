@@ -36,6 +36,7 @@ export default async function ConnectionsPage({
   const background = prefs ? prefs.background : DEFAULT_BACKGROUND;
   const mode = prefs ? prefs.mode : DEFAULT_MODE;
   const customBackground = prefs ? prefs.customBackground : null;
+  const customTokens = prefs ? prefs.customTokens : null;
 
   return (
     <WorkerApp
@@ -44,6 +45,7 @@ export default async function ConnectionsPage({
       background={background}
       mode={mode}
       customBackground={customBackground}
+      customTokens={customTokens}
     />
   );
 }

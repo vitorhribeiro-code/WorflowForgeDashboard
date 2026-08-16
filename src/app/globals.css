@@ -2070,11 +2070,25 @@ button.btn-danger:disabled {
 /* automáticas afina o wash/cabeçalho pela luminância real da imagem.            */
 .wf-app.wf-bg-custom {
   --wf-bg: #e7ebe7; --wf-canvas-ink: #16202a; --wf-canvas-muted: #3b4854;
+  /* Acento derivado da imagem (fase das cores). Fallback = verde da marca */
+  /* quando nao ha tokens (imagem quase-cinzenta ou fase 1). O hero deriva por */
+  /* color-mix, mantendo a relacao acento->tons mais escuros. */
+  --wf-green: var(--wf-custom-accent, #1f9d55);
+  --wf-green-600: color-mix(in srgb, var(--wf-green) 88%, #000);
+  --wf-green-hero-1: color-mix(in srgb, var(--wf-green) 68%, #000);
+  --wf-green-hero-2: color-mix(in srgb, var(--wf-green) 49%, #000);
   background-size: cover; background-position: center; background-repeat: no-repeat;
   background-image: linear-gradient(rgba(244, 246, 244, .42), rgba(244, 246, 244, .42)), var(--wf-custom-image);
 }
+/* Cabecalho: por defeito tinta escura + halo branco (imagem clara). */
 .wf-app.wf-bg-custom .wf-page-head h1, .wf-app.wf-bg-custom .wf-page-head p {
   text-shadow: 0 1px 2px rgba(255, 255, 255, .75), 0 0 7px rgba(255, 255, 255, .45);
+}
+/* Imagem escura no topo (litehdr): no modo claro passa a tinta CLARA + sombra */
+/* escura, para o cabecalho nao se perder. (No escuro ja e clara.) (0,3,x). */
+.wf-app.wf-bg-custom.wf-custom-litehdr:not(.wf-theme-dark) .wf-page-head h1,
+.wf-app.wf-bg-custom.wf-custom-litehdr:not(.wf-theme-dark) .wf-page-head p {
+  color: #f4f7f4; text-shadow: 0 1px 3px rgba(0, 0, 0, .62), 0 0 8px rgba(0, 0, 0, .4);
 }
 
 /* Modo escuro: inverte a luminancia por tokens (tela+cartoes escuros, texto */
@@ -2116,6 +2130,11 @@ button.btn-danger:disabled {
   background-image: linear-gradient(rgba(7, 15, 11, .50), rgba(7, 15, 11, .50)), url("/backgrounds/code.webp");
 }
 .wf-app.wf-theme-dark.wf-bg-custom {
+  /* Acento derivado para o escuro (mais claro, para contrastar na tint escura). */
+  --wf-green: var(--wf-custom-accent-dark, #35c56e);
+  --wf-green-600: color-mix(in srgb, var(--wf-green) 88%, #000);
+  --wf-green-hero-1: color-mix(in srgb, var(--wf-green) 60%, #000);
+  --wf-green-hero-2: color-mix(in srgb, var(--wf-green) 40%, #000);
   background-image: linear-gradient(rgba(9, 13, 11, .55), rgba(9, 13, 11, .55)), var(--wf-custom-image);
 }
 .wf-app.wf-theme-dark.wf-bg-mesh .wf-page-head h1, .wf-app.wf-theme-dark.wf-bg-mesh .wf-page-head p,

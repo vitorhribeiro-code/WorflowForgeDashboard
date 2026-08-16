@@ -10,9 +10,21 @@ import {
   isBackgroundToken,
   isModeToken,
   isValidCustomBackground,
+  isHexColor,
+  normalizeCustomTokens,
   normalizePreferences,
   type UserPreferences,
 } from "@/modules/preferences/domain/preferences";
+import {
+  analyzePixels,
+  deriveAccent,
+  deriveTokens,
+  decideLitehdr,
+  rgbToHsl,
+  hslToRgb,
+  relLuminance,
+  toHex,
+} from "@/app/connections/imageDownscale";
 import {
   createPreferencesService,
   type PreferencesService,
@@ -33,6 +45,7 @@ function fakeRepo(
     background: DEFAULT_BACKGROUND,
     mode: DEFAULT_MODE,
     customBackground: null,
+    customTokens: null,
     ...initial,
   };
   const membership = new Set<string>();
@@ -97,6 +110,7 @@ describe("preferences — domínio", () => {
       background: "slate",
       mode: "dark",
       customBackground: null,
+      customTokens: null,
     });
   });
 
@@ -130,7 +144,12 @@ describe("preferences — domínio", () => {
     // "custom" COM imagem válida → mantém-se
     expect(
       normalizePreferences({ background: "custom", customBackground: SMALL_WEBP }),
-    ).toEqual({ background: "custom", mode: "light", customBackground: SMALL_WEBP });
+    ).toEqual({
+      background: "custom",
+      mode: "light",
+      customBackground: SMALL_WEBP,
+      customTokens: null,
+    });
   });
 });
 
@@ -235,6 +254,44 @@ describe("preferences — serviço", () => {
     const out = await svc.setBackground(worker, "custom");
     expect(out.background).toBe("custom");
   });
+
+  it("setCustomBackground guarda os tokens derivados (normalizados)", async () => {
+    repo = fakeRepo();
+    svc = createPreferencesService({ repo });
+    const out = await svc.setCustomBackground(worker, SMALL_WEBP, {
+      accentLight: "#1F9D55",
+      accentDark: "#35c56e",
+      litehdr: true,
+    });
+    expect(out.customTokens).toEqual({
+      accentLight: "#1f9d55",
+      accentDark: "#35c56e",
+      litehdr: true,
+    });
+  });
+
+  it("setCustomBackground descarta tokens com hex inválido", async () => {
+    repo = fakeRepo();
+    svc = createPreferencesService({ repo });
+    const out = await svc.setCustomBackground(worker, SMALL_WEBP, {
+      accentLight: "red;}evil",
+      accentDark: null,
+      litehdr: false,
+    });
+    expect(out.customTokens).toBeNull();
+  });
+
+  it("setCustomBackground(null) limpa também os tokens", async () => {
+    repo = fakeRepo({
+      background: "custom",
+      customBackground: SMALL_WEBP,
+      customTokens: { accentLight: "#1f9d55", accentDark: "#35c56e", litehdr: true },
+    });
+    svc = createPreferencesService({ repo });
+    const out = await svc.setCustomBackground(worker, null);
+    expect(out.customTokens).toBeNull();
+    expect(out.customBackground).toBeNull();
+  });
 });
 
 describe("preferences — getForWorker (leitura admin)", () => {
@@ -245,6 +302,20 @@ describe("preferences — getForWorker (leitura admin)", () => {
     repo.membership.add("o1:u1");
     const svc = createPreferencesService({ repo });
     expect((await svc.getForWorker(admin, "u1")).background).toBe("graphite");
+  });
+
+  it("admin não recebe bytes nem tokens do fundo personalizado", async () => {
+    const repo = fakeRepo({
+      background: "custom",
+      customBackground: SMALL_WEBP,
+      customTokens: { accentLight: "#1f9d55", accentDark: "#35c56e", litehdr: true },
+    });
+    repo.membership.add("o1:u1");
+    const svc = createPreferencesService({ repo });
+    const out = await svc.getForWorker(admin, "u1");
+    expect(out.background).toBe("custom"); // rótulo "Personalizado"
+    expect(out.customBackground).toBeNull();
+    expect(out.customTokens).toBeNull();
   });
 
   it("bloqueia o worker (não é leitura de worker)", async () => {
@@ -260,5 +331,138 @@ describe("preferences — getForWorker (leitura admin)", () => {
     await expect(svc.getForWorker(admin, "intruso")).rejects.toMatchObject({
       code: "not_found",
     });
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Fase das cores automáticas                                                */
+/* -------------------------------------------------------------------------- */
+
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function contrast(hex: string, otherLum: number): number {
+  const [r, g, b] = hexToRgb(hex);
+  const l = relLuminance(r, g, b);
+  const hi = Math.max(l, otherLum);
+  const lo = Math.min(l, otherLum);
+  return (hi + 0.05) / (lo + 0.05);
+}
+function fill(w: number, h: number, rgb: [number, number, number]): Uint8ClampedArray {
+  const data = new Uint8ClampedArray(w * h * 4);
+  for (let i = 0; i < w * h; i++) {
+    data[i * 4] = rgb[0];
+    data[i * 4 + 1] = rgb[1];
+    data[i * 4 + 2] = rgb[2];
+    data[i * 4 + 3] = 255;
+  }
+  return data;
+}
+const DARK_SURFACE_LUM = relLuminance(26, 34, 29);
+
+describe("preferences — tokens derivados (domínio)", () => {
+  it("isHexColor só aceita #rrggbb canónico", () => {
+    expect(isHexColor("#1f9d55")).toBe(true);
+    expect(isHexColor("#ABCDEF")).toBe(true);
+    expect(isHexColor("#fff")).toBe(false); // curto
+    expect(isHexColor("1f9d55")).toBe(false); // sem #
+    expect(isHexColor("#1f9d5")).toBe(false);
+    expect(isHexColor("red")).toBe(false);
+    expect(isHexColor("#1f9d55;}x")).toBe(false); // tentativa de injeção
+    expect(isHexColor(123)).toBe(false);
+    expect(isHexColor(null)).toBe(false);
+  });
+
+  it("normalizeCustomTokens valida hex, aceita null e descarta lixo", () => {
+    expect(
+      normalizeCustomTokens({ accentLight: "#1F9D55", accentDark: "#35c56e", litehdr: true }),
+    ).toEqual({ accentLight: "#1f9d55", accentDark: "#35c56e", litehdr: true });
+    // accent inválido → null, mas litehdr mantém o objeto vivo
+    expect(
+      normalizeCustomTokens({ accentLight: "vermelho", accentDark: null, litehdr: true }),
+    ).toEqual({ accentLight: null, accentDark: null, litehdr: true });
+    // nada de útil → null
+    expect(normalizeCustomTokens({ accentLight: "x", litehdr: false })).toBeNull();
+    expect(normalizeCustomTokens(null)).toBeNull();
+    expect(normalizeCustomTokens("olá")).toBeNull();
+  });
+
+  it("normalizePreferences só mantém tokens quando há imagem válida", () => {
+    // sem imagem → tokens caem para null (coerência)
+    expect(
+      normalizePreferences({ customTokens: { accentLight: "#1f9d55", litehdr: true } })
+        .customTokens,
+    ).toBeNull();
+    // com imagem → tokens sobrevivem
+    expect(
+      normalizePreferences({
+        background: "custom",
+        customBackground: SMALL_WEBP,
+        customTokens: { accentLight: "#1f9d55", accentDark: "#35c56e", litehdr: false },
+      }).customTokens,
+    ).toEqual({ accentLight: "#1f9d55", accentDark: "#35c56e", litehdr: false });
+  });
+});
+
+describe("cores automáticas — matemática pura", () => {
+  it("rgbToHsl/hslToRgb fecham o ciclo em cores base", () => {
+    expect(rgbToHsl(255, 0, 0)[0]).toBeCloseTo(0, 0);
+    expect(rgbToHsl(0, 0, 255)[0]).toBeCloseTo(240, 0);
+    expect(hslToRgb(0, 1, 0.5)).toEqual([255, 0, 0]);
+    expect(hslToRgb(240, 1, 0.5)).toEqual([0, 0, 255]);
+    // cinzento → saturação 0
+    expect(rgbToHsl(128, 128, 128)[1]).toBe(0);
+  });
+
+  it("relLuminance ordena branco > cinzento > preto", () => {
+    expect(relLuminance(255, 255, 255)).toBeCloseTo(1, 5);
+    expect(relLuminance(0, 0, 0)).toBeCloseTo(0, 5);
+    expect(relLuminance(255, 255, 255)).toBeGreaterThan(relLuminance(128, 128, 128));
+    expect(relLuminance(128, 128, 128)).toBeGreaterThan(relLuminance(0, 0, 0));
+  });
+
+  it("toHex formata e clampa", () => {
+    expect(toHex([255, 0, 0])).toBe("#ff0000");
+    expect(toHex([31, 157, 85])).toBe("#1f9d55");
+    expect(toHex([300, -5, 10])).toBe("#ff000a");
+  });
+
+  it("deriveAccent devolve null para quase-cinzenta", () => {
+    expect(deriveAccent(210, 0.05)).toEqual({ light: null, dark: null });
+  });
+
+  it("deriveAccent respeita as guardas de contraste (azul)", () => {
+    const a = deriveAccent(220, 0.7);
+    expect(a.light).not.toBeNull();
+    expect(a.dark).not.toBeNull();
+    // claro: texto branco por cima → contraste com o branco >= ~3 (folga p/ passo)
+    expect(contrast(a.light as string, relLuminance(255, 255, 255))).toBeGreaterThanOrEqual(2.9);
+    // escuro: cor viva sobre a superfície escura → contraste >= ~3.5
+    expect(contrast(a.dark as string, DARK_SURFACE_LUM)).toBeGreaterThanOrEqual(3.4);
+  });
+
+  it("deriveAccent escurece amarelos (claros) para contrastar com o branco", () => {
+    const a = deriveAccent(55, 0.9);
+    expect(contrast(a.light as string, relLuminance(255, 255, 255))).toBeGreaterThanOrEqual(2.9);
+  });
+
+  it("decideLitehdr: topo escuro pede tinta clara, topo claro não", () => {
+    expect(decideLitehdr(0.03)).toBe(true);
+    expect(decideLitehdr(0.9)).toBe(false);
+  });
+
+  it("analyzePixels extrai matiz/saturação e luminância do topo", () => {
+    const blue = analyzePixels(fill(4, 4, [0, 0, 255]), 4, 4);
+    expect(blue.hue).toBeCloseTo(240, 0);
+    expect(blue.sat).toBeGreaterThan(0.9);
+    const grey = analyzePixels(fill(4, 4, [128, 128, 128]), 4, 4);
+    expect(grey.sat).toBeLessThan(0.1);
+  });
+
+  it("deriveTokens: imagem azul-escura → acento + cabeçalho claro", () => {
+    const t = deriveTokens(analyzePixels(fill(6, 6, [10, 20, 90]), 6, 6));
+    expect(t.accentLight).not.toBeNull();
+    expect(t.litehdr).toBe(true);
   });
 });

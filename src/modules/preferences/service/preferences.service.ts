@@ -5,6 +5,8 @@ import {
   isBackgroundToken,
   isModeToken,
   isValidCustomBackground,
+  normalizeCustomTokens,
+  type CustomTokens,
   type UserPreferences,
 } from "../domain/preferences";
 import type { PreferencesRepository } from "../data/preferences.repository";
@@ -22,6 +24,7 @@ export interface PreferencesService {
   setCustomBackground(
     session: SessionContext,
     value: string | null,
+    tokens?: unknown,
   ): Promise<UserPreferences>;
   /**
    * Leitura admin (consola «Trabalhadores»): o fundo escolhido por um
@@ -53,21 +56,30 @@ export function createPreferencesService(deps: {
       return repo.save(session.userId, { ...current, background });
     },
 
-    async setCustomBackground(session, value) {
+    async setCustomBackground(session, value, tokens) {
       const current = await repo.get(session.userId);
       if (value === null) {
-        // Limpar: remove os bytes; se estava em custom, cai no default.
+        // Limpar: remove os bytes E os tokens; se estava em custom, cai no default.
         const background =
           current.background === "custom" ? DEFAULT_BACKGROUND : current.background;
-        return repo.save(session.userId, { ...current, customBackground: null, background });
+        return repo.save(session.userId, {
+          ...current,
+          customBackground: null,
+          customTokens: null,
+          background,
+        });
       }
       if (!isValidCustomBackground(value)) {
         throw new DomainError("BAD_INPUT", "Imagem de fundo inválida", 400);
       }
-      // Definir a imagem seleciona logo o fundo personalizado (um só PUT).
+      // Tokens derivados são opcionais e normalizados no servidor (defesa —
+      // hex canónico ou descartados). Definir a imagem seleciona o fundo
+      // personalizado num só PUT.
+      const customTokens: CustomTokens | null = normalizeCustomTokens(tokens);
       return repo.save(session.userId, {
         ...current,
         customBackground: value,
+        customTokens,
         background: "custom",
       });
     },
@@ -92,7 +104,7 @@ export function createPreferencesService(deps: {
       // O admin vê o rótulo (background === "custom" → "Personalizado"), nunca os
       // bytes da imagem do trabalhador — projeção enxuta e sem dados pessoais.
       const prefs = await repo.get(workerId);
-      return { ...prefs, customBackground: null };
+      return { ...prefs, customBackground: null, customTokens: null };
     },
   };
 }

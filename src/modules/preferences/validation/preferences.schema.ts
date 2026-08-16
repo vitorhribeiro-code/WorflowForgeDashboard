@@ -9,4 +9,14 @@ export const setPreferencesSchema = z.object({
   // (formato WebP + tamanho) é validado no serviço; o max aqui é só um travão
   // grosso do corpo (o data URL ronda os ~270 KB de base64).
   customBackground: z.string().max(400_000).nullable().optional(),
+  // Tokens derivados da imagem (acento por modo + tinta do cabeçalho). Forma
+  // grossa aqui; o hex canónico é validado/normalizado no serviço (domínio).
+  customTokens: z
+    .object({
+      accentLight: z.string().max(9).nullable().optional(),
+      accentDark: z.string().max(9).nullable().optional(),
+      litehdr: z.boolean().optional(),
+    })
+    .nullable()
+    .optional(),
 });

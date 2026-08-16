@@ -18,7 +18,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { fileToReducedWebp } from "./imageDownscale";
+import { reduceCustomBackground } from "./imageDownscale";
 import { ConnectionsPanel } from "@/modules/connections/ui/ConnectionsPanel";
 import { WorkerTasksPanel } from "@/modules/assignments/ui/WorkerTasksPanel";
 import { NextRunWidget, RecentRunsWidget } from "@/modules/assignments/ui/SidebarWidgets";
@@ -31,6 +31,7 @@ import {
   MODE_OPTIONS,
   type BackgroundToken,
   type ModeToken,
+  type CustomTokens,
 } from "@/modules/preferences/domain/preferences";
 
 type View = "tasks" | "connections" | "settings" | "help";
@@ -106,12 +107,14 @@ export function WorkerApp({
   background = DEFAULT_BACKGROUND,
   mode: modeProp = DEFAULT_MODE,
   customBackground = null,
+  customTokens = null,
 }: {
   role: string;
   banner: Banner;
   background?: BackgroundToken;
   mode?: ModeToken;
   customBackground?: string | null;
+  customTokens?: CustomTokens | null;
 }) {
   const isAdmin = role === "super_admin";
   const [view, setView] = useState<View>(banner ? "connections" : "tasks");
@@ -133,6 +136,9 @@ export function WorkerApp({
   // URL reduzido) entram como var CSS `--wf-custom-image` na raiz. A redução é
   // no cliente; guarda-se com um PUT que também seleciona o fundo "custom".
   const [customBg, setCustomBg] = useState<string | null>(customBackground);
+  // Tokens derivados da imagem (acento por modo + tinta do cabeçalho). Entram
+  // como vars CSS na raiz e re-tematizam o chrome sob o fundo personalizado.
+  const [customTk, setCustomTk] = useState<CustomTokens | null>(customTokens);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -178,20 +184,23 @@ export function WorkerApp({
     if (!file) return;
     const prevBg = bg;
     const prevCustom = customBg;
+    const prevTk = customTk;
     setUploading(true);
     setBgError(null);
     try {
-      const dataUrl = await fileToReducedWebp(file);
+      const { dataUrl, tokens } = await reduceCustomBackground(file);
       setCustomBg(dataUrl); // preview otimista
+      setCustomTk(tokens);
       setBg("custom");
       const res = await fetch("/api/me/preferences", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customBackground: dataUrl }),
+        body: JSON.stringify({ customBackground: dataUrl, customTokens: tokens }),
       });
       if (!res.ok) throw new Error("save failed");
     } catch {
       setCustomBg(prevCustom);
+      setCustomTk(prevTk);
       setBg(prevBg);
       setBgError("Não foi possível carregar a imagem. Tenta outra, ou uma mais pequena.");
     } finally {
@@ -202,7 +211,9 @@ export function WorkerApp({
   async function removeCustom() {
     const prevBg = bg;
     const prevCustom = customBg;
+    const prevTk = customTk;
     setCustomBg(null);
+    setCustomTk(null);
     if (bg === "custom") setBg("default");
     setBgError(null);
     try {
@@ -214,6 +225,7 @@ export function WorkerApp({
       if (!res.ok) throw new Error("save failed");
     } catch {
       setCustomBg(prevCustom);
+      setCustomTk(prevTk);
       setBg(prevBg);
       setBgError("Não foi possível remover a imagem. Tenta de novo.");
     }
@@ -250,12 +262,21 @@ export function WorkerApp({
   const initials = isAdmin ? "SA" : "EU";
   const roleLabel = isAdmin ? "Super-utilizador" : "Trabalhador";
 
-  const bgClass = showBackground && bg !== "default" ? ` wf-bg-${bg}` : "";
+  const onCustom = showBackground && bg === "custom" && customBg;
+  // Classe litehdr só quando a imagem pede cabeçalho claro no modo claro.
+  const litehdrClass = onCustom && customTk?.litehdr ? " wf-custom-litehdr" : "";
+  const bgClass =
+    showBackground && bg !== "default" ? ` wf-bg-${bg}${litehdrClass}` : "";
   const modeClass = showBackground && mode === "dark" ? " wf-theme-dark" : "";
-  const rootStyle =
-    showBackground && bg === "custom" && customBg
-      ? ({ "--wf-custom-image": `url("${customBg}")` } as React.CSSProperties)
-      : undefined;
+  // Vars CSS na raiz: a imagem e, se houver, o acento derivado por modo. Os
+  // valores são hex canónico (validados no domínio), seguros numa style inline.
+  const rootStyle = onCustom
+    ? ({
+        "--wf-custom-image": `url("${customBg}")`,
+        ...(customTk?.accentLight ? { "--wf-custom-accent": customTk.accentLight } : {}),
+        ...(customTk?.accentDark ? { "--wf-custom-accent-dark": customTk.accentDark } : {}),
+      } as React.CSSProperties)
+    : undefined;
 
   return (
     <div className={`wf-app${bgClass}${modeClass}`} style={rootStyle}>

@@ -19,15 +19,19 @@ export const workerPreferencesGET = withSession(async (session, _req, ctx) => {
 // PUT /api/me/preferences — define o fundo e/ou o modo do painel do próprio
 // utilizador. O corpo pode trazer `background`, `mode`, ou ambos.
 export const preferencesPUT = withSession(async (session, req) => {
-  const { background, mode, customBackground } = await readJson(req, setPreferencesSchema);
+  const { background, mode, customBackground, customTokens } = await readJson(
+    req,
+    setPreferencesSchema,
+  );
   const svc = getPreferencesService();
   let prefs = await svc.get(session);
   if (mode !== undefined) prefs = await svc.setMode(session, mode);
   if (background !== undefined) prefs = await svc.setBackground(session, background);
   // Por último: definir a imagem seleciona "custom", pelo que ganha se o corpo
-  // (invulgarmente) trouxer também um background.
+  // (invulgarmente) trouxer também um background. Os tokens derivados seguem
+  // junto (só relevantes ao definir a imagem; ao limpar são descartados).
   if (customBackground !== undefined) {
-    prefs = await svc.setCustomBackground(session, customBackground);
+    prefs = await svc.setCustomBackground(session, customBackground, customTokens);
   }
   return json(prefs);
 });

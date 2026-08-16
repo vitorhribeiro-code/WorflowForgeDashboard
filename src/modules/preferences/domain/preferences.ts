@@ -45,16 +45,32 @@ export const MODE_OPTIONS: ReadonlyArray<{ token: ModeToken; label: string }> = 
 // customBackground: data URL de um WebP reduzido (≤ ~200 KB) OU null. Vive no
 // mesmo jsonb livre (sem migração, como background/mode). Servido de volta ao
 // cliente e injetado como var CSS; a leitura admin NÃO recebe os bytes.
+// Tokens DERIVADOS da imagem personalizada (fase das cores automáticas). São
+// computados no cliente ao carregar e guardados no jsonb a par dos bytes:
+//  - accentLight/accentDark: acento (rampa da marca) derivado da matiz dominante,
+//    já com guardas de contraste para o cartão branco (claro) E escuro (escuro).
+//    null = imagem quase-cinzenta → mantém o acento da marca.
+//  - litehdr: true quando a imagem (com o wash claro) fica escura no topo, pelo
+//    que o cabeçalho precisa de tinta CLARA já no modo claro (no escuro já é).
+// Os valores são hex canónico (#rrggbb) porque entram numa style inline.
+export type CustomTokens = {
+  accentLight: string | null;
+  accentDark: string | null;
+  litehdr: boolean;
+};
+
 export type UserPreferences = {
   background: BackgroundToken;
   mode: ModeToken;
   customBackground: string | null;
+  customTokens: CustomTokens | null;
 };
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
   background: DEFAULT_BACKGROUND,
   mode: DEFAULT_MODE,
   customBackground: null,
+  customTokens: null,
 };
 
 // Teto do WebP reduzido guardado no jsonb. O cliente mira ≤200 KB; deixamos
@@ -78,6 +94,27 @@ export function isValidCustomBackground(v: unknown): v is string {
   if (!v.startsWith(CUSTOM_BACKGROUND_PREFIX)) return false;
   const bytes = base64ByteLength(v.slice(CUSTOM_BACKGROUND_PREFIX.length));
   return bytes > 0 && bytes <= MAX_CUSTOM_BACKGROUND_BYTES;
+}
+
+// Hex canónico #rrggbb (minúsculas ou maiúsculas). Estrito de propósito: estes
+// valores entram numa style inline, por isso nada de funções/espaços/;.
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+export function isHexColor(v: unknown): v is string {
+  return typeof v === "string" && HEX_COLOR_RE.test(v);
+}
+
+// Normaliza os tokens derivados. Aceita accent* como hex OU null (quase-cinzenta),
+// e litehdr como booleano. Qualquer outra coisa → descarta o token para null (o
+// CSS cai no acento/tinta da marca). Nunca lança.
+export function normalizeCustomTokens(raw: unknown): CustomTokens | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const accentLight = isHexColor(o.accentLight) ? o.accentLight.toLowerCase() : null;
+  const accentDark = isHexColor(o.accentDark) ? o.accentDark.toLowerCase() : null;
+  const litehdr = o.litehdr === true;
+  // Se não sobrou nada de útil (sem acento e sem litehdr), não vale guardar.
+  if (!accentLight && !accentDark && !litehdr) return null;
+  return { accentLight, accentDark, litehdr };
 }
 
 // Paleta apresentável (rótulo PT + cor da amostra). Fonte única para a UI —
@@ -129,16 +166,20 @@ export function normalizePreferences(raw: unknown): UserPreferences {
   const bg = "background" in obj ? obj.background : undefined;
   const mode = "mode" in obj ? obj.mode : undefined;
   const cbg = "customBackground" in obj ? obj.customBackground : undefined;
+  const ctk = "customTokens" in obj ? obj.customTokens : undefined;
 
   const customBackground = isValidCustomBackground(cbg) ? cbg : null;
   const bgToken = isBackgroundToken(bg) ? bg : DEFAULT_BACKGROUND;
   // Coerência: só se pode estar em "custom" se houver imagem válida. Caso
   // contrário (jsonb antigo/lixo, ou imagem removida) volta ao default.
   const background = bgToken === "custom" && !customBackground ? DEFAULT_BACKGROUND : bgToken;
+  // Os tokens derivados só fazem sentido com uma imagem; sem ela, descarta.
+  const customTokens = customBackground ? normalizeCustomTokens(ctk) : null;
 
   return {
     background,
     mode: isModeToken(mode) ? mode : DEFAULT_MODE,
     customBackground,
+    customTokens,
   };
 }
