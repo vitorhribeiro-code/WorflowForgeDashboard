@@ -59,16 +59,26 @@ export async function POST(req: Request): Promise<Response> {
 
     if (parsed.data.workerId) {
       const archive = await service.buildArchive({ workerId: parsed.data.workerId, period });
-      return Response.json({ ok: true, period, archive });
+      // Resposta compacta: nunca o manifest (pode ser grande) — só id/estado.
+      return Response.json({
+        ok: true,
+        period,
+        archive: { id: archive.id, status: archive.status },
+      });
     }
 
     const results = await service.buildAllForPeriod(period, parsed.data.orgId);
+    // Resumo COMPACTO e limitado: o cron-job.org aborta respostas grandes, por
+    // isso não devolvemos o array de arquivos (cada um traz o manifest). Só
+    // contadores + os workers que falharam (para diagnóstico).
+    const failed = results.filter((r) => !r.ok);
     return Response.json({
       ok: true,
       period,
       total: results.length,
-      failed: results.filter((r) => !r.ok).length,
-      results,
+      succeeded: results.length - failed.length,
+      failed: failed.length,
+      failedWorkers: failed.map((r) => r.workerId),
     });
   } catch (err) {
     console.error("[maintenance] build de arquivos falhou:", err);
