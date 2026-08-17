@@ -28,3 +28,16 @@ export function currentPeriod(now: Date): string {
   const m = String(now.getUTCMonth() + 1).padStart(2, "0");
   return `${y}-${m}`;
 }
+
+/**
+ * Período do mês ANTERIOR ao de `now`, em UTC. É o default do fecho de mês: o
+ * job de consolidação corre no início de um mês para arquivar o mês que fechou.
+ * Trata a passagem de ano (janeiro → dezembro do ano anterior) via normalização
+ * do `Date.UTC` (mês -1).
+ */
+export function previousPeriod(now: Date): string {
+  const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const y = prev.getUTCFullYear();
+  const m = String(prev.getUTCMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
