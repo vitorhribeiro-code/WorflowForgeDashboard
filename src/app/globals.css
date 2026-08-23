@@ -1752,7 +1752,7 @@ button.btn-danger:disabled {
 @keyframes wf-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 .wf-app .wt-modal-overlay {
-  position: fixed; inset: 0; background: rgba(15, 30, 20, .42);
+  position: fixed; inset: 0; background: rgba(15, 30, 20, .75);
   display: grid; place-items: center; z-index: 60; padding: 20px;
 }
 .wf-app .wt-modal {
