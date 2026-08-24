@@ -2109,6 +2109,23 @@ button.btn-danger:disabled {
   --wf-canvas-ink: #e8ece9; --wf-canvas-muted: #9caaa2;
   --wf-shadow: 0 1px 2px rgba(0, 0, 0, .42), 0 10px 26px rgba(0, 0, 0, .40);
 }
+/* Pop-ups invertidos no modo escuro: card claro (branco-quente) + tinta e    */
+/* links escuros. Card escuro sobre fundo escuro funde-se; invertendo o card   */
+/* ganha contraste maximo contra o scrim. So re-declara os tokens --wf-* no    */
+/* card — o conteudo herda tudo. Nao toca no modo claro nem na estrutura.      */
+.wf-app.wf-theme-dark .wf-pop,
+.wf-app.wf-theme-dark .wt-modal {
+  --wf-green: #1f9d55; --wf-green-600: #178a49;
+  --wf-green-hero-1: #0f6a39; --wf-green-hero-2: #0a4d2c;
+  --wf-tint: #e7f4ec; --wf-tint2: #d9ede1;
+  --wf-amber: #d98a1f; --wf-amber-tint: #fbf0dc; --wf-amber-ink: #9a6412;
+  --wf-red: #d1544b; --wf-red-tint: #f7e3e1; --wf-red-ink: #a83c34;
+  --wf-bg: #ffffff; --wf-surface: #f4f6f4;
+  --wf-ink: #17201b; --wf-muted: #6d7a72; --wf-faint: #9aa79f;
+  --wf-line: #e9ede9; --wf-line2: #eef1ee;
+  --wf-canvas-ink: #17201b; --wf-canvas-muted: #6d7a72;
+}
+
 /* pill de estado (chrome) legivel sobre a tint escura */
 .wf-app.wf-theme-dark .status-pill.status-green { color: var(--wf-green); }
 
