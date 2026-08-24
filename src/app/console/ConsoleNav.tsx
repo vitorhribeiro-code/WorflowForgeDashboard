@@ -11,6 +11,7 @@ const TABS: { href: string; label: string }[] = [
   { href: "/console/atribuicoes", label: "Atribuições" },
   { href: "/console/trabalhadores", label: "Trabalhadores" },
   { href: "/console/ia", label: "IA / Modelos" },
+  { href: "/console/auditoria", label: "Auditoria" },
 ];
 
 export function ConsoleNav() {
