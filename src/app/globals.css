@@ -586,7 +586,7 @@ button.btn-danger:disabled {
 .confirm-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.9);
   display: grid;
   place-items: center;
   padding: 24px;
@@ -1449,7 +1449,7 @@ button.btn-danger:disabled {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.9);
 }
 .wt-modal {
   width: 100%;
@@ -1752,7 +1752,7 @@ button.btn-danger:disabled {
 @keyframes wf-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 .wf-app .wt-modal-overlay {
-  position: fixed; inset: 0; background: rgba(15, 30, 20, .75);
+  position: fixed; inset: 0; background: rgba(15, 30, 20, .9);
   display: grid; place-items: center; z-index: 60; padding: 20px;
 }
 .wf-app .wt-modal {
@@ -1910,7 +1910,7 @@ button.btn-danger:disabled {
    por isso herda os tokens --wf-* (o cartão do popup fica opaco). */
 .wf-app .wf-pop-overlay {
   position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px;
-  background: rgba(15, 25, 19, .75);
+  background: rgba(15, 25, 19, .9);
 }
 .wf-app .wf-pop {
   width: min(380px, 94vw); background: var(--wf-surface); border: 1px solid var(--wf-line);
