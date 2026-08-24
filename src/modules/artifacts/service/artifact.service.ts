@@ -1,6 +1,7 @@
 // Regras de negócio do M8. PURO: recebe todas as deps por injeção (repo, ports, audit, now).
 // Testável sem DB nem rede.
 import { DomainError } from "../../../lib/errors";
+import { mapWithConcurrency } from "../../../lib/concurrency";
 import type { AuditPort } from "../../../lib/audit";
 import type { SessionContext } from "../../../lib/session";
 import type { Artifact, ArtifactTier, ArtifactView } from "../domain/artifact";
@@ -53,8 +54,17 @@ export interface ArtifactService {
   getDownload(session: SessionContext, artifactId: string): Promise<DownloadTarget>;
   /** Marca intermédios como arquivados (chamado pelo M9). */
   markArchived(ids: string[]): Promise<void>;
-  /** Job de limpeza: apaga intermédios expirados E arquivados (blob + linha). */
-  cleanupExpiredIntermediates(): Promise<{ deleted: number }>;
+  /**
+   * Job de limpeza: apaga intermédios expirados E arquivados (blob + linha).
+   *  - deleted:   nº de artefactos efetivamente purgados nesta invocação
+   *  - failed:    nº cujo blob não apagou (linha preservada — nunca orfana)
+   *  - remaining: backlog que ficou por processar (drena na próxima execução)
+   */
+  cleanupExpiredIntermediates(): Promise<{
+    deleted: number;
+    failed: number;
+    remaining: number;
+  }>;
 }
 
 export function createArtifactService(deps: ArtifactServiceDeps): ArtifactService {
@@ -154,21 +164,53 @@ export function createArtifactService(deps: ArtifactServiceDeps): ArtifactServic
       // Dupla-verificação pura (defesa contra query mal formada / clock skew).
       const cleanable = candidates.filter((a) => isCleanable(a, t));
 
-      for (const a of cleanable) {
-        await ephemeral.delete(a.storageRef); // liberta o blob
-      }
-      await repo.deleteByIds(cleanable.map((a) => a.id));
+      // Teto por invocação: o cron-job.org corta respostas > ~30 s. Processamos
+      // até CLEANUP_MAX_PER_RUN por chamada e o resto drena nas execuções
+      // seguintes — o job é idempotente (só apaga o que ainda é limpável).
+      const batch = cleanable.slice(0, CLEANUP_MAX_PER_RUN);
+      const remaining = cleanable.length - batch.length;
 
-      for (const a of cleanable) {
-        await audit.record({
+      // Apaga os blobs em paralelo (concorrência limitada). Uma falha por-item
+      // NÃO é fatal: um objeto que não apague não deve estragar toda a limpeza
+      // diária. A linha só é removida se o blob for libertado — nunca orfana.
+      const outcomes = await mapWithConcurrency(
+        batch,
+        CLEANUP_CONCURRENCY,
+        async (a) => {
+          try {
+            await ephemeral.delete(a.storageRef);
+            return { artifact: a, ok: true as const };
+          } catch {
+            return { artifact: a, ok: false as const };
+          }
+        },
+      );
+
+      const purged = outcomes.filter((o) => o.ok).map((o) => o.artifact);
+      await repo.deleteByIds(purged.map((a) => a.id));
+
+      // Auditoria também em paralelo (um insert por artefacto purgado).
+      await mapWithConcurrency(purged, CLEANUP_CONCURRENCY, (a) =>
+        audit.record({
           actorId: null,
           action: "artifact.expired",
           entity: "run_artifact",
           entityId: a.id,
           metadata: { tier: a.tier },
-        });
-      }
-      return { deleted: cleanable.length };
+        }),
+      );
+
+      return {
+        deleted: purged.length,
+        failed: batch.length - purged.length,
+        remaining,
+      };
     },
   };
 }
+
+// Teto de artefactos processados por invocação do cleanup. Mantém o pior caso
+// bem abaixo do corte de ~30 s do cron-job.org; o backlog drena idempotente nas
+// execuções seguintes. Concorrência = tarefas de I/O (R2 / BD) em paralelo.
+const CLEANUP_MAX_PER_RUN = 1000;
+const CLEANUP_CONCURRENCY = 20;

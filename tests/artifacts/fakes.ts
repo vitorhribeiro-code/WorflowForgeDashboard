@@ -85,9 +85,10 @@ export function fakeCloud(opts: { missing?: boolean } = {}) {
   return { cloud, uploads, appends };
 }
 
-export function fakeEphemeral() {
+export function fakeEphemeral(opts: { failOn?: Iterable<string> } = {}) {
   const blobs = new Map<string, ArtifactContent>();
   const deleted: string[] = [];
+  const failOn = new Set(opts.failOn ?? []);
   const ephemeral: EphemeralStoragePort = {
     async write(content): Promise<StoredBlob> {
       const key = `eph:${blobs.size + 1}`;
@@ -98,6 +99,10 @@ export function fakeEphemeral() {
       return { url: `memory://${storageRef}` };
     },
     async delete(storageRef) {
+      // Simula uma falha de apagamento no store (ex.: objeto R2 inacessível).
+      if (failOn.has(storageRef)) {
+        throw new Error(`falha simulada ao apagar ${storageRef}`);
+      }
       blobs.delete(storageRef);
       deleted.push(storageRef);
     },

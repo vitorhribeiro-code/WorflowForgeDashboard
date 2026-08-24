@@ -24,11 +24,13 @@ function bytes(s: string) {
   return new TextEncoder().encode(s);
 }
 
-function build(opts: { seed?: Artifact[]; cloudMissing?: boolean } = {}) {
+function build(
+  opts: { seed?: Artifact[]; cloudMissing?: boolean; ephemeralFailOn?: string[] } = {},
+) {
   const clock = fixedClock("2026-07-22T12:00:00Z");
   const { repo, rows } = fakeRepo(opts.seed);
   const { cloud, uploads } = fakeCloud({ missing: opts.cloudMissing });
-  const { ephemeral, blobs, deleted } = fakeEphemeral();
+  const { ephemeral, blobs, deleted } = fakeEphemeral({ failOn: opts.ephemeralFailOn });
   const { runs } = fakeRuns({ [RUN.runId]: RUN });
   const { audit, entries } = fakeAudit();
   const service: ArtifactService = createArtifactService({
@@ -184,6 +186,51 @@ describe("cleanupExpiredIntermediates", () => {
     expect(rows.has("final")).toBe(true);
     expect(deleted).toContain("eph:del"); // blob efémero libertado
     expect(entries.some((e) => e.action === "artifact.expired")).toBe(true);
+    // Contadores: um purgado, nada falhado, nada em backlog.
+    expect(res.failed).toBe(0);
+    expect(res.remaining).toBe(0);
+  });
+
+  it("purga vários numa só invocação (paralelo) e audita cada um", async () => {
+    const exp = new Date("2026-07-22T11:00:00Z");
+    const seed: Artifact[] = Array.from({ length: 25 }, (_, i) =>
+      base({ id: `a${i}`, storageRef: `eph:a${i}`, archived: true, expiresAt: exp }),
+    );
+    const { service, rows, deleted, entries } = build({ seed });
+    const res = await service.cleanupExpiredIntermediates();
+
+    expect(res.deleted).toBe(25);
+    expect(res.failed).toBe(0);
+    expect(res.remaining).toBe(0);
+    expect(rows.size).toBe(0);
+    expect(deleted).toHaveLength(25);
+    expect(entries.filter((e) => e.action === "artifact.expired")).toHaveLength(25);
+  });
+
+  it("falha por-item NÃO é fatal: preserva a linha do blob que não apagou", async () => {
+    const exp = new Date("2026-07-22T11:00:00Z");
+    const seed: Artifact[] = [
+      base({ id: "ok1", storageRef: "eph:ok1", archived: true, expiresAt: exp }),
+      base({ id: "bad", storageRef: "eph:bad", archived: true, expiresAt: exp }),
+      base({ id: "ok2", storageRef: "eph:ok2", archived: true, expiresAt: exp }),
+    ];
+    const { service, rows, deleted, entries } = build({
+      seed,
+      ephemeralFailOn: ["eph:bad"],
+    });
+    const res = await service.cleanupExpiredIntermediates();
+
+    expect(res.deleted).toBe(2);
+    expect(res.failed).toBe(1);
+    expect(res.remaining).toBe(0);
+    // Linhas dos OK removidas; a do que falhou preservada (nunca orfana o blob).
+    expect(rows.has("ok1")).toBe(false);
+    expect(rows.has("ok2")).toBe(false);
+    expect(rows.has("bad")).toBe(true);
+    // Auditoria só dos purgados.
+    expect(entries.filter((e) => e.action === "artifact.expired")).toHaveLength(2);
+    expect(deleted).toEqual(expect.arrayContaining(["eph:ok1", "eph:ok2"]));
+    expect(deleted).not.toContain("eph:bad");
   });
 });
 
