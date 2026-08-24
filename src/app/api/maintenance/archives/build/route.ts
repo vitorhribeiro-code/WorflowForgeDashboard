@@ -72,11 +72,6 @@ export async function POST(req: Request): Promise<Response> {
     // isso não devolvemos o array de arquivos (cada um traz o manifest). Só
     // contadores + os workers que falharam (para diagnóstico).
     const failed = results.filter((r) => !r.ok);
-    // DIAGNÓSTICO (temporário): a app arquiva o erro real no audit_log, não nos
-    // logs. Emitir aqui para o runtime log do Vercel enquanto investigamos o R2.
-    for (const r of failed) {
-      console.error("[archive.build] worker %s falhou:", r.workerId, (r as { error?: unknown }).error);
-    }
     return Response.json({
       ok: true,
       period,
