@@ -4,10 +4,10 @@ import { archiveIdParam } from "../validation/archive.schema";
 import { json, parse, withSession } from "./http";
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } },
 ): Promise<Response> {
-  return withSession(async (session) => {
+  return withSession(req, async (session) => {
     const { id } = parse(archiveIdParam, params);
     const service = getArchiveContainer().service;
     const archive = await service.reprocess(session, id);

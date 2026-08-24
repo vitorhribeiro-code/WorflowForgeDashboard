@@ -5,10 +5,10 @@ import { runIdParam } from "../validation/artifact.schema";
 import { json, parse, withSession } from "./http";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: { runId: string } },
 ): Promise<Response> {
-  return withSession(async (session) => {
+  return withSession(req, async (session) => {
     const { runId } = parse(runIdParam, params);
     const service = getArtifactContainer().service;
     const artifacts = await service.listByRun(session, runId);

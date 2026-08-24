@@ -15,12 +15,15 @@ export function errorResponse(err: unknown): Response {
   return json(body, status);
 }
 
-/** Corre um handler com sessão + tratamento uniforme de erros. */
+/** Corre um handler com sessão + tratamento uniforme de erros.
+ *  O `req` é OBRIGATÓRIO: o getSession extrai o token do cookie/Authorization
+ *  do próprio pedido — sem ele, o handler autenticava sempre a 401. */
 export async function withSession(
+  req: Request,
   fn: (session: SessionContext) => Promise<Response>,
 ): Promise<Response> {
   try {
-    const session = await getSession();
+    const session = await getSession(req);
     return await fn(session);
   } catch (err) {
     return errorResponse(err);

@@ -5,10 +5,10 @@ import { archiveIdParam } from "../validation/archive.schema";
 import { json, parse, withSession } from "./http";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } },
 ): Promise<Response> {
-  return withSession(async (session) => {
+  return withSession(req, async (session) => {
     const { id } = parse(archiveIdParam, params);
     const service = getArchiveContainer().service;
     const archive = await service.getArchiveById(session, id);
@@ -18,10 +18,10 @@ export async function GET(
 
 // Colocar num route.ts próprio em app/api/archives/[id]/download/
 export async function GET_download(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } },
 ): Promise<Response> {
-  return withSession(async (session) => {
+  return withSession(req, async (session) => {
     const { id } = parse(archiveIdParam, params);
     const service = getArchiveContainer().service;
     const target = await service.getDownload(session, id);

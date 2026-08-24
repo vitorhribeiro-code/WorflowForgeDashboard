@@ -5,7 +5,7 @@ import { listQuery } from "../validation/archive.schema";
 import { json, parse, withSession } from "./http";
 
 export async function GET(req: Request): Promise<Response> {
-  return withSession(async (session) => {
+  return withSession(req, async (session) => {
     const url = new URL(req.url);
     const filter = parse(listQuery, {
       workerId: url.searchParams.get("workerId") ?? undefined,

@@ -5,10 +5,10 @@ import { artifactIdParam } from "../validation/artifact.schema";
 import { json, parse, withSession } from "./http";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } },
 ): Promise<Response> {
-  return withSession(async (session) => {
+  return withSession(req, async (session) => {
     const { id } = parse(artifactIdParam, params);
     const service = getArtifactContainer().service;
     const target = await service.getDownload(session, id);
