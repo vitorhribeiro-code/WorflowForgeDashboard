@@ -2609,3 +2609,98 @@ button.btn-danger:disabled {
   font-size: 14px;
   padding: 8px 0;
 }
+
+/* -------------------------------------------------------------------------- */
+/*  M9/M8 — Arquivo mensal e artefactos (dentro do .wf-app; tokens --wf-*)      */
+/* -------------------------------------------------------------------------- */
+
+/* Lista de arquivos mensais (vista do trabalhador). */
+.wf-app .wf-archive-panel { max-width: 640px; }
+.wf-app .archive-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+.wf-app .archive-list > li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 11px 0;
+  font-size: 13px;
+  color: var(--wf-ink);
+}
+.wf-app .archive-list > li + li { border-top: 1px solid var(--wf-line2); }
+.wf-app .archive-list .period { font-weight: 700; font-variant-numeric: tabular-nums; }
+.wf-app .archive-list .status { font-weight: 600; }
+.wf-app .archive-list .status-success { color: var(--wf-green-600); }
+.wf-app .archive-list .status-error { color: var(--wf-red-ink); }
+.wf-app .archive-list .status-running,
+.wf-app .archive-list .status-pending { color: var(--wf-amber-ink); }
+.wf-app .archive-list .counts { color: var(--wf-muted); }
+.wf-app .archive-list button {
+  margin-left: auto;
+  border: 1px solid var(--wf-line);
+  background: var(--wf-tint);
+  color: var(--wf-ink);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.wf-app .archive-list button:hover:not(:disabled) { background: var(--wf-tint2); }
+.wf-app .archive-list button:disabled { opacity: 0.5; cursor: not-allowed; margin-left: auto; }
+.wf-app .archive-list button + button { margin-left: 8px; }
+
+/* Linha de run clicável no popup "Ações recentes" (drill-down p/ artefactos). */
+.wf-app .wf-pop-item-btn {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.wf-app .wf-pop-item-btn:hover { background: var(--wf-tint); }
+.wf-app .wf-pop-item-btn:focus-visible { outline: 2px solid var(--wf-green); outline-offset: -2px; }
+
+/* Artefactos por tier (drill-down). */
+.wf-app .wf-run-artifacts { padding-top: 8px; }
+.wf-app .artifact-list section + section { margin-top: 14px; }
+.wf-app .artifact-list h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--wf-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.wf-app .artifact-list ul { list-style: none; margin: 0; padding: 0; }
+.wf-app .artifact-list li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 9px 0;
+  font-size: 13px;
+  color: var(--wf-ink);
+}
+.wf-app .artifact-list li + li { border-top: 1px solid var(--wf-line2); }
+.wf-app .artifact-list .filename { font-weight: 600; }
+.wf-app .artifact-list .mime,
+.wf-app .artifact-list .location { color: var(--wf-muted); }
+.wf-app .artifact-list .expired { color: var(--wf-red-ink); font-weight: 600; }
+.wf-app .artifact-list button {
+  margin-left: auto;
+  border: 1px solid var(--wf-line);
+  background: var(--wf-tint);
+  color: var(--wf-ink);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.wf-app .artifact-list button:hover:not(:disabled) { background: var(--wf-tint2); }
+.wf-app .artifact-list button:disabled { opacity: 0.5; cursor: not-allowed; }

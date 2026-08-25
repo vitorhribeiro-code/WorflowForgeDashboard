@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { reduceCustomBackground } from "./imageDownscale";
 import { ConnectionsPanel } from "@/modules/connections/ui/ConnectionsPanel";
 import { WorkerTasksPanel } from "@/modules/assignments/ui/WorkerTasksPanel";
+import { WorkerArchivePanel } from "@/modules/archives/ui/WorkerArchivePanel";
 import { NextRunWidget, RecentRunsWidget } from "@/modules/assignments/ui/SidebarWidgets";
 import { WorkerActivityStats } from "@/modules/assignments/ui/WorkerActivityStats";
 import {
@@ -38,7 +39,7 @@ import {
   type CustomTokens,
 } from "@/modules/preferences/domain/preferences";
 
-type View = "tasks" | "connections" | "settings" | "help";
+type View = "tasks" | "archive" | "connections" | "settings" | "help";
 type Banner = { tone: "ok" | "err"; text: string } | null;
 
 /* --- Ícones (SVG inline; os "ti ti-*" do Tabler não existem na app) ------- */
@@ -58,6 +59,13 @@ const IcTasks = (
 const IcLink = (
   <svg className="wf-ic" viewBox="0 0 24 24" fill="none" aria-hidden>
     <path d="M9 15l6-6M8.5 10.5l-1.8 1.8a3.1 3.1 0 004.4 4.4l1.8-1.8M15.5 13.5l1.8-1.8a3.1 3.1 0 00-4.4-4.4L11.1 9.1" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+  </svg>
+);
+const IcArchive = (
+  <svg className="wf-ic" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <rect x="3" y="4" width="18" height="4" rx="1.3" stroke="currentColor" strokeWidth="1.7" />
+    <path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M10 12h4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
   </svg>
 );
 const IcGear = (
@@ -342,6 +350,7 @@ export function WorkerApp({
 
           <nav className="wf-nav" aria-label="Navegação">
             {navItem("tasks", "As minhas tarefas", IcTasks)}
+            {navItem("archive", "Arquivo mensal", IcArchive)}
             <div className="wf-nav-sep" />
             {navItem("connections", "As minhas conexões", IcLink)}
             {navItem("settings", "Definições", IcGear)}
@@ -400,6 +409,14 @@ export function WorkerApp({
               <WorkerTasksPanel />
             </>
           )}
+        </section>
+
+        <section className={`wf-view${view === "archive" ? " wf-on" : ""}`}>
+          <div className="wf-page-head">
+            <h1>Arquivo mensal</h1>
+            <p>Os teus pacotes mensais de logs e ficheiros retidos, prontos a descarregar.</p>
+          </div>
+          {isAdmin ? <AdminNote /> : <WorkerArchivePanel />}
         </section>
 
         <section className={`wf-view${view === "connections" ? " wf-on" : ""}`}>

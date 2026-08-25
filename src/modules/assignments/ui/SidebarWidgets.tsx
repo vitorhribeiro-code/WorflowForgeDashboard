@@ -20,6 +20,7 @@ import type { WorkerAssignmentView } from "@/modules/assignments";
 import { nextRunAfter } from "../domain/cron";
 import { describeCron } from "../domain/recurrence";
 import { fetchMineAssignments, fetchMineRuns, type MineRunRow } from "./use-worker-tasks";
+import { RunArtifactsPanel } from "@/modules/artifacts/ui/RunArtifactsPanel";
 
 /* --- Semáforo (reaproveita .status-pill como no painel) ------------------- */
 
@@ -51,6 +52,11 @@ const IcHistory = (
 const IcPlus = (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden>
     <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+  </svg>
+);
+const IcBack = (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 const RefreshIcon = (
@@ -264,6 +270,13 @@ export function RecentRunsWidget() {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const [limit, setLimit] = useState(5);
+  // Drill-down: run escolhido no popup -> mostra os artefactos desse run.
+  const [selected, setSelected] = useState<{ id: string; taskName: string } | null>(null);
+
+  function closePopup() {
+    setOpen(false);
+    setSelected(null);
+  }
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -319,52 +332,78 @@ export function RecentRunsWidget() {
 
       {open && (
         <CardPopup
-          label="Ações recentes"
+          label={selected ? selected.taskName : "Ações recentes"}
           icon={IcHistory}
-          onClose={() => setOpen(false)}
+          onClose={closePopup}
           headExtra={
-            <button
-              type="button"
-              className="wf-tc-btn"
-              onClick={() => void load()}
-              disabled={busy}
-              aria-label="Atualizar"
-              title="Atualizar"
-            >
-              {RefreshIcon}
-            </button>
+            selected ? (
+              <button
+                type="button"
+                className="wf-tc-btn"
+                onClick={() => setSelected(null)}
+                aria-label="Voltar às ações"
+                title="Voltar"
+              >
+                {IcBack}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="wf-tc-btn"
+                onClick={() => void load()}
+                disabled={busy}
+                aria-label="Atualizar"
+                title="Atualizar"
+              >
+                {RefreshIcon}
+              </button>
+            )
           }
         >
-          <div className="wf-pop-seg" role="group" aria-label="Quantas mostrar">
-            <span className="wf-pop-seg-lbl">Mostrar</span>
-            {[3, 5, 10].map((n) => (
-              <button
-                key={n}
-                type="button"
-                className={`wf-pop-seg-btn${limit === n ? " on" : ""}`}
-                aria-pressed={limit === n}
-                onClick={() => setLimit(n)}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-          <div className="wf-pop-body">
-            {shown.length === 0 ? (
-              <p className="wf-tc-empty">Ainda sem ações.</p>
-            ) : (
-              shown.map((run) => {
-                const pill = runPill(run);
-                return (
-                  <div key={run.id} className="wf-pop-item">
-                    <span className="wf-pop-task">{run.taskName}</span>
-                    <Pill tone={pill.tone} label={pill.label} />
-                    <span className="wf-pop-when">{formatWhen(run.createdAt)}</span>
-                  </div>
-                );
-              })
-            )}
-          </div>
+          {selected ? (
+            <div className="wf-pop-body wf-run-artifacts">
+              <RunArtifactsPanel runId={selected.id} />
+            </div>
+          ) : (
+            <>
+              <div className="wf-pop-seg" role="group" aria-label="Quantas mostrar">
+                <span className="wf-pop-seg-lbl">Mostrar</span>
+                {[3, 5, 10].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    className={`wf-pop-seg-btn${limit === n ? " on" : ""}`}
+                    aria-pressed={limit === n}
+                    onClick={() => setLimit(n)}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <div className="wf-pop-body">
+                {shown.length === 0 ? (
+                  <p className="wf-tc-empty">Ainda sem ações.</p>
+                ) : (
+                  shown.map((run) => {
+                    const pill = runPill(run);
+                    return (
+                      <button
+                        key={run.id}
+                        type="button"
+                        className="wf-pop-item wf-pop-item-btn"
+                        onClick={() => setSelected({ id: run.id, taskName: run.taskName })}
+                        title="Ver artefactos deste run"
+                      >
+                        <span className="wf-pop-task">{run.taskName}</span>
+                        <Pill tone={pill.tone} label={pill.label} />
+                        <span className="wf-pop-when">{formatWhen(run.createdAt)}</span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )}
         </CardPopup>
       )}
     </section>
