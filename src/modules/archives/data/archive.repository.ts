@@ -1,5 +1,5 @@
 // ÚNICO ficheiro do módulo com SQL/Drizzle. O resto usa a interface.
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, like } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core";
 import { monthlyArchives, users } from "@/db/schema";
 import type { MonthlyArchive } from "../domain/archive";
@@ -23,6 +23,9 @@ export interface ArchiveRepository {
   ): Promise<MonthlyArchive>;
   listByWorker(workerId: string, period?: string): Promise<MonthlyArchive[]>;
   listByOrg(orgId: string, filter?: ArchiveListFilter): Promise<MonthlyArchive[]>;
+  /** Arquivos "success" com folderRef em formato-memória (arch:…) — nunca
+   *  chegaram ao R2. Usado pela rota de manutenção que os reconstrói. */
+  listMemoryFormatArchives(): Promise<MonthlyArchive[]>;
 }
 
 type Row = typeof monthlyArchives.$inferSelect;
@@ -117,6 +120,22 @@ export function createArchiveRepository(db: PgDatabase<any, any, any>): ArchiveR
         .where(and(...conds))
         .orderBy(desc(monthlyArchives.period));
       return rows.map((r) => toDomain(r.a));
+    },
+
+    async listMemoryFormatArchives() {
+      // Formato-memória = "arch:<worker>:<period>:<uuid>" (o store S3 usa
+      // "archives/…"). Estas linhas ficaram success sem objeto no R2.
+      const rows = await db
+        .select()
+        .from(monthlyArchives)
+        .where(
+          and(
+            eq(monthlyArchives.status, "success"),
+            like(monthlyArchives.archiveFolderRef, "arch:%"),
+          ),
+        )
+        .orderBy(desc(monthlyArchives.period));
+      return rows.map(toDomain);
     },
   };
 }

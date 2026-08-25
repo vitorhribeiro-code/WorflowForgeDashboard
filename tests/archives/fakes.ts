@@ -70,6 +70,14 @@ export function fakeRepo(seed: MonthlyArchive[] = []) {
           (!filter?.period || a.period === filter.period),
       );
     },
+    async listMemoryFormatArchives() {
+      return [...rows.values()].filter(
+        (a) =>
+          a.status === "success" &&
+          !!a.archiveFolderRef &&
+          a.archiveFolderRef.startsWith("arch:"),
+      );
+    },
   };
   return { repo, rows };
 }

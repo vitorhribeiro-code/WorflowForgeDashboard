@@ -7,6 +7,9 @@ export const periodSchema = z
 
 export const archiveIdParam = z.object({ id: z.string().uuid() });
 
+export const reprocessBody = z.object({ force: z.boolean().optional() });
+export type ReprocessBody = z.infer<typeof reprocessBody>;
+
 export const listQuery = z.object({
   workerId: z.string().uuid().optional(),
   period: periodSchema.optional(),

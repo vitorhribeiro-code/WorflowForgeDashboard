@@ -39,8 +39,16 @@ export interface ArchiveService {
   getArchiveById(session: SessionContext, id: string): Promise<MonthlyArchive>;
   listArchives(session: SessionContext, filter?: ArchiveListFilter): Promise<MonthlyArchive[]>;
   getDownload(session: SessionContext, id: string): Promise<{ url: string }>;
-  /** Só admin; regenera arquivo em error/running preso; nunca um já success. */
-  reprocess(session: SessionContext, id: string): Promise<MonthlyArchive>;
+  /** Só admin; regenera arquivo em error/running preso. Com { force }, também
+   *  reconstrói um já success (ex.: folderRef de memória sem objeto no R2). */
+  reprocess(
+    session: SessionContext,
+    id: string,
+    opts?: { force?: boolean },
+  ): Promise<MonthlyArchive>;
+  /** Manutenção (sem sessão): reconstrói os arquivos "success" cujo folderRef
+   *  ficou em formato-memória (nunca escritos no R2). Idempotente. */
+  rebuildBrokenArchives(): Promise<{ scanned: number; rebuilt: number; failed: number }>;
 }
 
 export function createArchiveService(deps: ArchiveServiceDeps): ArchiveService {
@@ -153,7 +161,7 @@ export function createArchiveService(deps: ArchiveServiceDeps): ArchiveService {
       return storage.getDownload(archive.archiveFolderRef);
     },
 
-    async reprocess(session, id) {
+    async reprocess(session, id, opts) {
       if (!isAdmin(session)) throw new DomainError("FORBIDDEN", "Só admin reprocessa");
       const archive = await repo.findById(id);
       if (!archive) throw new DomainError("ARCHIVE_NOT_FOUND", "Arquivo inexistente");
@@ -161,10 +169,28 @@ export function createArchiveService(deps: ArchiveServiceDeps): ArchiveService {
       if (!worker || worker.orgId !== session.orgId) {
         throw new DomainError("FORBIDDEN", "Sem acesso a este arquivo");
       }
-      if (archive.status === "success") {
+      if (archive.status === "success" && !opts?.force) {
         throw new DomainError("ARCHIVE_ALREADY_READY", "Arquivo já está pronto; nada a reprocessar");
       }
       return runConsolidation(archive, session.userId);
+    },
+
+    async rebuildBrokenArchives() {
+      const broken = await repo.listMemoryFormatArchives();
+      let rebuilt = 0;
+      let failed = 0;
+      for (const archive of broken) {
+        try {
+          // Força a reconsolidação: recomputa o manifesto e reescreve no store
+          // atual (S3/R2), atualizando o folderRef para o formato correto.
+          await runConsolidation(archive, null);
+          rebuilt += 1;
+        } catch {
+          // Falha por-item não trava os restantes (fica error, reprocessável).
+          failed += 1;
+        }
+      }
+      return { scanned: broken.length, rebuilt, failed };
     },
   };
 }

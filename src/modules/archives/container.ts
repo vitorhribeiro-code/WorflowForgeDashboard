@@ -44,9 +44,30 @@ export function buildArchiveContainer(deps: ArchiveContainerDeps): ArchiveContai
 
 // memory → S3: usa o store de arquivo S3/R2 se o bucket estiver configurado.
 function buildArchiveStoreFromEnv(): ArchiveStoragePort {
-  const s3 = getS3Client();
-  const bucket = getS3Bucket();
-  if (!s3 || !bucket) return createMemoryArchiveStore();
+  return resolveArchiveStore(
+    getS3Client(),
+    getS3Bucket(),
+    process.env.NODE_ENV === "production",
+  );
+}
+
+/**
+ * Escolhe o store do arquivo. Exportado para ser testável sem env real.
+ *  - S3 configurado → store S3/R2.
+ *  - Sem S3 em PRODUÇÃO → recusa (store que falha nas escritas/download): nunca
+ *    gerar arquivos "success" sem objeto no R2 (era a origem do NoSuchKey no
+ *    download). O build cai em `error`, visível e reprocessável.
+ *  - Sem S3 fora de produção → memória (dev/testes).
+ */
+export function resolveArchiveStore(
+  s3: ReturnType<typeof getS3Client>,
+  bucket: ReturnType<typeof getS3Bucket>,
+  isProduction: boolean,
+): ArchiveStoragePort {
+  if (!s3 || !bucket) {
+    if (isProduction) return productionMisconfiguredStore();
+    return createMemoryArchiveStore();
+  }
   // O store S3 aceita um manifesto genérico (Record); o M9 usa ArchiveManifest
   // (objeto concreto). Adaptamos só esse parâmetro — o valor é o mesmo em runtime.
   const store = createS3ArchiveStore(s3, bucket);
@@ -55,6 +76,22 @@ function buildArchiveStoreFromEnv(): ArchiveStoragePort {
     writeManifest: (folderRef, manifest) =>
       store.writeManifest(folderRef, manifest as unknown as Record<string, unknown>),
     getDownload: (folderRef) => store.getDownload(folderRef),
+  };
+}
+
+// Store "não configurado em produção": leitura de lista/detalhe vem da BD (não
+// usa store), por isso continua a funcionar; escrita e download falham alto.
+function productionMisconfiguredStore(): ArchiveStoragePort {
+  const fail = (): never => {
+    throw new Error(
+      "Arquivo M9: store S3/R2 não configurado em produção (S3_BUCKET/credenciais em falta); " +
+        "recuso usar memória para não gerar arquivos sem objeto no R2.",
+    );
+  };
+  return {
+    createFolder: async () => fail(),
+    writeManifest: async () => fail(),
+    getDownload: async () => fail(),
   };
 }
 
