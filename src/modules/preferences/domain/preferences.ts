@@ -123,6 +123,47 @@ export function fontOptionFor(token: FontToken): FontOption {
   return FONT_OPTIONS.find((f) => f.token === token) ?? FONT_OPTIONS[0]!;
 }
 
+// Tema de cor da CONSOLA do super-utilizador (só a consola; o painel do
+// trabalhador `.wf-app` tem o seu próprio sistema `--wf-*` e não é tocado).
+// A consola é dark-fixed, por isso um tema é só uma paleta. O enum vive aqui
+// (domínio) para haver UMA fonte de verdade partilhada entre a validação do
+// serviço e o mapa de tokens da UI (src/app/console/theme/consoleThemes.ts,
+// que importa estas chaves).
+export const CONSOLE_THEME_TOKENS = [
+  "ember",
+  "steel",
+  "graphite",
+  "voltage",
+  "verdant",
+] as const;
+export type ConsoleTheme = (typeof CONSOLE_THEME_TOKENS)[number];
+
+// Default do tema SELECIONADO para quem ainda não escolheu. Nota: o `:root` do
+// globals.css continua a ser o fallback absoluto (valores atuais de produção)
+// caso `data-theme` esteja ausente. Trocar para "graphite" se se quiser manter
+// o look monocromático atual como default para admins existentes.
+export const DEFAULT_CONSOLE_THEME: ConsoleTheme = "ember";
+
+export function isConsoleTheme(v: unknown): v is ConsoleTheme {
+  return typeof v === "string" && (CONSOLE_THEME_TOKENS as readonly string[]).includes(v);
+}
+
+// Metadados apresentáveis (rótulo PT + cor da amostra + descrição curta) para o
+// seletor. `swatch` é o acento do tema — a MESMA cor usada no CSS. Fonte única
+// para a UI, no mesmo espírito de BACKGROUND_SWATCHES/FONT_OPTIONS.
+export const CONSOLE_THEME_OPTIONS: ReadonlyArray<{
+  token: ConsoleTheme;
+  label: string;
+  swatch: string;
+  blurb: string;
+}> = [
+  { token: "ember", label: "Ember", swatch: "#ff7a3c", blurb: "Âmbar-fundido sobre grafite quente." },
+  { token: "steel", label: "Steel", swatch: "#3aa0f0", blurb: "Aço frio, azul-cyan, sóbrio." },
+  { token: "graphite", label: "Graphite", swatch: "#c0c0c6", blurb: "Monocromático, acento prateado." },
+  { token: "voltage", label: "Voltage", swatch: "#8b5cff", blurb: "Preto profundo + violeta elétrico." },
+  { token: "verdant", label: "Verdant", swatch: "#35c88a", blurb: "Escuro esverdeado + esmeralda." },
+];
+
 // Preferências de um utilizador. Guardadas em users.preferences (jsonb).
 // customBackground: data URL de um WebP reduzido (≤ ~200 KB) OU null. Vive no
 // mesmo jsonb livre (sem migração, como background/mode). Servido de volta ao
@@ -147,6 +188,9 @@ export type UserPreferences = {
   font: FontToken;
   customBackground: string | null;
   customTokens: CustomTokens | null;
+  // Tema de cor da consola do super-utilizador. Irrelevante para o painel do
+  // trabalhador, mas vive no mesmo jsonb livre (sem migração, como os demais).
+  consoleTheme: ConsoleTheme;
 };
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -155,6 +199,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   font: DEFAULT_FONT,
   customBackground: null,
   customTokens: null,
+  consoleTheme: DEFAULT_CONSOLE_THEME,
 };
 
 // Teto do WebP reduzido guardado no jsonb. O cliente mira ≤200 KB; deixamos
@@ -252,6 +297,7 @@ export function normalizePreferences(raw: unknown): UserPreferences {
   const font = "font" in obj ? obj.font : undefined;
   const cbg = "customBackground" in obj ? obj.customBackground : undefined;
   const ctk = "customTokens" in obj ? obj.customTokens : undefined;
+  const theme = "consoleTheme" in obj ? obj.consoleTheme : undefined;
 
   const customBackground = isValidCustomBackground(cbg) ? cbg : null;
   const bgToken = isBackgroundToken(bg) ? bg : DEFAULT_BACKGROUND;
@@ -267,5 +313,6 @@ export function normalizePreferences(raw: unknown): UserPreferences {
     font: isFontToken(font) ? font : DEFAULT_FONT,
     customBackground,
     customTokens,
+    consoleTheme: isConsoleTheme(theme) ? theme : DEFAULT_CONSOLE_THEME,
   };
 }

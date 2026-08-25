@@ -5,6 +5,7 @@ import {
   isBackgroundToken,
   isModeToken,
   isFontToken,
+  isConsoleTheme,
   isValidCustomBackground,
   normalizeCustomTokens,
   type CustomTokens,
@@ -18,6 +19,8 @@ export interface PreferencesService {
   setBackground(session: SessionContext, background: string): Promise<UserPreferences>;
   setMode(session: SessionContext, mode: string): Promise<UserPreferences>;
   setFont(session: SessionContext, font: string): Promise<UserPreferences>;
+  /** Define o tema de cor da consola do próprio utilizador. */
+  setConsoleTheme(session: SessionContext, theme: string): Promise<UserPreferences>;
   /**
    * Define (string data URL) ou limpa (null) a imagem de fundo personalizada do
    * próprio utilizador. Definir seleciona automaticamente o fundo "custom";
@@ -102,6 +105,15 @@ export function createPreferencesService(deps: {
       }
       const current = await repo.get(session.userId);
       return repo.save(session.userId, { ...current, font });
+    },
+
+    async setConsoleTheme(session, theme) {
+      // Validado contra o enum de temas da consola (fonte única no domínio).
+      if (!isConsoleTheme(theme)) {
+        throw new DomainError("BAD_INPUT", "Tema inválido", 400);
+      }
+      const current = await repo.get(session.userId);
+      return repo.save(session.userId, { ...current, consoleTheme: theme });
     },
 
     async getForWorker(session, workerId) {

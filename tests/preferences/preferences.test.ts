@@ -6,6 +6,7 @@ import {
   DEFAULT_MODE,
   MODE_OPTIONS,
   MODE_TOKENS,
+  DEFAULT_CONSOLE_THEME,
   FONT_TOKENS,
   FONT_OPTIONS,
   DEFAULT_FONT,
@@ -52,6 +53,7 @@ function fakeRepo(
     font: DEFAULT_FONT,
     customBackground: null,
     customTokens: null,
+    consoleTheme: DEFAULT_CONSOLE_THEME,
     ...initial,
   };
   const membership = new Set<string>();
@@ -147,6 +149,7 @@ describe("preferences — domínio", () => {
       font: "default",
       customBackground: null,
       customTokens: null,
+      consoleTheme: "ember",
     });
   });
 
@@ -186,6 +189,7 @@ describe("preferences — domínio", () => {
       font: "default",
       customBackground: SMALL_WEBP,
       customTokens: null,
+      consoleTheme: "ember",
     });
   });
 });
