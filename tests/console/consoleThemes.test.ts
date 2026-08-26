@@ -131,6 +131,21 @@ describe("consoleThemes — gerador de CSS", () => {
     expect(css).toContain("var(--bg-glow)");
     expect(css).toContain("z-index: -1");
   });
+
+  it("liga as classes reais de estado/cartão aos tokens (fidelidade)", () => {
+    // cantos + sombra por tema
+    expect(css).toMatch(/\.console\[data-theme\][^{]*\.panel[^}]*border-radius:\s*var\(--radius\)/s);
+    expect(css).toContain("box-shadow: var(--card-shadow)");
+    // semáforo deixa de ser verde/âmbar fixos e passa a token
+    expect(css).toContain(".status-green .readiness-dot { background: var(--success)");
+    expect(css).toContain(".status-amber .readiness-dot { background: var(--warning)");
+    // brilho dos pontos vivos + toggle nativo temado
+    expect(css).toContain("box-shadow: var(--dot-glow)");
+    expect(css).toContain("accent-color: var(--accent)");
+    // as regras de fidelidade continuam scoped à consola
+    const fidelityLines = css.split("\n").filter((l) => l.includes("readiness-dot"));
+    for (const l of fidelityLines) expect(l).toContain(".console[data-theme]");
+  });
 });
 
 describe("consoleTheme — validação e normalização", () => {

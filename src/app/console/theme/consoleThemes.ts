@@ -179,16 +179,10 @@ function themeVars(theme: ConsoleTheme): string {
   return `.console[data-theme="${theme}"] {\n  color-scheme: dark;\n${lines}\n}`;
 }
 
-// CSS completo dos 5 temas + a camada de brilho ambiente (radial com --bg-glow
-// sobre --bg), pintada a viewport inteiro atrás do conteúdo. É injetado uma vez
-// no server (layout da consola). Determinístico e sem entrada do utilizador —
-// os valores vêm só destas constantes.
-export function consoleThemesCss(): string {
-  const blocks = CONSOLE_THEME_TOKENS.map((t) => themeVars(t)).join("\n");
-  // Camada de fundo temada: cobre a viewport inteira (o `.console` é uma coluna
-  // centrada e não pinta fundo próprio). z-index:-1 → atrás do conteúdo, à
-  // frente do fundo do body (`:root`). Só aparece quando há data-theme.
-  const glow = `.console[data-theme]::before {
+// Camada de fundo temada: cobre a viewport inteira (o `.console` é uma coluna
+// centrada e não pinta fundo próprio). z-index:-1 → atrás do conteúdo, à frente
+// do fundo do body (`:root`). Só aparece quando há data-theme.
+const GLOW_LAYER = `.console[data-theme]::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -198,5 +192,41 @@ export function consoleThemesCss(): string {
     radial-gradient(1100px 480px at 80% -14%, var(--bg-glow), transparent 60%),
     var(--bg);
 }`;
-  return `${blocks}\n${glow}\n`;
+
+// Regras de FIDELIDADE: ligam as classes reais da consola aos tokens do tema,
+// para cada tema ficar fiel ao mock (cantos, sombra, cores de estado, brilho
+// dos pontos) — e não só o acento/fundo. Tudo scoped a `.console[data-theme]`:
+//  · o fallback `:root` (sem data-theme) fica INTOCADO;
+//  · a especificidade (0,4,0+) bate as regras hardcoded do globals.css
+//    (`.status-green .readiness-dot{background:#7ee08a}`, etc.), sem as editar.
+// É theme-agnóstico (usa var(--…)); os valores variam por bloco de tema acima.
+const FIDELITY = `
+/* cantos e sombra por tema nos contentores-cartão */
+.console[data-theme] .console-card,
+.console[data-theme] .panel {
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+}
+.console[data-theme] .console-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+/* checkbox nativo do toggle da matriz ganha a cor do tema */
+.console[data-theme] .matrix-toggle input { accent-color: var(--accent); }
+/* semáforo (readiness) segue a paleta do tema, com brilho nos estados vivos */
+.console[data-theme] .status-green .readiness-dot { background: var(--success); box-shadow: var(--dot-glow); }
+.console[data-theme] .status-amber .readiness-dot { background: var(--warning); }
+.console[data-theme] .status-red .readiness-dot { box-shadow: var(--dot-glow); }
+/* pills e textos de estado seguem os tokens (verde/âmbar deixam de ser fixos) */
+.console[data-theme] .status-pill.status-green,
+.console[data-theme] .task-ok { color: var(--success); }
+.console[data-theme] .status-pill.status-amber { color: var(--warning); }
+.console[data-theme] .status-pill { background: color-mix(in srgb, currentColor 10%, transparent); }
+`;
+
+// CSS completo dos 5 temas + camada de brilho + fidelidade. Injetado uma vez no
+// server (layout da consola). Determinístico e sem entrada do utilizador — os
+// valores vêm só destas constantes.
+export function consoleThemesCss(): string {
+  const blocks = CONSOLE_THEME_TOKENS.map((t) => themeVars(t)).join("\n");
+  return `${blocks}\n${GLOW_LAYER}\n${FIDELITY}`;
 }

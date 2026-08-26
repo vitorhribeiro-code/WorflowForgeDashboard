@@ -34,15 +34,17 @@ export default async function ConnectionsPage({
   const sp = await searchParams;
   const banner = bannerFor(sp);
 
-  // O fundo pessoal é só dos trabalhadores; o super-utilizador vive na consola
-  // escura. Resolve-se no servidor para aplicar já no 1.º render (sem flash).
-  const prefs =
-    session.role === "worker" ? await getPreferencesService().get(session) : null;
-  const background = prefs ? prefs.background : DEFAULT_BACKGROUND;
-  const mode = prefs ? prefs.mode : DEFAULT_MODE;
-  const customBackground = prefs ? prefs.customBackground : null;
-  const customTokens = prefs ? prefs.customTokens : null;
-  const font = prefs ? prefs.font : DEFAULT_FONT;
+  // As prefs resolvem-se no servidor (aplica já no 1.º render, sem flash).
+  // Lê-se para ambos os papéis: o fundo/modo/fonte são só do trabalhador, mas o
+  // super-utilizador precisa do `consoleTheme` para o seletor nas Definições.
+  const prefs = await getPreferencesService().get(session);
+  const isWorker = session.role === "worker";
+  const background = isWorker ? prefs.background : DEFAULT_BACKGROUND;
+  const mode = isWorker ? prefs.mode : DEFAULT_MODE;
+  const customBackground = isWorker ? prefs.customBackground : null;
+  const customTokens = isWorker ? prefs.customTokens : null;
+  const font = isWorker ? prefs.font : DEFAULT_FONT;
+  const consoleTheme = prefs.consoleTheme;
   // <link> inicial da fonte escolhida (sem flash no 1.º render; o cliente
   // mantém-no em sincronia nas trocas). "default" usa a fonte base, sem link.
   const fontHref = fontOptionFor(font).href;
@@ -58,6 +60,7 @@ export default async function ConnectionsPage({
         font={font}
         customBackground={customBackground}
         customTokens={customTokens}
+        consoleTheme={consoleTheme}
       />
     </>
   );

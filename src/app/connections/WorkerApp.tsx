@@ -33,9 +33,12 @@ import {
   MODE_OPTIONS,
   FONT_OPTIONS,
   fontOptionFor,
+  CONSOLE_THEME_OPTIONS,
+  DEFAULT_CONSOLE_THEME,
   type BackgroundToken,
   type ModeToken,
   type FontToken,
+  type ConsoleTheme,
   type CustomTokens,
 } from "@/modules/preferences/domain/preferences";
 
@@ -121,6 +124,7 @@ export function WorkerApp({
   font: fontProp = DEFAULT_FONT,
   customBackground = null,
   customTokens = null,
+  consoleTheme: consoleThemeProp = DEFAULT_CONSOLE_THEME,
 }: {
   role: string;
   banner: Banner;
@@ -129,6 +133,7 @@ export function WorkerApp({
   font?: FontToken;
   customBackground?: string | null;
   customTokens?: CustomTokens | null;
+  consoleTheme?: ConsoleTheme;
 }) {
   const isAdmin = role === "super_admin";
   const [view, setView] = useState<View>(banner ? "connections" : "tasks");
@@ -225,6 +230,30 @@ export function WorkerApp({
     } catch {
       setMode(prev);
       setModeError("Não foi possível guardar o modo. Tenta de novo.");
+    }
+  }
+
+  // Tema de cor da CONSOLA (só super-utilizador). Vive nas preferências pessoais
+  // mas aplica-se à consola, não a este painel — por isso não há preview local;
+  // guarda-se otimista no mesmo PUT das restantes preferências.
+  const [consoleTheme, setConsoleTheme] = useState<ConsoleTheme>(consoleThemeProp);
+  const [consoleThemeError, setConsoleThemeError] = useState<string | null>(null);
+
+  async function chooseConsoleTheme(token: ConsoleTheme) {
+    if (token === consoleTheme) return;
+    const prev = consoleTheme;
+    setConsoleTheme(token);
+    setConsoleThemeError(null);
+    try {
+      const res = await fetch("/api/me/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ consoleTheme: token }),
+      });
+      if (!res.ok) throw new Error("save failed");
+    } catch {
+      setConsoleTheme(prev);
+      setConsoleThemeError("Não foi possível guardar o tema. Tenta de novo.");
     }
   }
 
@@ -600,6 +629,34 @@ export function WorkerApp({
             <div className="wf-panel">
               <h2>Consola de super-utilizador</h2>
               <p>Gerir organização, áreas, ferramentas, tarefas e atribuições.</p>
+              <div className="wf-bg-field">
+                <p className="wf-bg-label">Tema da consola</p>
+                <div
+                  className="wf-bg-swatches"
+                  role="radiogroup"
+                  aria-label="Tema da consola"
+                >
+                  {CONSOLE_THEME_OPTIONS.map((t) => (
+                    <button
+                      key={t.token}
+                      type="button"
+                      className="wf-bg-swatch"
+                      style={{ background: t.swatch }}
+                      role="radio"
+                      aria-checked={consoleTheme === t.token}
+                      aria-pressed={consoleTheme === t.token}
+                      aria-label={t.label}
+                      title={`${t.label} — ${t.blurb}`}
+                      onClick={() => chooseConsoleTheme(t.token)}
+                    />
+                  ))}
+                </div>
+                <p className="wf-bg-hint">
+                  Aplica-se à consola do super-utilizador (esta zona mantém o seu aspeto).
+                  A escolha fica guardada e vale no próximo acesso à consola.
+                </p>
+                {consoleThemeError && <p className="wf-bg-error">{consoleThemeError}</p>}
+              </div>
               <a className="wf-panel-link" href="/console">
                 Abrir a consola
               </a>
