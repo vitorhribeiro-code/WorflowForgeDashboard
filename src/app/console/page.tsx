@@ -15,6 +15,11 @@ const CARDS: { href: string; title: string; desc: string }[] = [
     desc: "Catálogo global de ferramentas e os scopes que cada uma disponibiliza.",
   },
   {
+    href: "/console/mapeamento",
+    title: "Mapeamento",
+    desc: "Importa o mapeamento do trabalhador tipo e converte as oportunidades em Tarefas do catálogo.",
+  },
+  {
     href: "/console/tarefas",
     title: "Catálogo de Tarefas",
     desc: "Cria tarefas, define as ferramentas exigidas e publica quando estiverem prontas.",

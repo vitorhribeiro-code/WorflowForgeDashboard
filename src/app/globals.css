@@ -2704,3 +2704,90 @@ button.btn-danger:disabled {
 }
 .wf-app .artifact-list button:hover:not(:disabled) { background: var(--wf-tint2); }
 .wf-app .artifact-list button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* -------------------------------------------------------------------------- */
+/*  M11 — Importar mapeamento (consola, tokens :root). Acrescentado no fim.    */
+/* -------------------------------------------------------------------------- */
+.mapping-import label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.mapping-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.mapping-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.mapping-actions input[type="file"] { font-size: 12.5px; color: var(--muted); }
+.mapping-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
+
+.mapping-batchbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.mapping-warnings {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.mapping-warnings li + li { margin-top: 4px; }
+
+.candidate-list { list-style: none; margin: 0; padding: 0; }
+.candidate {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.candidate:first-child { border-top: none; }
+.candidate-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.candidate-check { accent-color: var(--accent); width: 15px; height: 15px; }
+.candidate-type {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.candidate p { margin: 4px 0; font-size: 13px; color: var(--text); }
+.candidate-meta { color: var(--muted); font-size: 12.5px; }
+.candidate-meta code { color: var(--text); }
+.candidate-missing { color: var(--danger); font-size: 12.5px; }
+
+.mapping-result {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text);
+}
+.mapping-failed { margin: 6px 0 0; padding-left: 18px; color: var(--danger); font-size: 12.5px; }
+.mapping-empty { color: var(--muted); font-size: 13px; padding: 8px 0; }

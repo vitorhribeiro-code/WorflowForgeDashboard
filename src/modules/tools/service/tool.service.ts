@@ -87,6 +87,13 @@ export function createToolService({ repo, audit }: ToolServiceDeps) {
       if (!tool) throw new DomainError("TOOL_NOT_FOUND", "Tool inexistente", 404);
       return tool;
     },
+
+    // Resolve a key da Tool → id (Tool é global ⇒ sem sessão). Usado pelo M11
+    // para ligar as required_tools de um candidato ao catálogo (M3).
+    async resolveKey(key: string): Promise<string | null> {
+      const tool = await repo.getByKey(key);
+      return tool?.id ?? null;
+    },
   };
 }
 

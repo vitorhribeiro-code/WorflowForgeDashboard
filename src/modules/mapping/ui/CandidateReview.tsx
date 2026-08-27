@@ -3,11 +3,21 @@ import type { ReviewedCandidate } from "./hooks";
 type Props = {
   candidates: ReviewedCandidate[] | null;
   warnings?: string[];
+  // Seleção em lote (opcional): quando presente, mostra uma checkbox por
+  // candidato convertível. O estado da seleção vive no chamador.
+  selected?: Set<string>;
+  onToggleSelect?: (sourceRef: string) => void;
   onConvert?: (candidate: ReviewedCandidate) => void;
 };
 
 // Presentacional puro: mostra rascunhos e o que falta para converter.
-export function CandidateReview({ candidates, warnings = [], onConvert }: Props) {
+export function CandidateReview({
+  candidates,
+  warnings = [],
+  selected,
+  onToggleSelect,
+  onConvert,
+}: Props) {
   if (!candidates) return <div className="mapping-empty">Importa um mapeamento para começar.</div>;
 
   return (
@@ -24,6 +34,15 @@ export function CandidateReview({ candidates, warnings = [], onConvert }: Props)
         {candidates.map((c) => (
           <li key={c.sourceRef} className="candidate">
             <div className="candidate-head">
+              {onToggleSelect && c.completeness.convertible ? (
+                <input
+                  type="checkbox"
+                  className="candidate-check"
+                  checked={selected?.has(c.sourceRef) ?? false}
+                  onChange={() => onToggleSelect(c.sourceRef)}
+                  aria-label={`Selecionar ${c.name}`}
+                />
+              ) : null}
               <strong>{c.name}</strong>
               <span className="candidate-type">{c.type}</span>
             </div>
@@ -32,9 +51,11 @@ export function CandidateReview({ candidates, warnings = [], onConvert }: Props)
               runtime: <code>{c.runtime ?? "—"}</code> · tools: {c.requiredTools.length}
             </p>
             {c.completeness.convertible ? (
-              <button type="button" onClick={() => onConvert?.(c)}>
-                Converter em Task
-              </button>
+              onConvert ? (
+                <button type="button" onClick={() => onConvert(c)}>
+                  Converter em Task
+                </button>
+              ) : null
             ) : (
               <p className="candidate-missing">Falta: {c.completeness.missing.join(", ")}</p>
             )}

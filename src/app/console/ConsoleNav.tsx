@@ -7,6 +7,7 @@ const TABS: { href: string; label: string }[] = [
   { href: "/console", label: "Visão geral" },
   { href: "/console/areas", label: "Áreas" },
   { href: "/console/ferramentas", label: "Ferramentas" },
+  { href: "/console/mapeamento", label: "Mapeamento" },
   { href: "/console/tarefas", label: "Catálogo" },
   { href: "/console/atribuicoes", label: "Atribuições" },
   { href: "/console/trabalhadores", label: "Trabalhadores" },
