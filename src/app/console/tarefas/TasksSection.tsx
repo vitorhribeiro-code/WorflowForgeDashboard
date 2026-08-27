@@ -192,26 +192,42 @@ export function TasksSection() {
   const [confirmDelete, setConfirmDelete] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Passo 2 do apagar: nº de atribuições que a cascata vai remover. null = passo 1.
+  const [forceCount, setForceCount] = useState<number | null>(null);
 
   // Mantém a Task selecionada em sincronia com a lista após refetch.
   const selected = editing ? tasks?.find((t) => t.id === editing.id) ?? editing : null;
 
-  async function doDelete() {
+  async function doDelete(force = false) {
     if (!confirmDelete) return;
     setDeleting(true);
     setDeleteError(null);
     try {
-      await removeTask(confirmDelete.id);
+      await removeTask(confirmDelete.id, force);
       if (editing?.id === confirmDelete.id) {
         setEditing(null);
         setAreaId("");
       }
-      setConfirmDelete(null);
+      closeConfirm();
     } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : "Erro ao apagar");
+      const err = e as Error & { code?: string; details?: { assignments?: number } };
+      // A guarda das atribuições NÃO é um erro para o utilizador — é o convite
+      // ao passo 2 (apagar em cascata, com o número à frente).
+      if (err.code === "TASK_HAS_ASSIGNMENTS") {
+        setForceCount(err.details?.assignments ?? 0);
+        setDeleteError(null);
+      } else {
+        setDeleteError(err instanceof Error ? err.message : "Erro ao apagar");
+      }
     } finally {
       setDeleting(false);
     }
+  }
+
+  function closeConfirm() {
+    setConfirmDelete(null);
+    setForceCount(null);
+    setDeleteError(null);
   }
 
   return (
@@ -282,6 +298,7 @@ export function TasksSection() {
             }}
             onDelete={(t) => {
               setDeleteError(null);
+              setForceCount(null);
               setConfirmDelete(t);
             }}
           />
@@ -299,28 +316,69 @@ export function TasksSection() {
           className="confirm-overlay"
           role="dialog"
           aria-modal="true"
-          onClick={() => !deleting && setConfirmDelete(null)}
+          onClick={() => !deleting && closeConfirm()}
         >
           <div className="confirm-box" onClick={(e) => e.stopPropagation()}>
-            <h3>Apagar tarefa?</h3>
-            <p>
-              Tens a certeza que queres apagar «{confirmDelete.name}»? Esta ação é irreversível e
-              remove também as ferramentas exigidas associadas.
-            </p>
-            {deleteError ? <p className="panel-error">{deleteError}</p> : null}
-            <div className="confirm-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={deleting}
-                onClick={() => setConfirmDelete(null)}
-              >
-                Cancelar
-              </button>
-              <button type="button" className="btn-danger" disabled={deleting} onClick={doDelete}>
-                {deleting ? "A apagar…" : "Apagar"}
-              </button>
-            </div>
+            {forceCount === null ? (
+              <>
+                <h3>Apagar tarefa?</h3>
+                <p>
+                  Tens a certeza que queres apagar «{confirmDelete.name}»? Esta ação é irreversível
+                  e remove também as ferramentas exigidas associadas.
+                </p>
+                {deleteError ? <p className="panel-error">{deleteError}</p> : null}
+                <div className="confirm-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={deleting}
+                    onClick={closeConfirm}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    disabled={deleting}
+                    onClick={() => void doDelete(false)}
+                  >
+                    {deleting ? "A apagar…" : "Apagar"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3>Apagar em cascata?</h3>
+                <p>
+                  «{confirmDelete.name}» tem{" "}
+                  <strong>
+                    {forceCount} atribuição{forceCount === 1 ? "" : "ões"}
+                  </strong>{" "}
+                  a trabalhadores. Apagar mesmo assim remove essa{forceCount === 1 ? "" : "s"}{" "}
+                  atribuiç{forceCount === 1 ? "ão" : "ões"} <strong>e o respetivo histórico de
+                  execuções</strong>, de forma irreversível. O registo de auditoria mantém-se.
+                </p>
+                {deleteError ? <p className="panel-error">{deleteError}</p> : null}
+                <div className="confirm-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={deleting}
+                    onClick={closeConfirm}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    disabled={deleting}
+                    onClick={() => void doDelete(true)}
+                  >
+                    {deleting ? "A apagar…" : "Apagar mesmo assim"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}

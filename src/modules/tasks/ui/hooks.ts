@@ -10,7 +10,13 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body?.message ?? `HTTP ${res.status}`);
+    const err = new Error(body?.message ?? `HTTP ${res.status}`) as Error & {
+      code?: string;
+      details?: unknown;
+    };
+    err.code = body?.error; // toHttp devolve o código do DomainError em `error`
+    err.details = body?.details;
+    throw err;
   }
   return res.json() as Promise<T>;
 }
@@ -71,8 +77,10 @@ export function useTasks(filter: { areaId?: string; type?: string } = {}) {
   );
 
   const removeTask = useCallback(
-    async (taskId: string) => {
-      await api<{ ok: boolean }>(`/api/tasks/${taskId}`, { method: "DELETE" });
+    async (taskId: string, force = false) => {
+      await api<{ ok: boolean }>(`/api/tasks/${taskId}${force ? "?force=1" : ""}`, {
+        method: "DELETE",
+      });
       refetch();
     },
     [refetch],

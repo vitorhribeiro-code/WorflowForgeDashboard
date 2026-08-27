@@ -118,14 +118,19 @@ export function createTaskService(deps: TaskServiceDeps) {
       return load(session, taskId);
     },
 
-    // Apaga a Task. Bloqueia se tiver atribuições (evita destruir histórico do
-    // M5/M7 em cascata); despublicar/remover atribuições primeiro. Cascade do
-    // schema limpa required_tools. Hoje ainda não há atribuições (M5 por fazer).
-    async remove(session: SessionContext, taskId: string): Promise<void> {
+    // Apaga a Task. Por defeito BLOQUEIA se tiver atribuições (evita destruir
+    // histórico do M5/M7 em cascata). Com { force: true } o admin confirma o
+    // apagar em cascata: a cascata do schema limpa required_tools, assignments e
+    // os runs dessas assignments. A auditoria sobrevive (sem cascata da task).
+    async remove(
+      session: SessionContext,
+      taskId: string,
+      opts: { force?: boolean } = {},
+    ): Promise<void> {
       requireAdmin(session);
       await load(session, taskId);
       const assignments = await repo.countAssignments(taskId);
-      if (assignments > 0) {
+      if (assignments > 0 && !opts.force) {
         throw new DomainError(
           "TASK_HAS_ASSIGNMENTS",
           "Tarefa com atribuições; remove-as antes de apagar",
@@ -139,6 +144,7 @@ export function createTaskService(deps: TaskServiceDeps) {
         action: "task.deleted",
         entity: "task",
         entityId: taskId,
+        metadata: { assignments, forced: assignments > 0 && Boolean(opts.force) },
       });
     },
 

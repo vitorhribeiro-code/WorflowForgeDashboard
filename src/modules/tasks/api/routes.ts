@@ -51,9 +51,11 @@ export const taskPATCH = withSession(async (session, req, ctx) => {
   return json(await taskService.update(session, id(ctx), input));
 });
 
-// DELETE /api/tasks/[id] — apaga (admin). 409 se tiver atribuições.
-export const taskDELETE = withSession(async (session, _req, ctx) => {
-  await taskService.remove(session, id(ctx));
+// DELETE /api/tasks/[id] — apaga (admin). 409 se tiver atribuições; ?force=1
+// apaga em cascata (remove atribuições e o respetivo histórico de runs).
+export const taskDELETE = withSession(async (session, req, ctx) => {
+  const force = new URL(req.url).searchParams.get("force") === "1";
+  await taskService.remove(session, id(ctx), { force });
   return json({ ok: true });
 });
 
