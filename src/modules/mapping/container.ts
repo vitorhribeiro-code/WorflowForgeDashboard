@@ -26,6 +26,15 @@ const authoring: TaskAuthoringPort = {
   async setRequiredTools(session, taskId, items) {
     await taskService.setRequiredTools(session, taskId, items);
   },
+  // Dedup (slice 2): Tasks da org com este runtime. O taskService.list já é
+  // escopado por org e exige admin (a mesma sessão do convert). Filtramos o
+  // runtime em memória — sem coluna nova, sem migração (BD mantém-se até 100).
+  async findByRuntime(session, runtime) {
+    const tasks = await taskService.list(session, {});
+    return tasks
+      .filter((t) => t.runtime === runtime)
+      .map((t) => ({ id: t.id, name: t.name, runtime: t.runtime }));
+  },
 };
 
 // M3: resolve a key da Tool → id. Tool é global (sem org) ⇒ sem sessão.

@@ -195,6 +195,13 @@ export const mappingService = createMappingService({
     async setRequiredTools(session, taskId, items) {
       await taskService.setRequiredTools(session, taskId, items);
     },
+    // Dedup (slice 2): Tasks da org com este runtime, filtradas em memória.
+    async findByRuntime(session, runtime) {
+      const tasks = await taskService.list(session, {});
+      return tasks
+        .filter((t) => t.runtime === runtime)
+        .map((t) => ({ id: t.id, name: t.name, runtime: t.runtime }));
+    },
   },
   tools: toolResolver,
   audit,

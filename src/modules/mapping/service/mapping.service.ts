@@ -6,6 +6,7 @@ import {
   completenessOf,
   type CandidateOverrides,
 } from "../domain/candidate";
+import { classifyCollisions, type CollisionMatch } from "../domain/collision";
 import { parseMapping } from "../domain/parse";
 import type { MappingDocument, TaskCandidate } from "../domain/types";
 import { requireAdmin } from "./guards";
@@ -40,10 +41,19 @@ export function createMappingService({ authoring, tools, audit }: MappingService
     },
 
     // Converter candidato em Task (admin). Herda o contexto e segue as regras do M4.
+    //
+    // Slice 2 (dedup): antes de criar, procura Tasks do MESMO runtime na org. Se
+    // houver, NÃO cria — devolve `needs_decision` com os matches (nome igual =
+    // provável, nome diferente = possível) para o admin confirmar. A decisão volta
+    // no `decision`: `create` (criar mesmo assim) ou `reuse` (apontar à existente).
     async convert(
       session: SessionContext,
-      input: { candidate: TaskCandidate; overrides?: CandidateOverrides },
-    ): Promise<{ id: string }> {
+      input: {
+        candidate: TaskCandidate;
+        overrides?: CandidateOverrides;
+        decision?: ConvertDecision;
+      },
+    ): Promise<ConvertOutcome> {
       requireAdmin(session);
       const c = applyOverrides(input.candidate, input.overrides);
 
@@ -53,9 +63,40 @@ export function createMappingService({ authoring, tools, audit }: MappingService
           missing: completeness.missing,
         });
       }
+      const runtime = c.runtime as string;
+      const decision = input.decision;
 
-      // Resolve as Tools do candidato (keys → ids). Falta uma? A Tool tem de ser
-      // registada no catálogo (M3) antes de converter.
+      // Reutilizar uma existente: valida que pertence à org e ao MESMO runtime
+      // (o taskId veio dos matches que nós próprios devolvemos). Não cria nada.
+      if (decision?.kind === "reuse") {
+        const existing = await authoring.findByRuntime(session, runtime);
+        if (!existing.some((e) => e.id === decision.taskId)) {
+          throw new DomainError(
+            "REUSE_TARGET_NOT_FOUND",
+            "A Task a reutilizar não existe ou não corresponde ao runtime",
+            422,
+            { taskId: decision.taskId, runtime },
+          );
+        }
+        await safeAudit(audit, {
+          actorId: session.userId,
+          action: "task.reused_from_mapping",
+          entity: "task",
+          entityId: decision.taskId,
+          metadata: { sourceRef: c.sourceRef },
+        });
+        return { status: "reused", id: decision.taskId };
+      }
+
+      // Deteção de colisão. Só se pergunta ao admin quando NÃO forçou `create`.
+      if (decision?.kind !== "create") {
+        const existing = await authoring.findByRuntime(session, runtime);
+        if (existing.length > 0) {
+          return { status: "needs_decision", existing: classifyCollisions(c.name, existing) };
+        }
+      }
+
+      // Sem colisão (ou o admin escolheu criar mesmo assim): resolve Tools e cria.
       const items: Array<{ toolId: string; scopes: string[] }> = [];
       const missingTools: string[] = [];
       for (const rt of c.requiredTools) {
@@ -74,7 +115,7 @@ export function createMappingService({ authoring, tools, audit }: MappingService
         name: c.name,
         description: c.description,
         type: c.type,
-        runtime: c.runtime as string,
+        runtime,
         configSchema: c.configSchema,
         areaId: c.areaId,
       });
@@ -87,9 +128,20 @@ export function createMappingService({ authoring, tools, audit }: MappingService
         action: "task.created_from_mapping",
         entity: "task",
         entityId: task.id,
-        metadata: { sourceRef: c.sourceRef },
+        metadata: { sourceRef: c.sourceRef, forced: decision?.kind === "create" },
       });
-      return task;
+      return { status: "created", id: task.id };
     },
   };
 }
+
+// Decisão do admin perante uma colisão (vem da UI/rota).
+export type ConvertDecision =
+  | { kind: "create" } // criar mesmo assim, ignorando os matches
+  | { kind: "reuse"; taskId: string }; // apontar a uma Task existente
+
+// Desfecho da conversão. `needs_decision` NÃO persiste nada — espera o admin.
+export type ConvertOutcome =
+  | { status: "created"; id: string }
+  | { status: "reused"; id: string }
+  | { status: "needs_decision"; existing: CollisionMatch[] };

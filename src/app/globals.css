@@ -2791,3 +2791,38 @@ button.btn-danger:disabled {
 }
 .mapping-failed { margin: 6px 0 0; padding-left: 18px; color: var(--danger); font-size: 12.5px; }
 .mapping-empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+
+/* M11 slice 2 — decisões de colisão (dedup) na conversão do mapeamento. */
+.mapping-pending {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--warning, var(--border));
+  border-radius: var(--radius, 10px);
+  background: color-mix(in srgb, var(--warning, var(--border)) 8%, transparent);
+}
+.mapping-pending-lead { margin: 0 0 8px; font-size: 12.5px; color: var(--text); }
+.mapping-pending-list { list-style: none; margin: 0; padding: 0; }
+.mapping-collision { padding: 8px 0; border-top: 1px solid var(--border); }
+.mapping-collision:first-child { border-top: none; }
+.mapping-collision > strong { display: block; font-size: 13px; margin-bottom: 6px; }
+.mapping-collision-matches { list-style: none; margin: 0 0 8px; padding: 0; }
+.mapping-collision-matches li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.collision-strong,
+.collision-weak {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+}
+.collision-strong { color: var(--warning, var(--text)); border-color: var(--warning, var(--border)); }
+.collision-weak { color: var(--muted); }
+.collision-name { flex: 1; }

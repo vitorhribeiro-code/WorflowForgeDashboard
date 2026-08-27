@@ -1,12 +1,25 @@
 "use client";
 import { useCallback, useState } from "react";
+import type { CollisionMatch } from "../domain/collision";
 import type { CandidateCompleteness, MappingDocument, TaskCandidate } from "../domain/types";
 
 export type ReviewedCandidate = TaskCandidate & { completeness: CandidateCompleteness };
 
-// Resumo de uma conversão em lote: o que ficou no catálogo e o que falhou.
+// Decisão do admin perante uma colisão (dedup slice 2).
+export type ConvertDecision = { kind: "create" } | { kind: "reuse"; taskId: string };
+
+// Desfecho de uma conversão (espelha o serviço).
+export type ConvertOutcome =
+  | { status: "created"; id: string }
+  | { status: "reused"; id: string }
+  | { status: "needs_decision"; existing: CollisionMatch[] };
+
+// Resumo de uma conversão em lote: criadas, reutilizadas, à espera de decisão
+// (colisão) e falhadas.
 export type ConvertSummary = {
   created: Array<{ sourceRef: string; id: string }>;
+  reused: Array<{ sourceRef: string; id: string }>;
+  pending: Array<{ sourceRef: string; existing: CollisionMatch[] }>;
   failed: Array<{ sourceRef: string; error: string }>;
 };
 
@@ -45,26 +58,35 @@ export function useMapping() {
     }
   }, []);
 
-  // Converte um candidato (com overrides do admin) em Task no M4.
+  // Converte um candidato (com overrides + decisão do admin) em Task no M4.
+  // Devolve o desfecho: created / reused / needs_decision (colisão).
   const convert = useCallback(
-    (candidate: TaskCandidate, overrides?: { runtime?: string; areaId?: string | null }) =>
-      post<{ id: string }>("/api/mapping/convert", { candidate, overrides }),
+    (
+      candidate: TaskCandidate,
+      overrides?: { runtime?: string; areaId?: string | null },
+      decision?: ConvertDecision,
+    ) =>
+      post<ConvertOutcome>("/api/mapping/convert", { candidate, overrides, decision }),
     [],
   );
 
-  // Converte vários candidatos em lote. Slice 1: sequencial, sem reconciliação
-  // server-side (dedup contra o catálogo é a slice 2). Falha de um não trava os
-  // restantes — devolve o resumo por candidato.
+  // Converte vários candidatos em lote (dedup slice 2): sequencial, sem forçar.
+  // Cada colisão vai para `pending` (o admin decide depois); falha de um não
+  // trava os restantes — devolve o resumo por candidato.
   const convertMany = useCallback(
     async (cands: TaskCandidate[]): Promise<ConvertSummary> => {
       const created: ConvertSummary["created"] = [];
+      const reused: ConvertSummary["reused"] = [];
+      const pending: ConvertSummary["pending"] = [];
       const failed: ConvertSummary["failed"] = [];
       setBusy(true);
       try {
         for (const c of cands) {
           try {
-            const { id } = await convert(c);
-            created.push({ sourceRef: c.sourceRef, id });
+            const outcome = await convert(c);
+            if (outcome.status === "created") created.push({ sourceRef: c.sourceRef, id: outcome.id });
+            else if (outcome.status === "reused") reused.push({ sourceRef: c.sourceRef, id: outcome.id });
+            else pending.push({ sourceRef: c.sourceRef, existing: outcome.existing });
           } catch (e) {
             failed.push({ sourceRef: c.sourceRef, error: e instanceof Error ? e.message : "Erro" });
           }
@@ -72,7 +94,7 @@ export function useMapping() {
       } finally {
         setBusy(false);
       }
-      return { created, failed };
+      return { created, reused, pending, failed };
     },
     [convert],
   );

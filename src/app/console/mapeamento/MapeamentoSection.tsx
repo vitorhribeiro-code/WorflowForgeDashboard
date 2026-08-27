@@ -3,14 +3,19 @@
 import { useMemo, useState } from "react";
 import type { MappingDocument } from "@/modules/mapping/domain/types";
 import { CandidateReview } from "@/modules/mapping/ui/CandidateReview";
-import { useMapping, type ConvertSummary, type ReviewedCandidate } from "@/modules/mapping/ui/hooks";
+import {
+  useMapping,
+  type ConvertDecision,
+  type ConvertSummary,
+  type ReviewedCandidate,
+} from "@/modules/mapping/ui/hooks";
 
 // Página do M11: o admin carrega o JSON do mapeamento (do trabalhador tipo),
 // revê os candidatos e converte os escolhidos em Tarefas do catálogo (M4).
 // Slice 1: conversão em lote por loop (sem reconciliação/dedup — isso é a
 // slice 2; a atribuição em massa é a slice 3).
 export function MapeamentoSection() {
-  const { candidates, warnings, error, busy, importDoc, convertMany } = useMapping();
+  const { candidates, warnings, error, busy, importDoc, convert, convertMany } = useMapping();
 
   const [raw, setRaw] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
@@ -71,6 +76,40 @@ export function MapeamentoSection() {
     );
   }
 
+  // Resolve uma colisão pendente: reutilizar uma existente ou criar mesmo assim.
+  // Move o candidato de `pending` para `created`/`reused` no resumo.
+  async function resolvePending(sourceRef: string, decision: ConvertDecision) {
+    const candidate = candidates?.find((c) => c.sourceRef === sourceRef);
+    if (!candidate) return;
+    try {
+      const outcome = await convert(candidate, undefined, decision);
+      setResult((prev) => {
+        if (!prev) return prev;
+        const pending = prev.pending.filter((p) => p.sourceRef !== sourceRef);
+        if (outcome.status === "created") {
+          return { ...prev, pending, created: [...prev.created, { sourceRef, id: outcome.id }] };
+        }
+        if (outcome.status === "reused") {
+          return { ...prev, pending, reused: [...prev.reused, { sourceRef, id: outcome.id }] };
+        }
+        return prev; // não deve acontecer (forçámos a decisão)
+      });
+    } catch (e) {
+      setResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              pending: prev.pending.filter((p) => p.sourceRef !== sourceRef),
+              failed: [
+                ...prev.failed,
+                { sourceRef, error: e instanceof Error ? e.message : "Erro" },
+              ],
+            }
+          : prev,
+      );
+    }
+  }
+
   return (
     <section className="console-section">
       <h1>Importar mapeamento</h1>
@@ -123,8 +162,59 @@ export function MapeamentoSection() {
             <div className="mapping-result">
               <p>
                 Criadas {result.created.length} tarefa(s)
+                {result.reused.length > 0 ? `, ${result.reused.length} reutilizada(s)` : ""}
+                {result.pending.length > 0
+                  ? `, ${result.pending.length} a precisar de decisão`
+                  : ""}
                 {result.failed.length > 0 ? `, ${result.failed.length} falha(s)` : ""}.
               </p>
+
+              {result.pending.length > 0 ? (
+                <div className="mapping-pending">
+                  <p className="mapping-pending-lead">
+                    Possíveis duplicados — já existe uma Task com o mesmo runtime. Reutiliza uma
+                    existente ou cria mesmo assim.
+                  </p>
+                  <ul className="mapping-pending-list">
+                    {result.pending.map((p) => {
+                      const cand = candidates.find((c) => c.sourceRef === p.sourceRef);
+                      return (
+                        <li key={p.sourceRef} className="mapping-collision">
+                          <strong>{cand?.name ?? p.sourceRef}</strong>
+                          <ul className="mapping-collision-matches">
+                            {p.existing.map((m) => (
+                              <li key={m.id}>
+                                <span className={m.nameMatches ? "collision-strong" : "collision-weak"}>
+                                  {m.nameMatches ? "Provável" : "Possível"}
+                                </span>{" "}
+                                <span className="collision-name">{m.name}</span>{" "}
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void resolvePending(p.sourceRef, { kind: "reuse", taskId: m.id })
+                                  }
+                                >
+                                  Reutilizar esta
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void resolvePending(p.sourceRef, { kind: "create" })}
+                          >
+                            Criar nova mesmo assim
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
+
               {result.failed.length > 0 ? (
                 <ul className="mapping-failed">
                   {result.failed.map((f) => (

@@ -34,6 +34,12 @@ const candidateSchema = z.object({
   configSchema: jsonSchema.nullable(),
 });
 
+// Decisão do admin perante uma colisão (dedup slice 2).
+const decisionSchema = z.union([
+  z.object({ kind: z.literal("create") }),
+  z.object({ kind: z.literal("reuse"), taskId: z.string().uuid() }),
+]);
+
 export const convertSchema = z.object({
   candidate: candidateSchema,
   overrides: z
@@ -44,4 +50,5 @@ export const convertSchema = z.object({
       configSchema: jsonSchema.nullish(),
     })
     .optional(),
+  decision: decisionSchema.optional(),
 });
