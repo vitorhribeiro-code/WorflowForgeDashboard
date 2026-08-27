@@ -211,6 +211,8 @@ const FIDELITY = `
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
 /* checkbox nativo do toggle da matriz ganha a cor do tema */
+.console[data-theme] input[type="checkbox"],
+.console[data-theme] input[type="radio"],
 .console[data-theme] .matrix-toggle input { accent-color: var(--accent); }
 /* semáforo (readiness) segue a paleta do tema, com brilho nos estados vivos */
 .console[data-theme] .status-green .readiness-dot { background: var(--success); box-shadow: var(--dot-glow); }

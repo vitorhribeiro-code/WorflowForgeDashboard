@@ -19,19 +19,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { reduceCustomBackground } from "./imageDownscale";
+import { workerThemesCss } from "./workerThemeCss";
 import { ConnectionsPanel } from "@/modules/connections/ui/ConnectionsPanel";
 import { WorkerTasksPanel } from "@/modules/assignments/ui/WorkerTasksPanel";
 import { WorkerArchivePanel } from "@/modules/archives/ui/WorkerArchivePanel";
 import { NextRunWidget, RecentRunsWidget } from "@/modules/assignments/ui/SidebarWidgets";
 import { WorkerActivityStats } from "@/modules/assignments/ui/WorkerActivityStats";
 import {
-  BACKGROUND_SWATCHES,
-  BACKGROUND_IMAGE_CREDIT,
   DEFAULT_BACKGROUND,
   DEFAULT_MODE,
   DEFAULT_FONT,
   MODE_OPTIONS,
-  FONT_OPTIONS,
   fontOptionFor,
   CONSOLE_THEME_OPTIONS,
   DEFAULT_CONSOLE_THEME,
@@ -341,34 +339,26 @@ export function WorkerApp({
   const initials = isAdmin ? "SA" : "EU";
   const roleLabel = isAdmin ? "Super-utilizador" : "Trabalhador";
 
-  const onCustom = showBackground && bg === "custom" && customBg;
+  const onCustom = bg === "custom" && customBg;
   // Classe litehdr só quando a imagem pede cabeçalho claro no modo claro.
   const litehdrClass = onCustom && customTk?.litehdr ? " wf-custom-litehdr" : "";
-  const bgClass =
-    showBackground && bg !== "default" ? ` wf-bg-${bg}${litehdrClass}` : "";
-  const modeClass = showBackground && mode === "dark" ? " wf-theme-dark" : "";
-  // Vars CSS na raiz: a imagem e, se houver, o acento derivado por modo. Os
-  // valores são hex canónico (validados no domínio), seguros numa style inline.
-  const fontVar =
-    showBackground && font !== "default"
-      ? { "--wf-font-display": fontOptionFor(font).stack }
-      : {};
-  const rootStyle =
-    onCustom || Object.keys(fontVar).length
-      ? ({
-          ...(onCustom ? { "--wf-custom-image": `url("${customBg}")` } : {}),
-          ...(onCustom && customTk?.accentLight
-            ? { "--wf-custom-accent": customTk.accentLight }
-            : {}),
-          ...(onCustom && customTk?.accentDark
-            ? { "--wf-custom-accent-dark": customTk.accentDark }
-            : {}),
-          ...fontVar,
-        } as React.CSSProperties)
-      : undefined;
+  // Já não há fundos predefinidos: só o fundo personalizado (opcional). O tema
+  // (data-theme) trata da paleta; o modo claro/escuro mantém-se para todos.
+  const bgClass = onCustom ? ` wf-bg-custom${litehdrClass}` : "";
+  const modeClass = mode === "dark" ? " wf-theme-dark" : "";
+  const rootStyle = onCustom
+    ? ({
+        "--wf-custom-image": `url("${customBg}")`,
+        ...(customTk?.accentLight ? { "--wf-custom-accent": customTk.accentLight } : {}),
+        ...(customTk?.accentDark ? { "--wf-custom-accent-dark": customTk.accentDark } : {}),
+      } as React.CSSProperties)
+    : undefined;
 
   return (
-    <div className={`wf-app${bgClass}${modeClass}`} style={rootStyle}>
+    <div className={`wf-app${bgClass}${modeClass}`} data-theme={consoleTheme} style={rootStyle}>
+      {/* Temas do painel (acento por tema, claro+escuro), scoped a `.wf-app`.
+          Gerado do mapa de tokens; injetado uma vez, sem tocar na consola. */}
+      <style dangerouslySetInnerHTML={{ __html: workerThemesCss() }} />
       <div className="wf-dock">
         <aside className="wf-side">
           <div className="wf-brand">
@@ -467,9 +457,36 @@ export function WorkerApp({
           </div>
           <div className="wf-panel">
             <h2>Definições pessoais</h2>
-            {showBackground ? (
+            {(
               <>
-                <p>Preferências da tua conta.</p>
+                <p>Escolhe o tema e, opcionalmente, um fundo personalizado.</p>
+                <div className="wf-bg-field">
+                  <p className="wf-bg-label">Tema</p>
+                  <div
+                    className="wf-bg-swatches"
+                    role="radiogroup"
+                    aria-label="Tema"
+                  >
+                    {CONSOLE_THEME_OPTIONS.map((t) => (
+                      <button
+                        key={t.token}
+                        type="button"
+                        className="wf-bg-swatch"
+                        style={{ background: t.swatch }}
+                        role="radio"
+                        aria-checked={consoleTheme === t.token}
+                        aria-pressed={consoleTheme === t.token}
+                        aria-label={t.label}
+                        title={`${t.label} — ${t.blurb}`}
+                        onClick={() => chooseConsoleTheme(t.token)}
+                      />
+                    ))}
+                  </div>
+                  <p className="wf-bg-hint">
+                    Cinco paletas. Aplica-se ao teu painel{isAdmin ? " e à consola" : ""}.
+                  </p>
+                  {consoleThemeError && <p className="wf-bg-error">{consoleThemeError}</p>}
+                </div>
                 <div className="wf-bg-field wf-mode-field">
                   <p className="wf-bg-label">Modo</p>
                   <div
@@ -497,66 +514,6 @@ export function WorkerApp({
                     texto — combina com qualquer fundo.
                   </p>
                   {modeError && <p className="wf-bg-error">{modeError}</p>}
-                </div>
-                <div className="wf-bg-field">
-                  <p className="wf-bg-label">Fonte dos títulos</p>
-                  <select
-                    className="wf-font-select"
-                    aria-label="Fonte dos títulos"
-                    value={font}
-                    onChange={(e) => chooseFont(e.target.value as FontToken)}
-                  >
-                    {FONT_OPTIONS.map((f) => (
-                      <option key={f.token} value={f.token} style={{ fontFamily: f.stack }}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="wf-bg-hint">
-                    Aplica-se só aos títulos do painel. As fontes são carregadas do
-                    Google Fonts.
-                  </p>
-                  {fontError && <p className="wf-bg-error">{fontError}</p>}
-                </div>
-                <div className="wf-bg-field">
-                  <p className="wf-bg-label">Fundo do painel</p>
-                  <div
-                    className="wf-bg-swatches"
-                    role="radiogroup"
-                    aria-label="Fundo do painel"
-                  >
-                    {BACKGROUND_SWATCHES.filter((s) => s.token !== "custom").map((s) => (
-                      <button
-                        key={s.token}
-                        type="button"
-                        className={s.image ? "wf-bg-swatch is-image" : "wf-bg-swatch"}
-                        style={
-                          s.image
-                            ? { backgroundImage: `url(${s.image})` }
-                            : { background: s.swatch }
-                        }
-                        role="radio"
-                        aria-checked={bg === s.token}
-                        aria-pressed={bg === s.token}
-                        aria-label={s.label}
-                        title={s.label}
-                        onClick={() => chooseBackground(s.token)}
-                      />
-                    ))}
-                  </div>
-                  <p className="wf-bg-hint">
-                    Escolhe o tom da tela. Os cartões mantêm-se legíveis em qualquer fundo.
-                  </p>
-                  <p className="wf-bg-credit">
-                    <a
-                      href={BACKGROUND_IMAGE_CREDIT.href}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                    >
-                      {BACKGROUND_IMAGE_CREDIT.text}
-                    </a>
-                  </p>
-                  {bgError && <p className="wf-bg-error">{bgError}</p>}
                 </div>
                 <div className="wf-bg-field">
                   <p className="wf-bg-label">Fundo personalizado</p>
@@ -611,11 +568,6 @@ export function WorkerApp({
                   </p>
                 </div>
               </>
-            ) : (
-              <p>
-                As preferências de fundo são pessoais de cada trabalhador. Como
-                super-utilizador, geres tudo na consola.
-              </p>
             )}
           </div>
           {showBackground && (
@@ -629,34 +581,6 @@ export function WorkerApp({
             <div className="wf-panel">
               <h2>Consola de super-utilizador</h2>
               <p>Gerir organização, áreas, ferramentas, tarefas e atribuições.</p>
-              <div className="wf-bg-field">
-                <p className="wf-bg-label">Tema da consola</p>
-                <div
-                  className="wf-bg-swatches"
-                  role="radiogroup"
-                  aria-label="Tema da consola"
-                >
-                  {CONSOLE_THEME_OPTIONS.map((t) => (
-                    <button
-                      key={t.token}
-                      type="button"
-                      className="wf-bg-swatch"
-                      style={{ background: t.swatch }}
-                      role="radio"
-                      aria-checked={consoleTheme === t.token}
-                      aria-pressed={consoleTheme === t.token}
-                      aria-label={t.label}
-                      title={`${t.label} — ${t.blurb}`}
-                      onClick={() => chooseConsoleTheme(t.token)}
-                    />
-                  ))}
-                </div>
-                <p className="wf-bg-hint">
-                  Aplica-se à consola do super-utilizador (esta zona mantém o seu aspeto).
-                  A escolha fica guardada e vale no próximo acesso à consola.
-                </p>
-                {consoleThemeError && <p className="wf-bg-error">{consoleThemeError}</p>}
-              </div>
               <a className="wf-panel-link" href="/console">
                 Abrir a consola
               </a>

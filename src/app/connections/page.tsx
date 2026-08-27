@@ -3,9 +3,6 @@ import { redirect } from "next/navigation";
 import { getSession, type SessionContext } from "@/lib/session";
 import { getPreferencesService } from "@/modules/preferences/container";
 import {
-  DEFAULT_BACKGROUND,
-  DEFAULT_MODE,
-  DEFAULT_FONT,
   fontOptionFor,
 } from "@/modules/preferences/domain/preferences";
 import { WorkerApp } from "./WorkerApp";
@@ -35,15 +32,14 @@ export default async function ConnectionsPage({
   const banner = bannerFor(sp);
 
   // As prefs resolvem-se no servidor (aplica já no 1.º render, sem flash).
-  // Lê-se para ambos os papéis: o fundo/modo/fonte são só do trabalhador, mas o
-  // super-utilizador precisa do `consoleTheme` para o seletor nas Definições.
+  // Agora valem para TODOS (o tema pinta painel + consola; modo e fundo
+  // personalizado são pessoais de qualquer utilizador).
   const prefs = await getPreferencesService().get(session);
-  const isWorker = session.role === "worker";
-  const background = isWorker ? prefs.background : DEFAULT_BACKGROUND;
-  const mode = isWorker ? prefs.mode : DEFAULT_MODE;
-  const customBackground = isWorker ? prefs.customBackground : null;
-  const customTokens = isWorker ? prefs.customTokens : null;
-  const font = isWorker ? prefs.font : DEFAULT_FONT;
+  const background = prefs.background;
+  const mode = prefs.mode;
+  const customBackground = prefs.customBackground;
+  const customTokens = prefs.customTokens;
+  const font = prefs.font;
   const consoleTheme = prefs.consoleTheme;
   // <link> inicial da fonte escolhida (sem flash no 1.º render; o cliente
   // mantém-no em sincronia nas trocas). "default" usa a fonte base, sem link.
