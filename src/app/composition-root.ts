@@ -46,6 +46,8 @@ import {
   createAssignmentService,
   createAssignmentSuspender,
 } from "@/modules/assignments/service/assignment.service";
+import { DrizzleAreaMembershipRepository } from "@/modules/assignments/data/area-membership.repository";
+import { createAreaMembershipService } from "@/modules/assignments/service/area-membership.service";
 
 /* -- M10 Auditoria/Analytics ----------------------------------------------- */
 import { DrizzleAuditQueryRepository } from "@/modules/audit/data/audit-query.repository";
@@ -160,6 +162,24 @@ export const assignmentService = createAssignmentService({
 export const assignmentSuspender = createAssignmentSuspender(assignmentRepo, taskCatalog, audit);
 export const assignmentReadPort = createAssignmentReadPort(assignmentRepo); // → M7
 
+// --- Pertença a áreas (Slice 3a) — disponibilidade da matriz ---
+const areaRepoForMembership = new DrizzleAreaRepository(db);
+export const areaMembershipService = createAreaMembershipService({
+  membership: new DrizzleAreaMembershipRepository(db),
+  areas: {
+    async listIds(orgId) {
+      return (await areaRepoForMembership.list(orgId)).map((a) => a.id);
+    },
+  },
+  tasks: {
+    async getOrg(taskId) {
+      return (await taskCatalog.getTaskContext(taskId))?.orgId ?? null;
+    },
+  },
+  workers: workerDirectory,
+  audit,
+});
+
 // -------------------------------------------------------------------------- //
 //  Orquestração cross-cutting (evita dependência circular M4↔M5)              //
 //  A propagação "despublicar/revogar → suspende" é composta AQUI, não dentro   //
@@ -226,6 +246,7 @@ export const services = {
   toolService,
   taskService,
   assignmentService,
+  areaMembershipService,
   auditService,
   metricsService,
   mappingService,

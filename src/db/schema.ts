@@ -9,6 +9,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -448,6 +449,72 @@ export const aiBindings = pgTable(
 );
 
 /* -------------------------------------------------------------------------- */
+/*  Pertença a áreas (Slice 3a) — disponibilidade e atribuição por área         */
+/* -------------------------------------------------------------------------- */
+
+// Em que áreas uma Task está DISPONÍVEL (gate da matriz). M:N task↔área.
+export const taskAreas = pgTable(
+  "task_areas",
+  {
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    areaId: uuid("area_id")
+      .notNull()
+      .references(() => functionalAreas.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.taskId, t.areaId] }),
+    // Reverso área→tarefas (as tarefas disponíveis numa área).
+    areaIdx: index("task_areas_area_idx").on(t.areaId),
+  }),
+);
+
+// A que áreas um trabalhador pertence. M:N user↔área.
+export const userAreas = pgTable(
+  "user_areas",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    areaId: uuid("area_id")
+      .notNull()
+      .references(() => functionalAreas.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.areaId] }),
+    // Reverso área→trabalhadores (quem pertence a uma área).
+    areaIdx: index("user_areas_area_idx").on(t.areaId),
+  }),
+);
+
+// Intenção ao nível da área (molde + origem do reconcile «Atualizar»).
+// A fonte de verdade que os runs consomem continua a ser task_assignments;
+// isto é o Modelo P: a área espalha, mas não substitui o por-trabalhador.
+export const areaAssignments = pgTable(
+  "area_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    areaId: uuid("area_id")
+      .notNull()
+      .references(() => functionalAreas.id, { onDelete: "cascade" }),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    enabled: boolean("enabled").notNull().default(false),
+    enabledBy: uuid("enabled_by").references(() => users.id, { onDelete: "set null" }),
+    enabledAt: timestamp("enabled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    areaTaskUq: uniqueIndex("area_assignments_area_task_uq").on(t.areaId, t.taskId),
+    areaIdx: index("area_assignments_area_idx").on(t.areaId),
+  }),
+);
+
+/* -------------------------------------------------------------------------- */
 /*  Relations (para queries tipadas com o query builder do Drizzle)            */
 /* -------------------------------------------------------------------------- */
 
@@ -534,6 +601,30 @@ export const monthlyArchivesRelations = relations(monthlyArchives, ({ one }) => 
     fields: [monthlyArchives.workerId],
     references: [users.id],
   }),
+}));
+
+export const taskAreasRelations = relations(taskAreas, ({ one }) => ({
+  task: one(tasks, { fields: [taskAreas.taskId], references: [tasks.id] }),
+  area: one(functionalAreas, {
+    fields: [taskAreas.areaId],
+    references: [functionalAreas.id],
+  }),
+}));
+
+export const userAreasRelations = relations(userAreas, ({ one }) => ({
+  user: one(users, { fields: [userAreas.userId], references: [users.id] }),
+  area: one(functionalAreas, {
+    fields: [userAreas.areaId],
+    references: [functionalAreas.id],
+  }),
+}));
+
+export const areaAssignmentsRelations = relations(areaAssignments, ({ one }) => ({
+  area: one(functionalAreas, {
+    fields: [areaAssignments.areaId],
+    references: [functionalAreas.id],
+  }),
+  task: one(tasks, { fields: [areaAssignments.taskId], references: [tasks.id] }),
 }));
 
 export const aiProvidersRelations = relations(aiProviders, ({ one }) => ({

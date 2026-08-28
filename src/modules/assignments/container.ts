@@ -4,7 +4,10 @@ import { createDrizzleAudit } from "@/lib/audit.drizzle";
 import { taskCatalogPort } from "@/modules/tasks";
 import { createDrizzleReadiness } from "@/platform/readiness/readiness.drizzle";
 import { DrizzleAssignmentRepository } from "./data/assignment.repository";
+import { DrizzleAreaMembershipRepository } from "./data/area-membership.repository";
 import { createDrizzleWorkerDirectory } from "./infra/worker-directory.drizzle";
+import { createAreaMembershipService } from "./service/area-membership.service";
+import { DrizzleAreaRepository } from "@/modules/org/data/area.repository";
 import {
   createAssignmentReadPort,
   createAssignmentService,
@@ -53,3 +56,23 @@ export const assignmentService = createAssignmentService({
 // Ports expostos.
 export const assignmentSuspender = createAssignmentSuspender(repo, taskDeps, audit);
 export const assignmentReadPort = createAssignmentReadPort(repo);
+
+// --- Pertença a áreas (Slice 3a) ---
+// areas.listIds via repo do M2; tasks.getOrg via taskCatalogPort (M4);
+// workers via a mesma WorkerDirectory do M5.
+const areaRepo = new DrizzleAreaRepository(db);
+export const areaMembershipService = createAreaMembershipService({
+  membership: new DrizzleAreaMembershipRepository(db),
+  areas: {
+    async listIds(orgId) {
+      return (await areaRepo.list(orgId)).map((a) => a.id);
+    },
+  },
+  tasks: {
+    async getOrg(taskId) {
+      return (await taskCatalogPort.getTaskContext(taskId))?.orgId ?? null;
+    },
+  },
+  workers: createDrizzleWorkerDirectory(db),
+  audit,
+});

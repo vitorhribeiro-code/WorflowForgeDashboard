@@ -50,6 +50,13 @@
       "when": 1786340000000,
       "tag": "0006_assignment_use_writing_style",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788350000000,
+      "tag": "0007_area_membership",
+      "breakpoints": true
     }
   ]
 }
