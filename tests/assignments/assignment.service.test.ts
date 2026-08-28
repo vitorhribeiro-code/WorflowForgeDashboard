@@ -350,3 +350,30 @@ describe("setWritingStyleFlag", () => {
     });
   });
 });
+
+describe("remove", () => {
+  it("apaga a atribuição e regista auditoria (admin)", async () => {
+    const { service, repo, audit } = setup(true);
+    const a = await service.create(ADMIN, { taskId: "t1", workerId: "w1" });
+    expect(repo.rows).toHaveLength(1);
+
+    await service.remove(ADMIN, a.id);
+
+    expect(repo.rows).toHaveLength(0);
+    expect(audit.actions()).toContain("assignment.removed");
+  });
+
+  it("404 quando a atribuição não existe", async () => {
+    const { service } = setup(true);
+    await expect(service.remove(ADMIN, "nao-existe")).rejects.toMatchObject({
+      code: "ASSIGNMENT_NOT_FOUND",
+      status: 404,
+    });
+  });
+
+  it("recusa a um worker (requer admin)", async () => {
+    const { service } = setup(true);
+    const a = await service.create(ADMIN, { taskId: "t1", workerId: "w1" });
+    await expect(service.remove(WORKER, a.id)).rejects.toMatchObject({ status: 403 });
+  });
+});

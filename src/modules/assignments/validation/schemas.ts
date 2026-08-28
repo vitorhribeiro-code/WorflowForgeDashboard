@@ -32,3 +32,9 @@ export const setScheduleSchema = z.object({
 export const reorderSchema = z.object({
   order: z.array(z.string().uuid()).min(1).max(200),
 });
+
+// Definir o conjunto de áreas de um trabalhador ou de uma tarefa (substituição
+// de conjunto). Lista vazia = remover de todas as áreas. Deduplicado no serviço.
+export const setAreasSchema = z.object({
+  areaIds: z.array(z.string().uuid()).max(100),
+});

@@ -125,5 +125,61 @@ export function useMatrix() {
     [refetch],
   );
 
-  return { matrix, loading, error, refetch, setCell, setSchedule, setWritingStyle };
+  // Remove a atribuição de uma célula (o trabalhador deixa de ver a tarefa).
+  // Diferente de desativar (OFF), que mantém o cartão visível mas pausado.
+  const removeCell = useCallback(async (assignmentId: string) => {
+    await api(`/api/assignments/${assignmentId}`, { method: "DELETE" });
+  }, []);
+
+  // Define (substituição de conjunto) as áreas de um trabalhador ou de uma
+  // tarefa. Faz refetch para a matriz recalcular a disponibilidade das células.
+  const setWorkerAreas = useCallback(
+    async (workerId: string, areaIds: string[]) => {
+      await api(`/api/workers/${workerId}/areas`, {
+        method: "PUT",
+        body: JSON.stringify({ areaIds }),
+      });
+      refetch();
+    },
+    [refetch],
+  );
+  const setTaskAreas = useCallback(
+    async (taskId: string, areaIds: string[]) => {
+      await api(`/api/tasks/${taskId}/areas`, {
+        method: "PUT",
+        body: JSON.stringify({ areaIds }),
+      });
+      refetch();
+    },
+    [refetch],
+  );
+
+  return {
+    matrix,
+    loading,
+    error,
+    refetch,
+    setCell,
+    setSchedule,
+    setWritingStyle,
+    removeCell,
+    setWorkerAreas,
+    setTaskAreas,
+  };
+}
+
+// Áreas funcionais da org (para os seletores mínimos da 3b.1).
+export type AreaLite = { id: string; name: string };
+
+export function useAreas() {
+  const [areas, setAreas] = useState<AreaLite[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api<AreaLite[]>("/api/areas")
+      .then(setAreas)
+      .catch((e) => setError(e instanceof Error ? e.message : "Erro"));
+  }, []);
+
+  return { areas, error };
 }

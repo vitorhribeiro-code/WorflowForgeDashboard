@@ -96,9 +96,29 @@ export type MatrixCell = {
   readiness: AssignmentReadiness;
 };
 
-export type AssignmentMatrix = {
-  tasks: Array<{ id: string; name: string; type: TaskType; runtime: string; published: boolean }>;
+export type MatrixTask = {
+  id: string;
+  name: string;
+  type: TaskType;
+  runtime: string;
+  published: boolean;
+};
+
+// O que o serviço `matrix()` produz — SEM áreas. A junção com as áreas
+// (task_areas / user_areas) é feita na ROTA (slice 3b.1), para não injetar o
+// membership no assignmentService (evita tocar nos DOIS composition roots).
+export type BaseAssignmentMatrix = {
+  tasks: MatrixTask[];
   workers: WorkerSummary[];
+  cells: MatrixCell[];
+};
+
+// Tipo de wire consumido pela UI: cada task e cada worker enriquecidos com as
+// áreas a que pertencem/estão disponíveis. A célula é acionável sse
+// áreas(worker) ∩ áreas(task) ≠ ∅ (calculado no cliente).
+export type AssignmentMatrix = {
+  tasks: Array<MatrixTask & { areaIds: string[] }>;
+  workers: Array<WorkerSummary & { areaIds: string[] }>;
   cells: MatrixCell[];
 };
 

@@ -2826,3 +2826,247 @@ button.btn-danger:disabled {
 .collision-strong { color: var(--warning, var(--text)); border-color: var(--warning, var(--border)); }
 .collision-weak { color: var(--muted); }
 .collision-name { flex: 1; }
+
+/* ==================================================================== */
+/*  Slice 3b.1 — Mapa de utilizadores (matriz virada) + interruptor      */
+/*  ON/OFF. Cores SEMPRE pelos tokens dos 5 temas (:root/.console),       */
+/*  nunca a paleta fixa do anexo. Tokens extra têm fallback defensivo.    */
+/* ==================================================================== */
+
+/* Interruptor ON/OFF (estilo pílula do anexo) ------------------------- */
+.wf-switch {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+  user-select: none;
+  flex: none;
+}
+.wf-switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+}
+.wf-switch-track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 64px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--panel-2, var(--panel));
+  border: 1px solid var(--border);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.wf-switch-knob {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: left 0.15s ease, background 0.15s ease;
+}
+.wf-switch-text {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.wf-switch-text-on {
+  left: 11px;
+  color: var(--accent-fg);
+  opacity: 0;
+}
+.wf-switch-text-off {
+  right: 11px;
+  color: var(--muted);
+  opacity: 1;
+}
+/* Estado ON: acento do tema. */
+.wf-switch-input:checked ~ .wf-switch-track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.wf-switch-input:checked ~ .wf-switch-track .wf-switch-knob {
+  left: calc(100% - 23px);
+  background: var(--accent-fg);
+}
+.wf-switch-input:checked ~ .wf-switch-track .wf-switch-text-on {
+  opacity: 1;
+}
+.wf-switch-input:checked ~ .wf-switch-track .wf-switch-text-off {
+  opacity: 0;
+}
+.wf-switch-input:disabled ~ .wf-switch-track {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.wf-switch-input:focus-visible ~ .wf-switch-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Matriz virada (trabalhadores em linha, tarefas em coluna) ----------- */
+/* Cartões arredondados com folga, ao estilo do anexo 2. */
+.matrix-users {
+  border-collapse: separate;
+  border-spacing: 6px;
+}
+.matrix-users th,
+.matrix-users td {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  background: var(--panel);
+  vertical-align: top;
+}
+.matrix-users .matrix-corner {
+  background: transparent;
+  border-color: transparent;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+.matrix-corner-label {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.matrix-users thead .matrix-taskhead {
+  background: var(--panel-2, var(--panel));
+  min-width: 190px;
+  max-width: 240px;
+}
+.matrix-users .matrix-taskhead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* Coluna do trabalhador fixa ao fazer scroll horizontal. */
+.matrix-users .matrix-worker {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--panel-2, var(--panel));
+  min-width: 200px;
+  max-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.matrix-worker-name {
+  color: var(--text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.matrix-worker-areas {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+/* Conteúdo da célula. */
+.matrix-cell-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* Célula ON recebe um tom de acento subtil (como o anexo destaca as ativas). */
+.matrix-users td.matrix-cell-on {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* Célula fora da interseção áreas(worker) ∩ áreas(tarefa): esbatida. */
+.matrix-users td.matrix-cell-blocked {
+  background: transparent;
+  border-style: dashed;
+  opacity: 0.45;
+  text-align: center;
+}
+.matrix-cell-dash {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Remover por-célula (+ confirmação inline). */
+.matrix-remove {
+  margin-left: auto;
+}
+.matrix-remove-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.btn-mini.danger {
+  background: var(--danger);
+  color: var(--danger-bg);
+  border-color: var(--danger);
+}
+.btn-mini.danger:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+/* Seletor de áreas mínimo (3b.1) ------------------------------------- */
+.area-picker {
+  position: relative;
+}
+.area-picker-btn {
+  white-space: nowrap;
+}
+.area-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: transparent;
+}
+.area-picker-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 31;
+  min-width: 180px;
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  box-shadow: var(--card-shadow, 0 8px 24px rgba(0, 0, 0, 0.35));
+}
+.area-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.area-picker-item:hover {
+  background: var(--panel-2, var(--bg));
+}
+.area-picker-item input {
+  cursor: pointer;
+}
+.area-picker-empty {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 6px;
+}

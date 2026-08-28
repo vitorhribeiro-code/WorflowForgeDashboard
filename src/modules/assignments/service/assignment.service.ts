@@ -12,7 +12,7 @@ import type {
 import { requireAdmin } from "./guards";
 import type {
   AssignmentForRun,
-  AssignmentMatrix,
+  BaseAssignmentMatrix,
   AssignmentReadPort,
   AssignmentSuspenderPort,
   MatrixCell,
@@ -136,7 +136,7 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
     // (colunas) e, por célula, a atribuição (se existir) + a prontidão. A
     // prontidão calcula-se mesmo em células sem atribuição, para o admin ver o
     // semáforo antes de tentar ativar.
-    async matrix(session: SessionContext): Promise<AssignmentMatrix> {
+    async matrix(session: SessionContext): Promise<BaseAssignmentMatrix> {
       requireAdmin(session);
       const [tasks, workerList, assignments] = await Promise.all([
         taskDeps.listTasks(session.orgId),
@@ -287,6 +287,22 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
         entityId: id,
       });
       return updated!;
+    },
+
+    // Remover a atribuição (por-célula, no Mapa de utilizadores). Apaga a linha
+    // — a cascata do schema leva os runs (onDelete: cascade). O trabalhador
+    // deixa de ver a tarefa. É diferente de `disable` (que mantém o cartão
+    // visível, só pausado). Só admin; valida existência+org antes de apagar.
+    async remove(session: SessionContext, id: string): Promise<void> {
+      requireAdmin(session);
+      await load(session, id); // 404 se não existir / for de outra org
+      await repo.remove(id);
+      await safeAudit(audit, {
+        actorId: session.userId,
+        action: "assignment.removed",
+        entity: "task_assignment",
+        entityId: id,
+      });
     },
 
     // Editar config: revalida contra o schema vigente. Não afeta Runs em curso.
