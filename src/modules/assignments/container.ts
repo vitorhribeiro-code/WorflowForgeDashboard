@@ -5,8 +5,10 @@ import { taskCatalogPort } from "@/modules/tasks";
 import { createDrizzleReadiness } from "@/platform/readiness/readiness.drizzle";
 import { DrizzleAssignmentRepository } from "./data/assignment.repository";
 import { DrizzleAreaMembershipRepository } from "./data/area-membership.repository";
+import { DrizzleAreaAssignmentRepository } from "./data/area-assignment.repository";
 import { createDrizzleWorkerDirectory } from "./infra/worker-directory.drizzle";
 import { createAreaMembershipService } from "./service/area-membership.service";
+import { createAreaAssignmentService } from "./service/area-assignment.service";
 import { DrizzleAreaRepository } from "@/modules/org/data/area.repository";
 import {
   createAssignmentReadPort,
@@ -61,18 +63,59 @@ export const assignmentReadPort = createAssignmentReadPort(repo);
 // areas.listIds via repo do M2; tasks.getOrg via taskCatalogPort (M4);
 // workers via a mesma WorkerDirectory do M5.
 const areaRepo = new DrizzleAreaRepository(db);
+const areaMembershipRepo = new DrizzleAreaMembershipRepository(db);
+const areasListPort = {
+  async listIds(orgId: string) {
+    return (await areaRepo.list(orgId)).map((a) => a.id);
+  },
+};
+const taskOrgPort = {
+  async getOrg(taskId: string) {
+    return (await taskCatalogPort.getTaskContext(taskId))?.orgId ?? null;
+  },
+};
 export const areaMembershipService = createAreaMembershipService({
-  membership: new DrizzleAreaMembershipRepository(db),
-  areas: {
-    async listIds(orgId) {
-      return (await areaRepo.list(orgId)).map((a) => a.id);
-    },
-  },
-  tasks: {
-    async getOrg(taskId) {
-      return (await taskCatalogPort.getTaskContext(taskId))?.orgId ?? null;
-    },
-  },
+  membership: areaMembershipRepo,
+  areas: areasListPort,
+  tasks: taskOrgPort,
   workers: createDrizzleWorkerDirectory(db),
   audit,
+});
+
+// --- Atribuição por área (Slice 3a.2 — Modelo P: fan-out + reconcile) ---
+export const areaAssignmentService = createAreaAssignmentService({
+  areaRepo: new DrizzleAreaAssignmentRepository(db),
+  membership: areaMembershipRepo,
+  ops: {
+    async create(session, input) {
+      const a = await assignmentService.create(session, input);
+      return { id: a.id };
+    },
+    async enable(session, id) {
+      await assignmentService.enable(session, id);
+    },
+    async disable(session, id) {
+      await assignmentService.disable(session, id);
+    },
+  },
+  query: {
+    async findByTaskWorker(taskId, workerId) {
+      const a = await repo.findByTaskWorker(taskId, workerId);
+      return a ? { id: a.id, enabled: a.enabled } : null;
+    },
+    async listByWorker(workerId) {
+      return (await repo.listByWorker(workerId)).map((a) => ({
+        id: a.id,
+        taskId: a.taskId,
+        enabled: a.enabled,
+      }));
+    },
+    async remove(id) {
+      return repo.remove(id);
+    },
+  },
+  areas: areasListPort,
+  tasks: taskOrgPort,
+  audit,
+  now: () => new Date(),
 });

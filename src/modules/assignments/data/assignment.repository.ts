@@ -29,6 +29,9 @@ export interface AssignmentRepository {
   // Suspensão em massa (propagação de despublicar/revogar).
   suspendForTask(taskId: string): Promise<number>;
   disableIfEnabled(id: string): Promise<boolean>;
+  // Apaga a atribuição (cascata do schema leva os runs). Usado pela limpeza de
+  // órfãs por disponibilidade (área) e pelo «Remover» por-célula (M5/3b).
+  remove(id: string): Promise<boolean>;
 }
 
 function toAssignment(row: typeof taskAssignments.$inferSelect): TaskAssignment {
@@ -191,6 +194,14 @@ export class DrizzleAssignmentRepository implements AssignmentRepository {
       .update(taskAssignments)
       .set({ enabled: false, enabledBy: null, enabledAt: null })
       .where(and(eq(taskAssignments.id, id), eq(taskAssignments.enabled, true)))
+      .returning({ id: taskAssignments.id });
+    return rows.length > 0;
+  }
+
+  async remove(id: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(taskAssignments)
+      .where(eq(taskAssignments.id, id))
       .returning({ id: taskAssignments.id });
     return rows.length > 0;
   }

@@ -4,12 +4,18 @@ export {
   assignmentSuspender,
   assignmentReadPort,
   areaMembershipService,
+  areaAssignmentService,
 } from "./container";
 export type { AssignmentService } from "./service/assignment.service";
 export type {
   AreaMembershipService,
   AvailabilityMap,
 } from "./service/area-membership.service";
+export type {
+  AreaAssignmentService,
+  FanOutSummary,
+  ReconcileSummary,
+} from "./service/area-assignment.service";
 export type {
   AssignmentSuspenderPort,
   AssignmentReadPort,

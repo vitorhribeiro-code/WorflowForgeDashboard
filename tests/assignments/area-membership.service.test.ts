@@ -50,6 +50,16 @@ class FakeMembershipRepo implements AreaMembershipRepository {
         for (const areaId of areas) out.push({ userId, areaId });
     return out;
   }
+  async listUserIdsByArea(areaId: string) {
+    const out: string[] = [];
+    for (const [userId, areas] of this.userMap) if (areas.has(areaId)) out.push(userId);
+    return out;
+  }
+  async listTaskIdsByArea(areaId: string) {
+    const out: string[] = [];
+    for (const [taskId, areas] of this.taskMap) if (areas.has(areaId)) out.push(taskId);
+    return out;
+  }
 }
 
 function build() {

@@ -95,6 +95,12 @@ class FakeRepo implements AssignmentRepository {
   async disableIfEnabled() {
     return false;
   }
+  async remove(id: string) {
+    const i = this.rows.findIndex((x) => x.id === id);
+    if (i < 0) return false;
+    this.rows.splice(i, 1);
+    return true;
+  }
   async reorderForWorker(workerId: string, orderedIds: string[]) {
     orderedIds.forEach((id, i) => {
       const a = this.rows.find((x) => x.id === id && x.workerId === workerId);

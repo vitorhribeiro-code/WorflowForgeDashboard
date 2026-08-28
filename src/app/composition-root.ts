@@ -47,7 +47,9 @@ import {
   createAssignmentSuspender,
 } from "@/modules/assignments/service/assignment.service";
 import { DrizzleAreaMembershipRepository } from "@/modules/assignments/data/area-membership.repository";
+import { DrizzleAreaAssignmentRepository } from "@/modules/assignments/data/area-assignment.repository";
 import { createAreaMembershipService } from "@/modules/assignments/service/area-membership.service";
+import { createAreaAssignmentService } from "@/modules/assignments/service/area-assignment.service";
 
 /* -- M10 Auditoria/Analytics ----------------------------------------------- */
 import { DrizzleAuditQueryRepository } from "@/modules/audit/data/audit-query.repository";
@@ -164,20 +166,61 @@ export const assignmentReadPort = createAssignmentReadPort(assignmentRepo); // �
 
 // --- Pertença a áreas (Slice 3a) — disponibilidade da matriz ---
 const areaRepoForMembership = new DrizzleAreaRepository(db);
+const areaMembershipRepo = new DrizzleAreaMembershipRepository(db);
+const areasListPort = {
+  async listIds(orgId: string) {
+    return (await areaRepoForMembership.list(orgId)).map((a) => a.id);
+  },
+};
+const taskOrgPort = {
+  async getOrg(taskId: string) {
+    return (await taskCatalog.getTaskContext(taskId))?.orgId ?? null;
+  },
+};
 export const areaMembershipService = createAreaMembershipService({
-  membership: new DrizzleAreaMembershipRepository(db),
-  areas: {
-    async listIds(orgId) {
-      return (await areaRepoForMembership.list(orgId)).map((a) => a.id);
-    },
-  },
-  tasks: {
-    async getOrg(taskId) {
-      return (await taskCatalog.getTaskContext(taskId))?.orgId ?? null;
-    },
-  },
+  membership: areaMembershipRepo,
+  areas: areasListPort,
+  tasks: taskOrgPort,
   workers: workerDirectory,
   audit,
+});
+
+// --- Atribuição por área (Slice 3a.2 — Modelo P: fan-out + reconcile) ---
+export const areaAssignmentService = createAreaAssignmentService({
+  areaRepo: new DrizzleAreaAssignmentRepository(db),
+  membership: areaMembershipRepo,
+  ops: {
+    async create(session, input) {
+      const a = await assignmentService.create(session, input);
+      return { id: a.id };
+    },
+    async enable(session, id) {
+      await assignmentService.enable(session, id);
+    },
+    async disable(session, id) {
+      await assignmentService.disable(session, id);
+    },
+  },
+  query: {
+    async findByTaskWorker(taskId, workerId) {
+      const a = await assignmentRepo.findByTaskWorker(taskId, workerId);
+      return a ? { id: a.id, enabled: a.enabled } : null;
+    },
+    async listByWorker(workerId) {
+      return (await assignmentRepo.listByWorker(workerId)).map((a) => ({
+        id: a.id,
+        taskId: a.taskId,
+        enabled: a.enabled,
+      }));
+    },
+    async remove(id) {
+      return assignmentRepo.remove(id);
+    },
+  },
+  areas: areasListPort,
+  tasks: taskOrgPort,
+  audit,
+  now,
 });
 
 // -------------------------------------------------------------------------- //
@@ -247,6 +290,7 @@ export const services = {
   taskService,
   assignmentService,
   areaMembershipService,
+  areaAssignmentService,
   auditService,
   metricsService,
   mappingService,

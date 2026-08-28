@@ -16,6 +16,9 @@ export interface AreaMembershipRepository {
   // Leituras por org (join às tabelas base) — alimentam a matriz.
   listTaskAreasByOrg(orgId: string): Promise<AreaPair[]>;
   listUserAreasByOrg(orgId: string): Promise<UserAreaPair[]>;
+  // Reverso por área — alimentam o fan-out/reconcile (Slice 3a.2).
+  listUserIdsByArea(areaId: string): Promise<string[]>;
+  listTaskIdsByArea(areaId: string): Promise<string[]>;
 }
 
 export class DrizzleAreaMembershipRepository implements AreaMembershipRepository {
@@ -92,5 +95,21 @@ export class DrizzleAreaMembershipRepository implements AreaMembershipRepository
       .innerJoin(users, eq(users.id, userAreas.userId))
       .where(eq(users.organizationId, orgId));
     return rows;
+  }
+
+  async listUserIdsByArea(areaId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ userId: userAreas.userId })
+      .from(userAreas)
+      .where(eq(userAreas.areaId, areaId));
+    return rows.map((r) => r.userId);
+  }
+
+  async listTaskIdsByArea(areaId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ taskId: taskAreas.taskId })
+      .from(taskAreas)
+      .where(eq(taskAreas.areaId, areaId));
+    return rows.map((r) => r.taskId);
   }
 }
