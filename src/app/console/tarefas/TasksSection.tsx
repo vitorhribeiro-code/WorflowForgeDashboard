@@ -23,14 +23,29 @@ async function apiGet<T>(url: string): Promise<T> {
   return body as T;
 }
 
+async function apiPut<T>(url: string, payload: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.message ?? `HTTP ${res.status}`);
+  return body as T;
+}
+
+type AreaLite = { id: string; name: string };
+
 /* -- Editor de ferramentas exigidas + publicação (só com uma Task selecionada) -- */
 function TaskDetail({
   task,
   tools,
+  areas,
   onPublished,
 }: {
   task: Task;
   tools: Tool[] | null;
+  areas: AreaLite[] | null;
   onPublished: () => void;
 }) {
   const { setRequiredTools, publish } = useTasks();
@@ -38,20 +53,29 @@ function TaskDetail({
   const [pub, setPub] = useState<Publishability | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Áreas onde a tarefa está DISPONÍVEL (task_areas — o que a matriz usa).
+  const [myAreas, setMyAreas] = useState<Set<string> | undefined>(undefined);
+  const [areaBusy, setAreaBusy] = useState<string | null>(null);
+  const [areaErr, setAreaErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setMsg(null);
+    setMyAreas(undefined);
+    setAreaErr(null);
     try {
-      const [current, detail] = await Promise.all([
+      const [current, detail, taskAreas] = await Promise.all([
         apiGet<RequiredTool[]>(`/api/tasks/${task.id}/required-tools`),
         apiGet<{ publishability: Publishability }>(`/api/tasks/${task.id}`),
+        apiGet<{ areaIds: string[] }>(`/api/tasks/${task.id}/areas`),
       ]);
       const map: Record<string, { required: boolean; scopes: Set<string> }> = {};
       for (const rt of current) map[rt.toolId] = { required: true, scopes: new Set(rt.scopes) };
       setSel(map);
       setPub(detail.publishability);
+      setMyAreas(new Set(taskAreas.areaIds));
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Erro a carregar detalhe");
+      setMyAreas(new Set());
     }
   }, [task.id]);
 
@@ -107,9 +131,69 @@ function TaskDetail({
     }
   }
 
+  // Alterna a disponibilidade da tarefa numa área (substituição de conjunto).
+  // Otimista; reverte em erro. Ao concluir, a matriz de atribuições passa a
+  // mostrar/esconder as células desta tarefa nessa área.
+  async function toggleArea(areaId: string) {
+    if (!myAreas) return;
+    const next = new Set(myAreas);
+    if (next.has(areaId)) next.delete(areaId);
+    else next.add(areaId);
+    const prev = myAreas;
+    setMyAreas(next);
+    setAreaBusy(areaId);
+    setAreaErr(null);
+    try {
+      await apiPut(`/api/tasks/${task.id}/areas`, { areaIds: [...next] });
+    } catch (e) {
+      setMyAreas(prev);
+      setAreaErr(e instanceof Error ? e.message : "Não foi possível guardar as áreas");
+    } finally {
+      setAreaBusy(null);
+    }
+  }
+
   return (
     <div className="panel task-detail">
       <h2>Ferramentas exigidas — {task.name}</h2>
+
+      {/* Áreas onde a tarefa fica disponível (task_areas — usado pela matriz) */}
+      <div className="task-detail-areas">
+        <h3>Áreas onde aparece</h3>
+        <p className="muted">
+          A tarefa só fica disponível na matriz de atribuições para trabalhadores destas áreas. Sem
+          áreas, nenhuma célula acende.
+        </p>
+        {areaErr ? <p className="panel-error">{areaErr}</p> : null}
+        {!areas || myAreas === undefined ? (
+          <p className="muted">A carregar…</p>
+        ) : areas.length === 0 ? (
+          <p className="muted">
+            Ainda não há áreas. Cria-as em <strong>Áreas &amp; Utilizadores</strong>.
+          </p>
+        ) : (
+          <div className="wk-areas">
+            {areas.map((a) => {
+              const on = myAreas.has(a.id);
+              return (
+                <label
+                  key={a.id}
+                  className={`wk-area-chip${on ? " on" : ""}`}
+                  aria-busy={areaBusy === a.id}
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={areaBusy !== null}
+                    onChange={() => toggleArea(a.id)}
+                  />
+                  <span>{a.name}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {!tools ? (
         <p className="muted">A carregar ferramentas…</p>
@@ -306,7 +390,7 @@ export function TasksSection() {
       </div>
 
       {selected ? (
-        <TaskDetail task={selected} tools={tools} onPublished={refetch} />
+        <TaskDetail task={selected} tools={tools} areas={areas ?? null} onPublished={refetch} />
       ) : (
         <p className="muted select-hint">Seleciona ou cria uma tarefa para gerir ferramentas e publicar.</p>
       )}
