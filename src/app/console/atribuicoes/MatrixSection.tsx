@@ -240,21 +240,23 @@ export function MatrixSection() {
                   const isAuto = t.type === "automation";
                   return (
                     <th key={t.id} className="matrix-taskhead">
-                      <span className="matrix-task-name" title={t.name}>
-                        {t.name}
-                      </span>
-                      <span className="matrix-task-meta">
-                        {isAuto ? "automática" : "assistida"}
-                        {t.published ? "" : " · rascunho"}
-                      </span>
-                      <AreaPicker
-                        label="Áreas"
-                        allAreas={allAreas}
-                        selected={t.areaIds}
-                        onApply={(ids) =>
-                          run(`task-areas:${t.id}`, () => setTaskAreas(t.id, ids))
-                        }
-                      />
+                      <div className="matrix-headbox">
+                        <span className="matrix-task-name" title={t.name}>
+                          {t.name}
+                        </span>
+                        <span className="matrix-task-meta">
+                          {isAuto ? "automática" : "assistida"}
+                          {t.published ? "" : " · rascunho"}
+                        </span>
+                        <AreaPicker
+                          label="Áreas"
+                          allAreas={allAreas}
+                          selected={t.areaIds}
+                          onApply={(ids) =>
+                            run(`task-areas:${t.id}`, () => setTaskAreas(t.id, ids))
+                          }
+                        />
+                      </div>
                     </th>
                   );
                 })}
@@ -264,20 +266,22 @@ export function MatrixSection() {
               {workers.map((w) => (
                 <tr key={w.id}>
                   <th scope="row" className="matrix-worker">
-                    <span className="matrix-worker-name" title={w.email}>
-                      {w.email}
-                    </span>
-                    <span className="matrix-worker-areas">
-                      {w.areaIds.length === 0
-                        ? "sem áreas"
-                        : w.areaIds.map((id) => areaName.get(id) ?? "—").join(" · ")}
-                    </span>
-                    <AreaPicker
-                      label="Áreas"
-                      allAreas={allAreas}
-                      selected={w.areaIds}
-                      onApply={(ids) => run(`worker-areas:${w.id}`, () => setWorkerAreas(w.id, ids))}
-                    />
+                    <div className="matrix-headbox">
+                      <span className="matrix-worker-name" title={w.email}>
+                        {w.email}
+                      </span>
+                      <span className="matrix-worker-areas">
+                        {w.areaIds.length === 0
+                          ? "sem áreas"
+                          : w.areaIds.map((id) => areaName.get(id) ?? "—").join(" · ")}
+                      </span>
+                      <AreaPicker
+                        label="Áreas"
+                        allAreas={allAreas}
+                        selected={w.areaIds}
+                        onApply={(ids) => run(`worker-areas:${w.id}`, () => setWorkerAreas(w.id, ids))}
+                      />
+                    </div>
                   </th>
                   {tasks.map((t) => {
                     const key = `${t.id}:${w.id}`;

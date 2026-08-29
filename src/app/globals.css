@@ -2944,7 +2944,10 @@ button.btn-danger:disabled {
   min-width: 190px;
   max-width: 240px;
 }
-.matrix-users .matrix-taskhead {
+/* Wrapper interior com o layout em coluna. O <th>/<td> TEM de continuar
+   table-cell — pôr display:flex na própria célula tira-a da grelha da tabela
+   e as colunas colapsam todas para uma. */
+.matrix-headbox {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -2957,9 +2960,6 @@ button.btn-danger:disabled {
   background: var(--panel-2, var(--panel));
   min-width: 200px;
   max-width: 240px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
 }
 .matrix-worker-name {
   color: var(--text);
