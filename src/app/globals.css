@@ -3070,3 +3070,66 @@ button.btn-danger:disabled {
   font-size: 12px;
   padding: 6px;
 }
+
+/* ==================================================================== */
+/*  Seletor de áreas na ficha do trabalhador (M2). Chips toggle, cores    */
+/*  pelos tokens do tema da consola (:root/.console[data-theme]).         */
+/* ==================================================================== */
+.wk-areas-count {
+  font-size: 12px;
+}
+.wk-areas-hint {
+  margin-top: 0;
+}
+.wk-areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wk-area-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-2, var(--panel));
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.wk-area-chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+.wk-area-chip.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+.wk-area-chip[aria-busy="true"] {
+  opacity: 0.6;
+}
+/* O checkbox real fica escondido; o chip inteiro é o alvo de clique. */
+.wk-area-chip input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+}
+.wk-area-chip::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1.5px solid currentColor;
+  opacity: 0.5;
+  flex: none;
+}
+.wk-area-chip.on::before {
+  opacity: 1;
+  background: var(--accent-fg);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}

@@ -82,6 +82,19 @@ async function getJson<T>(url: string): Promise<T> {
   return body as T;
 }
 
+async function putJson<T>(url: string, payload: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((body as { message?: string })?.message ?? `HTTP ${res.status}`);
+  return body as T;
+}
+
+type AreaLite = { id: string; name: string };
+
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -151,10 +164,12 @@ function WorkerFicha({
   worker,
   matrix,
   onStyleChanged,
+  onAreasChanged,
 }: {
   worker: MatrixWorker;
   matrix: Matrix;
   onStyleChanged: () => void;
+  onAreasChanged: () => void;
 }) {
   const [style, setStyle] = useState<StyleView | undefined>(undefined); // undefined = a carregar
   const [conns, setConns] = useState<ConnectionView[] | undefined>(undefined);
@@ -163,6 +178,11 @@ function WorkerFicha({
   const [bg, setBg] = useState<BackgroundToken | undefined>(undefined); // undefined = a carregar
   const [mode, setMode] = useState<ModeToken | undefined>(undefined); // undefined = a carregar
   const [font, setFont] = useState<FontToken | undefined>(undefined);
+  // Áreas: catálogo da org + as áreas atuais do trabalhador (Set para toggle).
+  const [allAreas, setAllAreas] = useState<AreaLite[] | undefined>(undefined);
+  const [myAreas, setMyAreas] = useState<Set<string> | undefined>(undefined);
+  const [areaBusy, setAreaBusy] = useState<string | null>(null); // areaId em curso
+  const [areaErr, setAreaErr] = useState<string | null>(null);
 
   const loadStyle = useCallback(() => {
     getJson<{ style: StyleView }>(`/api/workers/${worker.id}/writing-style`)
@@ -177,12 +197,20 @@ function WorkerFicha({
     setBg(undefined);
     setMode(undefined);
     setFont(undefined);
+    setMyAreas(undefined);
+    setAreaErr(null);
     loadStyle();
     getJson<ConnectionView[]>(`/api/workers/${worker.id}/connections`)
       .then(setConns)
       .catch((e) => {
         setConns([]);
         setConnErr(e instanceof Error ? e.message : "Erro");
+      });
+    getJson<{ areaIds: string[] }>(`/api/workers/${worker.id}/areas`)
+      .then((r) => setMyAreas(new Set(r.areaIds)))
+      .catch((e) => {
+        setMyAreas(new Set());
+        setAreaErr(e instanceof Error ? e.message : "Erro");
       });
     getJson<{ background: BackgroundToken; mode: ModeToken; font: FontToken }>(
       `/api/workers/${worker.id}/preferences`,
@@ -198,6 +226,38 @@ function WorkerFicha({
         setFont("default");
       });
   }, [worker.id, loadStyle]);
+
+  // Catálogo de áreas da org (não muda por trabalhador) — carrega uma vez.
+  useEffect(() => {
+    getJson<AreaLite[]>("/api/areas")
+      .then(setAllAreas)
+      .catch(() => setAllAreas([]));
+  }, []);
+
+  // Alterna a pertença do trabalhador a uma área (substituição de conjunto).
+  // Otimista; reverte em erro. Ao concluir, pede reload da matriz (a
+  // disponibilidade das células depende disto).
+  const toggleArea = useCallback(
+    async (areaId: string) => {
+      if (!myAreas) return;
+      const next = new Set(myAreas);
+      if (next.has(areaId)) next.delete(areaId);
+      else next.add(areaId);
+      setMyAreas(next); // otimista
+      setAreaBusy(areaId);
+      setAreaErr(null);
+      try {
+        await putJson(`/api/workers/${worker.id}/areas`, { areaIds: [...next] });
+        onAreasChanged();
+      } catch (e) {
+        setMyAreas(myAreas); // reverte
+        setAreaErr(e instanceof Error ? e.message : "Não foi possível guardar as áreas");
+      } finally {
+        setAreaBusy(null);
+      }
+    },
+    [myAreas, worker.id, onAreasChanged],
+  );
 
   const swatch = BACKGROUND_SWATCHES.find((s) => s.token === bg) ?? null;
 
@@ -228,6 +288,51 @@ function WorkerFicha({
         <Stat label="Ativas" value={rollup.active} />
         <Stat label="Prontas" value={rollup.ready} tone="ok" />
         <Stat label="A precisar de ligação" value={rollup.attention} tone={rollup.attention ? "warn" : undefined} />
+      </div>
+
+      {/* Áreas do trabalhador (gate da matriz de atribuições) */}
+      <div className="wk-block">
+        <div className="wk-block-head">
+          <h3>Áreas</h3>
+          {myAreas ? (
+            <span className="muted wk-areas-count">
+              {myAreas.size} de {allAreas?.length ?? 0}
+            </span>
+          ) : null}
+        </div>
+        <p className="muted wk-areas-hint">
+          Uma tarefa só fica disponível para este trabalhador nas áreas em comum entre os dois. Sem
+          áreas, a matriz de atribuições fica bloqueada.
+        </p>
+        {areaErr ? <p className="panel-error">{areaErr}</p> : null}
+        {allAreas === undefined || myAreas === undefined ? (
+          <p className="muted">A carregar…</p>
+        ) : allAreas.length === 0 ? (
+          <p className="muted">
+            Ainda não há áreas. Cria-as em <strong>Áreas &amp; Utilizadores</strong>.
+          </p>
+        ) : (
+          <div className="wk-areas">
+            {allAreas.map((a) => {
+              const on = myAreas.has(a.id);
+              return (
+                <label
+                  key={a.id}
+                  className={`wk-area-chip${on ? " on" : ""}`}
+                  aria-busy={areaBusy === a.id}
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={areaBusy !== null}
+                    onChange={() => toggleArea(a.id)}
+                  />
+                  <span>{a.name}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Estilo de escrita */}
@@ -478,6 +583,7 @@ export function TrabalhadoresSection() {
               worker={selected}
               matrix={matrix}
               onStyleChanged={() => setReloadKey((k) => k + 1)}
+              onAreasChanged={() => setReloadKey((k) => k + 1)}
             />
           ) : (
             <div className="panel muted">Escolhe um trabalhador.</div>
