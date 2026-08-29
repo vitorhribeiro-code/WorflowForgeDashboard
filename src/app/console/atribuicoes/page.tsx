@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/server-session";
-import { MatrixSection } from "./MatrixSection";
+import { AtribuicoesTabs } from "./AtribuicoesTabs";
 
 export default async function AssignmentsPage() {
   await requireRole("super_admin");
-  return <MatrixSection />;
+  return <AtribuicoesTabs />;
 }

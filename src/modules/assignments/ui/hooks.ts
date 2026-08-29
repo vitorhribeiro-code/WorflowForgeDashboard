@@ -183,3 +183,91 @@ export function useAreas() {
 
   return { areas, error };
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Mapa de áreas (grelha áreas × tarefas — Modelo P, slice 3b.2)              */
+/* -------------------------------------------------------------------------- */
+export type AreaMatrixCell = {
+  areaId: string;
+  taskId: string;
+  available: boolean;
+  enabled: boolean;
+};
+export type AreaMatrix = {
+  areas: Array<{ id: string; name: string }>;
+  tasks: Array<{ id: string; name: string; type: string }>;
+  cells: AreaMatrixCell[];
+};
+export type FanOutSummary = {
+  areaId: string;
+  taskId: string;
+  enabled: boolean;
+  workers: number;
+  applied: number;
+  pending: number;
+  failed: number;
+};
+export type ReconcileSummary = {
+  areaId?: string;
+  workers: number;
+  created: number;
+  enabled: number;
+  pending: number;
+  removed: number;
+  failed: number;
+};
+
+export function useAreasMatrix() {
+  const [matrix, setMatrix] = useState<AreaMatrix | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    api<AreaMatrix>("/api/areas/matrix")
+      .then(setMatrix)
+      .catch((e) => setError(e instanceof Error ? e.message : "Erro"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => refetch(), [refetch]);
+
+  // Liga/desliga o fan-out de uma tarefa numa área. Devolve o resumo do fan-out.
+  const setAreaCell = useCallback(
+    async (areaId: string, taskId: string, enabled: boolean): Promise<FanOutSummary> => {
+      const s = await api<FanOutSummary>("/api/areas/assignments", {
+        method: "POST",
+        body: JSON.stringify({ areaId, taskId, enabled }),
+      });
+      refetch();
+      return s;
+    },
+    [refetch],
+  );
+
+  // Remove a intenção da área (desativa o fan-out; não apaga as linhas dos workers).
+  const removeAreaCell = useCallback(
+    async (areaId: string, taskId: string): Promise<FanOutSummary> => {
+      const s = await api<FanOutSummary>("/api/areas/assignments", {
+        method: "DELETE",
+        body: JSON.stringify({ areaId, taskId }),
+      });
+      refetch();
+      return s;
+    },
+    [refetch],
+  );
+
+  // «Atualizar»: re-espalha as tarefas-ON e limpa órfãs por disponibilidade.
+  const reconcileArea = useCallback(
+    async (areaId: string): Promise<ReconcileSummary> => {
+      const s = await api<ReconcileSummary>(`/api/areas/${areaId}/reconcile`, { method: "POST" });
+      refetch();
+      return s;
+    },
+    [refetch],
+  );
+
+  return { matrix, loading, error, refetch, setAreaCell, removeAreaCell, reconcileArea };
+}

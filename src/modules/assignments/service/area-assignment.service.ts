@@ -74,6 +74,10 @@ export interface AreaAssignmentService {
   ): Promise<FanOutSummary>;
   removeAreaAssignment(session: SessionContext, areaId: string, taskId: string): Promise<FanOutSummary>;
   reconcileArea(session: SessionContext, areaId: string): Promise<ReconcileSummary>;
+  // Leitura para o Mapa de áreas: a intenção (area,task,enabled) de toda a org.
+  listAssignments(
+    session: SessionContext,
+  ): Promise<Array<{ areaId: string; taskId: string; enabled: boolean }>>;
 }
 
 function isCode(e: unknown, code: string): boolean {
@@ -299,6 +303,17 @@ export function createAreaAssignmentService(deps: AreaAssignmentDeps): AreaAssig
         },
       });
       return total;
+    },
+
+    async listAssignments(session) {
+      requireAdmin(session);
+      const areaIds = await areas.listIds(session.orgId);
+      const out: Array<{ areaId: string; taskId: string; enabled: boolean }> = [];
+      for (const areaId of areaIds) {
+        const rows = await areaRepo.listByArea(areaId);
+        for (const r of rows) out.push({ areaId, taskId: r.taskId, enabled: r.enabled });
+      }
+      return out;
     },
   };
 }

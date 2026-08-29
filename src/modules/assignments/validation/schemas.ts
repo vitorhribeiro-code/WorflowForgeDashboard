@@ -38,3 +38,16 @@ export const reorderSchema = z.object({
 export const setAreasSchema = z.object({
   areaIds: z.array(z.string().uuid()).max(100),
 });
+
+// Mapa de áreas: ligar/desligar (fan-out) uma tarefa numa área.
+export const setAreaAssignmentSchema = z.object({
+  areaId: z.string().uuid(),
+  taskId: z.string().uuid(),
+  enabled: z.boolean(),
+});
+
+// Mapa de áreas: remover a intenção de uma tarefa numa área (desativa o fan-out).
+export const removeAreaAssignmentSchema = z.object({
+  areaId: z.string().uuid(),
+  taskId: z.string().uuid(),
+});

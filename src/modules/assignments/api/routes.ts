@@ -1,10 +1,14 @@
 import { DomainError } from "@/lib/errors";
-import { assignmentService, areaMembershipService } from "../container";
+import { assignmentService, areaMembershipService, areaAssignmentService } from "../container";
+import { areaService } from "@/modules/org/container";
+import { taskService } from "@/modules/tasks/container";
 import type { AssignmentMatrix } from "../service/ports";
 import {
   createAssignmentSchema,
   editConfigSchema,
+  removeAreaAssignmentSchema,
   reorderSchema,
+  setAreaAssignmentSchema,
   setAreasSchema,
   setScheduleSchema,
   setWritingStyleSchema,
@@ -151,4 +155,63 @@ export const taskAreasGET = withSession(async (session, _req, ctx) => {
 export const taskAreasPUT = withSession(async (session, req, ctx) => {
   const { areaIds } = await readJson(req, setAreasSchema);
   return json({ areaIds: await areaMembershipService.setTaskAreas(session, id(ctx), areaIds) });
+});
+
+/* --- Mapa de áreas (grelha áreas × tarefas — Modelo P, slice 3b.2) --------- */
+
+type AreaMatrixCell = { areaId: string; taskId: string; available: boolean; enabled: boolean };
+type AreaMatrix = {
+  areas: Array<{ id: string; name: string }>;
+  tasks: Array<{ id: string; name: string; type: string }>;
+  cells: AreaMatrixCell[];
+};
+
+// GET /api/areas/matrix — grelha áreas × tarefas: disponibilidade (task_areas)
+// + intenção (area_assignments.enabled). Composta na rota para não alargar deps.
+export const areasMatrixGET = withSession(async (session) => {
+  const [areas, tasks, avail, intents] = await Promise.all([
+    areaService.list(session),
+    taskService.list(session, {}),
+    areaMembershipService.availability(session),
+    areaAssignmentService.listAssignments(session),
+  ]);
+  // Disponibilidade: (task,area) presentes em task_areas.
+  const availSet = new Set(avail.taskAreas.map((p) => `${p.areaId}:${p.taskId}`));
+  // Intenção: enabled por (area,task) (só as que têm linha em area_assignments).
+  const enabledByKey = new Map(intents.map((i) => [`${i.areaId}:${i.taskId}`, i.enabled]));
+  const cells: AreaMatrixCell[] = [];
+  for (const a of areas) {
+    for (const t of tasks) {
+      const key = `${a.id}:${t.id}`;
+      cells.push({
+        areaId: a.id,
+        taskId: t.id,
+        available: availSet.has(key),
+        enabled: enabledByKey.get(key) ?? false,
+      });
+    }
+  }
+  const matrix: AreaMatrix = {
+    areas: areas.map((a) => ({ id: a.id, name: a.name })),
+    tasks: tasks.map((t) => ({ id: t.id, name: t.name, type: t.type })),
+    cells,
+  };
+  return json(matrix);
+});
+
+// POST /api/areas/assignments — { areaId, taskId, enabled } → fan-out (FanOutSummary).
+export const areaAssignmentPOST = withSession(async (session, req) => {
+  const { areaId, taskId, enabled } = await readJson(req, setAreaAssignmentSchema);
+  return json(await areaAssignmentService.setAreaAssignment(session, areaId, taskId, enabled));
+});
+
+// DELETE /api/areas/assignments — { areaId, taskId } → remove a intenção (desativa).
+export const areaAssignmentDELETE = withSession(async (session, req) => {
+  const { areaId, taskId } = await readJson(req, removeAreaAssignmentSchema);
+  return json(await areaAssignmentService.removeAreaAssignment(session, areaId, taskId));
+});
+
+// POST /api/areas/[id]/reconcile — re-espalha as tarefas-ON e limpa órfãs (ReconcileSummary).
+export const areaReconcilePOST = withSession(async (session, _req, ctx) => {
+  return json(await areaAssignmentService.reconcileArea(session, id(ctx)));
 });

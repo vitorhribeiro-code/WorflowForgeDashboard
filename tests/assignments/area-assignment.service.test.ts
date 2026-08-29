@@ -260,4 +260,18 @@ describe("areaAssignmentService — reconcile (Atualizar)", () => {
     expect(rows.find((r) => r.id === "direct-1" && r.enabled)).toBeTruthy();
     expect(s.removed).toBe(0);
   });
+
+  it("listAssignments devolve a intenção (area,task,enabled) de toda a org", async () => {
+    const { service, areaRepo } = build({ taskAreas: { t1: ["a1"] }, userAreas: {} });
+    await areaRepo.upsert("a1", "t1", { enabled: true, enabledBy: "admin", enabledAt: new Date() });
+    await areaRepo.upsert("a2", "t2", { enabled: false, enabledBy: null, enabledAt: null });
+    const list = await service.listAssignments(admin);
+    expect(list).toEqual(
+      expect.arrayContaining([
+        { areaId: "a1", taskId: "t1", enabled: true },
+        { areaId: "a2", taskId: "t2", enabled: false },
+      ]),
+    );
+    expect(list).toHaveLength(2);
+  });
 });

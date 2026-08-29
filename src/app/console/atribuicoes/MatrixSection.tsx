@@ -128,21 +128,11 @@ export function MatrixSection() {
   }
 
   if (loading && !matrix) {
-    return (
-      <section className="console-section">
-        <h1>Atribuições</h1>
-        <div className="matrix-skeleton">A carregar…</div>
-      </section>
-    );
+    return <div className="matrix-skeleton">A carregar…</div>;
   }
 
   if (error) {
-    return (
-      <section className="console-section">
-        <h1>Atribuições</h1>
-        <p className="panel-error">{error}</p>
-      </section>
-    );
+    return <p className="panel-error">{error}</p>;
   }
 
   const cellByKey = new Map((matrix?.cells ?? []).map((c) => [`${c.taskId}:${c.workerId}`, c]));
@@ -153,8 +143,7 @@ export function MatrixSection() {
   const noWorkers = workers.length === 0;
 
   return (
-    <section className="console-section">
-      <h1>Atribuições</h1>
+    <>
       <p className="muted">
         Mapa de utilizadores: cada linha é um trabalhador, cada coluna uma tarefa. Liga{" "}
         <strong>ON</strong> para pôr a tarefa a trabalhar (o trabalhador passa a vê-la);{" "}
@@ -349,6 +338,6 @@ export function MatrixSection() {
           </table>
         </div>
       )}
-    </section>
+    </>
   );
 }
