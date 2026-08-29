@@ -272,7 +272,6 @@ export function TasksSection() {
   const { tools } = useTools();
   const { areas } = useAreas();
   const [editing, setEditing] = useState<Task | null>(null);
-  const [areaId, setAreaId] = useState<string>("");
   const [confirmDelete, setConfirmDelete] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -290,7 +289,6 @@ export function TasksSection() {
       await removeTask(confirmDelete.id, force);
       if (editing?.id === confirmDelete.id) {
         setEditing(null);
-        setAreaId("");
       }
       closeConfirm();
     } catch (e) {
@@ -327,17 +325,6 @@ export function TasksSection() {
       <div className="split">
         <div className="panel">
           <h2>{editing ? `Editar: ${editing.name}` : "Nova tarefa"}</h2>
-          <label className="area-select">
-            Área (opcional)
-            <select value={areaId} onChange={(e) => setAreaId(e.target.value)}>
-              <option value="">— sem área —</option>
-              {(areas ?? []).map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <TaskForm
             key={editing?.id ?? "new"}
             initial={editing ?? undefined}
@@ -348,12 +335,10 @@ export function TasksSection() {
                   description: v.description,
                   runtime: v.runtime,
                   configSchema: v.configSchema,
-                  areaId: areaId || null,
                 });
                 refetch();
               } else {
-                await createTask({ ...v, areaId: areaId || null });
-                setAreaId("");
+                await createTask(v);
               }
             }}
           />
@@ -363,7 +348,6 @@ export function TasksSection() {
               className="btn-secondary"
               onClick={() => {
                 setEditing(null);
-                setAreaId("");
               }}
             >
               Nova tarefa
@@ -378,7 +362,6 @@ export function TasksSection() {
             loading={loading}
             onEdit={(t) => {
               setEditing(t);
-              setAreaId(t.areaId ?? "");
             }}
             onDelete={(t) => {
               setDeleteError(null);

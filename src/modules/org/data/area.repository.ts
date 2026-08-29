@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { functionalAreas, tasks } from "@/db/schema";
+import { functionalAreas, taskAreas } from "@/db/schema";
 import type { FunctionalArea } from "../domain/types";
 
 export interface AreaRepository {
@@ -74,11 +74,15 @@ export class DrizzleAreaRepository implements AreaRepository {
     return rows.map(toArea);
   }
 
+  // Conta quantas tarefas estão DISPONÍVEIS nesta área via task_areas — a fonte
+  // de verdade da associação tarefa↔área (o `tasks.area_id` legado já não é
+  // escrito pela UI). É este count que trava o apagar de uma área com tarefas
+  // (task_areas tem onDelete: cascade, logo apagar levaria a disponibilidade).
   async countTasks(areaId: string): Promise<number> {
     const [row] = await this.db
       .select({ n: sql<number>`cast(count(*) as int)` })
-      .from(tasks)
-      .where(eq(tasks.areaId, areaId));
+      .from(taskAreas)
+      .where(eq(taskAreas.areaId, areaId));
     return row?.n ?? 0;
   }
 
