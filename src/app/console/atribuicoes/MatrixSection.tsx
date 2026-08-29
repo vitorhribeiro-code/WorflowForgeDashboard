@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { light } from "@/modules/assignments/ui/AssignmentCell";
-import { useAreas, useMatrix, type AreaLite } from "@/modules/assignments/ui/hooks";
+import { useAreas, useMatrix } from "@/modules/assignments/ui/hooks";
 import { RecurrenceBuilder } from "@/modules/assignments/ui/RecurrenceBuilder";
 import type { AssignmentReadiness, MatrixCell } from "@/modules/assignments/service/ports";
 
@@ -64,60 +64,10 @@ function Switch({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Seletor de áreas (mínimo — 3b.1). Aplica cada toggle de imediato.          */
+/*  (O seletor de áreas na matriz foi removido — as áreas do trabalhador       */
+/*  definem-se na ficha do trabalhador (M2) e as da tarefa no editor de        */
+/*  Task/Catálogo. As células ficam a 2 linhas, mais compactas.)               */
 /* -------------------------------------------------------------------------- */
-function AreaPicker({
-  label,
-  allAreas,
-  selected,
-  disabled,
-  onApply,
-}: {
-  label: string;
-  allAreas: AreaLite[];
-  selected: string[];
-  disabled?: boolean;
-  onApply: (areaIds: string[]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const sel = new Set(selected);
-  function toggle(id: string) {
-    const next = new Set(sel);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    onApply([...next]);
-  }
-  return (
-    <div className="area-picker">
-      <button
-        type="button"
-        className="btn-mini ghost area-picker-btn"
-        disabled={disabled}
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        {label} · {selected.length}
-      </button>
-      {open ? (
-        <>
-          <div className="area-picker-backdrop" onClick={() => setOpen(false)} />
-          <div className="area-picker-menu" role="menu">
-            {allAreas.length === 0 ? (
-              <span className="area-picker-empty">Ainda não há áreas.</span>
-            ) : (
-              allAreas.map((a) => (
-                <label key={a.id} className="area-picker-item">
-                  <input type="checkbox" checked={sel.has(a.id)} onChange={() => toggle(a.id)} />
-                  <span>{a.name}</span>
-                </label>
-              ))
-            )}
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
 
 export function MatrixSection() {
   const {
@@ -129,8 +79,6 @@ export function MatrixSection() {
     setSchedule,
     setWritingStyle,
     removeCell,
-    setWorkerAreas,
-    setTaskAreas,
   } = useMatrix();
   const { areas } = useAreas();
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -199,7 +147,6 @@ export function MatrixSection() {
 
   const cellByKey = new Map((matrix?.cells ?? []).map((c) => [`${c.taskId}:${c.workerId}`, c]));
   const areaName = new Map((areas ?? []).map((a) => [a.id, a.name]));
-  const allAreas = areas ?? [];
   const tasks = matrix?.tasks ?? [];
   const workers = matrix?.workers ?? [];
   const noTasks = tasks.length === 0;
@@ -248,14 +195,6 @@ export function MatrixSection() {
                           {isAuto ? "automática" : "assistida"}
                           {t.published ? "" : " · rascunho"}
                         </span>
-                        <AreaPicker
-                          label="Áreas"
-                          allAreas={allAreas}
-                          selected={t.areaIds}
-                          onApply={(ids) =>
-                            run(`task-areas:${t.id}`, () => setTaskAreas(t.id, ids))
-                          }
-                        />
                       </div>
                     </th>
                   );
@@ -275,12 +214,6 @@ export function MatrixSection() {
                           ? "sem áreas"
                           : w.areaIds.map((id) => areaName.get(id) ?? "—").join(" · ")}
                       </span>
-                      <AreaPicker
-                        label="Áreas"
-                        allAreas={allAreas}
-                        selected={w.areaIds}
-                        onApply={(ids) => run(`worker-areas:${w.id}`, () => setWorkerAreas(w.id, ids))}
-                      />
                     </div>
                   </th>
                   {tasks.map((t) => {
