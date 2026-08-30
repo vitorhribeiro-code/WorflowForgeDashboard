@@ -26,6 +26,7 @@ import {
 // como "14px" / "0 0 7px currentColor" / "none").
 export type ThemeTokens = {
   bg: string;
+  shell: string;
   bgGlow: string;
   panel: string;
   panel2: string;
@@ -49,6 +50,7 @@ export type ThemeTokenName = keyof ThemeTokens;
 // Token → variável CSS que a consola (já) consome ou que fica disponível.
 export const CSS_VAR_BY_TOKEN: Record<ThemeTokenName, string> = {
   bg: "--bg",
+  shell: "--shell",
   bgGlow: "--bg-glow",
   panel: "--panel",
   panel2: "--panel-2",
@@ -70,13 +72,14 @@ export const CSS_VAR_BY_TOKEN: Record<ThemeTokenName, string> = {
 export const CONSOLE_THEMES: Record<ConsoleTheme, ThemeTokens> = {
   // 1 · EMBER — âmbar-fundido, o forge original (evolução direta da consola).
   ember: {
-    bg: "#0f1016",
+    bg: "#0a090d",
+    shell: "#100f14",
     bgGlow: "rgba(255,122,60,.14)",
-    panel: "#171922",
+    panel: "#17161f",
     panel2: "#1c1f2a",
-    border: "#282c39",
-    text: "#e9eaef",
-    muted: "#8a90a0",
+    border: "#232130",
+    text: "#ece9f0",
+    muted: "#8b8798",
     accent: "#ff7a3c",
     accent2: "#ffb066",
     accentFg: "#1a0d06",
@@ -91,6 +94,7 @@ export const CONSOLE_THEMES: Record<ConsoleTheme, ThemeTokens> = {
   // 2 · STEEL — aço frio, azul-cyan, cantos rentes, sem brilho.
   steel: {
     bg: "#0b0f15",
+    shell: "#0d1119",
     bgGlow: "rgba(56,160,240,.13)",
     panel: "#111721",
     panel2: "#141b27",
@@ -111,6 +115,7 @@ export const CONSOLE_THEMES: Record<ConsoleTheme, ThemeTokens> = {
   // 3 · GRAPHITE — monocromático, acento prateado, minimalismo à «geist».
   graphite: {
     bg: "#0e0e10",
+    shell: "#111113",
     bgGlow: "rgba(255,255,255,.045)",
     panel: "#17171a",
     panel2: "#1b1b1f",
@@ -131,6 +136,7 @@ export const CONSOLE_THEMES: Record<ConsoleTheme, ThemeTokens> = {
   // 4 · VOLTAGE — preto profundo + violeta elétrico, brilho e sombra colorida.
   voltage: {
     bg: "#08080c",
+    shell: "#0d0b13",
     bgGlow: "rgba(124,92,255,.20)",
     panel: "#121019",
     panel2: "#17141f",
@@ -151,6 +157,7 @@ export const CONSOLE_THEMES: Record<ConsoleTheme, ThemeTokens> = {
   // 5 · VERDANT — escuro esverdeado + esmeralda, calmo e natural.
   verdant: {
     bg: "#0b1210",
+    shell: "#0e1512",
     bgGlow: "rgba(52,200,140,.13)",
     panel: "#121a16",
     panel2: "#16211b",
@@ -188,9 +195,9 @@ const GLOW_LAYER = `.console[data-theme]::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(1100px 480px at 80% -14%, var(--bg-glow), transparent 60%),
-    var(--bg);
+  /* Redesign: fundo liso (sem radial), como o estudo. --bg-glow fica disponível
+     para quem quiser repor o brilho por tema. */
+  background: var(--bg);
 }`;
 
 // Regras de FIDELIDADE: ligam as classes reais da consola aos tokens do tema,

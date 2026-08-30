@@ -1,68 +1,44 @@
 import Link from "next/link";
+import { Icon, type IconName } from "./icons";
 
 // Aterragem do admin: um cartão-atalho por secção da consola. A ordem segue o
-// fluxo de configuração (ferramentas → tarefas → atribuições) e fecha na
-// operação (trabalhadores, IA, auditoria).
-const CARDS: { href: string; title: string; desc: string }[] = [
-  {
-    href: "/console/areas",
-    title: "Áreas & Utilizadores",
-    desc: "Agrupa tarefas por área funcional e gere quem tem acesso à organização.",
-  },
-  {
-    href: "/console/ferramentas",
-    title: "Ferramentas",
-    desc: "Catálogo global de ferramentas e os scopes que cada uma disponibiliza.",
-  },
-  {
-    href: "/console/mapeamento",
-    title: "Mapeamento",
-    desc: "Importa o mapeamento do trabalhador tipo e converte as oportunidades em Tarefas do catálogo.",
-  },
-  {
-    href: "/console/tarefas",
-    title: "Catálogo de Tarefas",
-    desc: "Cria tarefas, define as ferramentas exigidas e publica quando estiverem prontas.",
-  },
-  {
-    href: "/console/atribuicoes",
-    title: "Atribuições",
-    desc: "Liga tarefas a trabalhadores e ativa cada uma quando as conexões estiverem prontas.",
-  },
-  {
-    href: "/console/trabalhadores",
-    title: "Trabalhadores",
-    desc: "Vê o estado das conexões de cada trabalhador e o que ainda falta ligar.",
-  },
-  {
-    href: "/console/ia",
-    title: "IA / Modelos",
-    desc: "Configura os provedores de modelos e as ligações que as tarefas assistidas usam.",
-  },
-  {
-    href: "/console/auditoria",
-    title: "Auditoria & Métricas",
-    desc: "Acompanha a saúde das automações e o rasto imutável das ações da organização.",
-  },
+// fluxo de configuração. `span2` marca os dois cartões largos do topo;
+// `featured` dá o realce (gradiente + acento) ao primeiro; `hue` é a cor
+// decorativa do ícone (identidade por cartão, fixa entre temas).
+const CARDS: {
+  href: string;
+  label: string;
+  icon: IconName;
+  hue: string;
+  span2?: boolean;
+  featured?: boolean;
+}[] = [
+  { href: "/console/areas", label: "Utilizador & Grupos", icon: "layout-grid", hue: "var(--accent)", span2: true, featured: true },
+  { href: "/console/ferramentas", label: "Ferramentas e Conectores", icon: "wrench", hue: "#ffc24d", span2: true },
+  { href: "/console/mapeamento", label: "Carregar perfil user", icon: "upload", hue: "#4db2ff" },
+  { href: "/console/tarefas", label: "Catálogo", icon: "library", hue: "#a98bff" },
+  { href: "/console/atribuicoes", label: "Equipar user", icon: "user-cog", hue: "#ff7ea8" },
+  { href: "/console/trabalhadores", label: "Users", icon: "users", hue: "#3fd6c0" },
+  { href: "/console/ia", label: "IA / Modelos", icon: "cpu", hue: "#7c9bff" },
+  { href: "/console/auditoria", label: "Auditoria & Métricas", icon: "activity", hue: "#4fd08a" },
 ];
 
 export default function ConsoleHome() {
   return (
-    <section className="console-section">
-      <h1>Visão geral</h1>
-      <p className="muted">
-        Configura o catálogo e prepara as atribuições. Começa por registar as ferramentas que as
-        tarefas vão exigir, depois cria as tarefas, publica-as e atribui-as aos trabalhadores.
-      </p>
-
-      <div className="console-cards">
-        {CARDS.map((c) => (
-          <Link key={c.href} href={c.href} className="console-card">
-            <span className="console-card-title">{c.title}</span>
-            <span className="console-card-desc">{c.desc}</span>
-          </Link>
-        ))}
-      </div>
-    </section>
+    <div className="cx-cards">
+      {CARDS.map((c) => (
+        <Link
+          key={c.href}
+          href={c.href}
+          className={`cx-card${c.span2 ? " is-span2" : ""}${c.featured ? " is-featured" : ""}`}
+          style={{ ["--_hue" as string]: c.hue } as React.CSSProperties}
+        >
+          <span className="cx-ico" aria-hidden>
+            <Icon name={c.icon} size={c.span2 ? 22 : 21} />
+          </span>
+          <span className="cx-card-label">{c.label}</span>
+        </Link>
+      ))}
+    </div>
   );
 }

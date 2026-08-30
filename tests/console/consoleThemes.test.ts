@@ -69,7 +69,7 @@ describe("consoleThemes — mapa de tokens", () => {
     for (const theme of CONSOLE_THEME_TOKENS) {
       const tokens = CONSOLE_THEMES[theme];
       // cores puras
-      for (const key of ["bg", "panel", "panel2", "border", "text", "muted", "accent", "accent2", "accentFg", "success", "warning", "danger"] as ThemeTokenName[]) {
+      for (const key of ["bg", "shell", "panel", "panel2", "border", "text", "muted", "accent", "accent2", "accentFg", "success", "warning", "danger"] as ThemeTokenName[]) {
         expect(tokens[key], `${theme}.${key}`).toMatch(/^#[0-9a-fA-F]{6}$/);
       }
       // valores compostos / com função
@@ -126,9 +126,11 @@ describe("consoleThemes — gerador de CSS", () => {
     }
   });
 
-  it("inclui a camada de fundo temada (glow) atrás do conteúdo", () => {
+  it("inclui a camada de fundo temada (lisa) atrás do conteúdo", () => {
+    // Redesign: fundo liso (sem radial). --bg-glow deixou de ser usado aqui,
+    // mas continua no mapa de tokens para quem quiser repor o brilho por tema.
     expect(css).toContain(".console[data-theme]::before");
-    expect(css).toContain("var(--bg-glow)");
+    expect(css).toContain("var(--bg)");
     expect(css).toContain("z-index: -1");
   });
 

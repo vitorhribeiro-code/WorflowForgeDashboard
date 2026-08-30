@@ -3175,3 +3175,144 @@ button.btn-danger:disabled {
   color: var(--text);
   font-size: 13px;
 }
+
+/* ========================================================================= */
+/*  CONSOLA — REDESIGN "Forge card" (visão geral + topo partilhado)          */
+/*  Namespace .cx-* (novo, não colide com .console-* nem com a FIDELITY       */
+/*  injetada). Cores por TOKENS do tema (os 5 temas continuam a funcionar);   */
+/*  o ember foi afinado no consoleThemes.ts para bater com o estudo. As cores */
+/*  dos ícones dos cartões (--_hue) são identidade decorativa fixa.           */
+/* ========================================================================= */
+
+/* Fontes do redesign, só na consola (link no layout da consola). */
+.console {
+  max-width: 1120px;
+  padding: 32px;
+  font-family: "Manrope", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* Moldura escura arredondada que envolve cabeçalho + nav + conteúdo. */
+.cx-shell {
+  background: var(--shell);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 26px;
+  color: var(--text);
+  box-shadow: 0 30px 60px -40px rgba(0, 0, 0, .6);
+}
+
+/* Cabeçalho */
+.cx-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.cx-brand { display: flex; align-items: center; gap: 12px; }
+.cx-brandmark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 11px; flex: 0 0 auto;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+.cx-brandname {
+  font-family: "Space Grotesk", "Manrope", system-ui, sans-serif;
+  font-weight: 600; font-size: 16px; letter-spacing: -.01em; line-height: 1.15;
+}
+.cx-brandsub { color: var(--muted); font-size: 12px; }
+.cx-head-right { display: flex; align-items: center; gap: 16px; }
+
+/* Data + hora */
+.cx-clock { text-align: right; line-height: 1.25; min-width: 168px; }
+.cx-clock-date { font-size: 12px; color: var(--muted); }
+.cx-clock-time {
+  font-family: "Space Grotesk", "Manrope", system-ui, sans-serif;
+  font-size: 14px; font-weight: 600; color: var(--text);
+}
+
+/* Bolinhas de tema (ThemeSwitcher) */
+.cx-dots {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px;
+  background: transparent;
+}
+.cx-dot {
+  width: 11px; height: 11px; border-radius: 50%; padding: 0;
+  border: none; cursor: pointer; background: var(--_sw);
+  transition: width .12s, height .12s, box-shadow .12s;
+}
+.cx-dot:disabled { cursor: default; }
+.cx-dot[aria-checked="true"] {
+  width: 13px; height: 13px;
+  box-shadow: 0 0 0 2px var(--shell), 0 0 0 3px var(--_sw);
+}
+.cx-dot:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* LOG OUT (vermelho, fixo — cor de ação, não do acento) */
+.cx-logout {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  color: #fff; background: #ec1c24; border: none; border-radius: 7px;
+  padding: 5px 8px; cursor: pointer;
+}
+.cx-logout:hover { filter: brightness(1.06); }
+.cx-logout:disabled { opacity: .7; cursor: default; }
+.cx-logout-box {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 4px;
+  border: 1.5px solid rgba(255, 255, 255, .9);
+}
+
+/* Nav — carril de ícones */
+.cx-nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0 22px; }
+.cx-nav a {
+  display: inline-flex; align-items: center; justify-content: center;
+  text-decoration: none; color: var(--muted);
+  padding: 9px; border-radius: 10px; border: 1px solid var(--border);
+  transition: color .12s, background .12s, border-color .12s;
+}
+.cx-nav a:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--text) 25%, var(--border));
+}
+.cx-nav a.active {
+  color: var(--accent-fg); background: var(--accent); border-color: var(--accent);
+}
+
+/* Cartões — grelha 4 col, os dois primeiros a ocupar 2 */
+.cx-cards {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 6px;
+}
+.cx-card {
+  display: flex; align-items: center; gap: 12px;
+  text-decoration: none; color: var(--text);
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 16px; padding: 14px;
+  transition: border-color .12s, transform .12s;
+}
+.cx-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  transform: translateY(-1px);
+}
+.cx-card.is-span2 { grid-column: span 2; gap: 13px; padding: 16px; }
+.cx-card.is-featured {
+  background: linear-gradient(150deg, color-mix(in srgb, var(--text) 7%, var(--panel)), var(--panel));
+  border-color: color-mix(in srgb, var(--text) 12%, var(--border));
+}
+.cx-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 11px; flex: 0 0 auto;
+  background: color-mix(in srgb, var(--_hue) 15%, transparent);
+  color: var(--_hue);
+}
+.cx-card.is-span2 .cx-ico { width: 42px; height: 42px; border-radius: 12px; }
+.cx-card-label { font-weight: 600; font-size: 13px; }
+.cx-card.is-span2 .cx-card-label { font-size: 13.5px; }
+
+@media (max-width: 720px) {
+  .cx-cards { grid-template-columns: repeat(2, 1fr); }
+  .cx-card.is-span2 { grid-column: span 2; }
+  .cx-clock { display: none; }
+}
