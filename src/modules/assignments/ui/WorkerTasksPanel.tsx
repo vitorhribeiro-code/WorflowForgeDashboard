@@ -33,25 +33,9 @@ import {
 
 /* --- Apresentação (labels/tons derivados do estado) ----------------------- */
 
-// Rótulo do "tipo" já em linguagem do trabalhador. Para automáticas, o nome
-// depende do runtime (o resumo de emails diz "Resumo automático"); as restantes
-// ficam com "Automático". Assistidas: "Assistida".
-function automationLabel(runtime: string): string {
-  return runtime === "email.digest" ? "Resumo automático" : "Automático";
-}
-
 // Verbo do botão de disparo manual, também por runtime (nada de "Executar").
 function runNowLabel(runtime: string): string {
   return runtime === "email.digest" ? "Fazer resumo agora" : "Executar agora";
-}
-
-// Linha de contexto do cartão: para automáticas, "{rótulo} · {agenda legível}"
-// (sem cron cru); para assistidas, "Assistida".
-function metaLine(task: WorkerAssignmentView): string {
-  if (task.taskType !== "automation") return "Assistida";
-  const label = automationLabel(task.taskRuntime);
-  const human = task.schedule ? describeCron(task.schedule) : null;
-  return human ? `${label} · ${human}` : label;
 }
 
 type Tone = "green" | "amber" | "red" | "grey";
@@ -114,6 +98,108 @@ function errorClassLabel(c: NonNullable<RunRow["errorClass"]>): string {
 function canRetry(run: RunRow): boolean {
   return run.status === "error" && run.outcome === "failed" && run.errorClass === "transient";
 }
+
+/* --- Redesign «trade-in» (ilha escura da vista de tarefas) ---------------- */
+
+// Paleta de acentos por tarefa (ecoa o estudo 1e). A cor é ESTÁVEL por tarefa:
+// deriva de um hash do assignmentId → índice na paleta. Não há coluna de cor no
+// modelo de dados, por isso é puramente derivada e determinística.
+const TASK_HUES = [
+  "#1f9d55", // verde
+  "#3a72c4", // azul
+  "#1f9d8a", // teal
+  "#7a5bd6", // roxo
+  "#d98a1f", // âmbar
+  "#c9556f", // rosa
+  "#2f9e8f", // esmeralda
+  "#b0563f", // terracota
+];
+function taskHue(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return TASK_HUES[h % TASK_HUES.length]!;
+}
+
+// Ícone por runtime (SVG inline; sem libs). Fallback genérico para runtimes
+// que ainda não conhecemos (scaffold `assistant.generic` e futuros).
+function taskIcon(runtime: string): React.ReactNode {
+  if (runtime === "email.digest")
+    return (
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+        <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M4 7l8 6 8-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  if (runtime === "assistant.writing")
+    return (
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M4 20l4-1L18 9l-3-3L5 16l-1 4z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+        <path d="M14 7l3 3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
+    );
+  if (runtime.startsWith("report"))
+    return (
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M5 19h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M7 19v-6M12 19V6m5 13v-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  if (runtime.startsWith("backup"))
+    return (
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M7 18a4 4 0 010-8 5 5 0 019.6-1.3A3.5 3.5 0 0117 18H7z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+        <path d="M12 12v4m0 0l-1.6-1.6M12 16l1.6-1.6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  // Assistidas genéricas / desconhecidas: documento.
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="5" y="3" width="14" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M9 8h6M9 12h6M9 16h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Texto do tooltip (i) — descrição amigável. Não há descrição no
+// WorkerAssignmentView, por isso derivamos do runtime/tipo (fallback: metaLine).
+function taskBlurb(task: WorkerAssignmentView): string {
+  if (task.taskRuntime === "email.digest")
+    return "Compila os emails que recebeste e envia-te um resumo para a inbox, na agenda definida.";
+  if (task.taskRuntime === "assistant.writing")
+    return "Abre uma consola interativa que escreve um rascunho no teu estilo de escrita.";
+  if (task.taskType === "automation") {
+    const human = task.schedule ? describeCron(task.schedule) : null;
+    return human ? `Corre sozinha ${human.toLowerCase()}.` : "Corre sozinha na agenda definida.";
+  }
+  return "Tarefa assistida: inicias quando precisares e acompanhas o resultado em direto.";
+}
+
+// Tamanho do cartão (espaço central). Só ritmo visual — a masonry empacota na
+// mesma. Assistidas de escrita pedem mais espaço; automáticas ficam compactas.
+function cardSize(task: WorkerAssignmentView): "size-s" | "size-m" | "size-l" {
+  if (task.taskType === "automation") return "size-s";
+  return task.taskRuntime === "assistant.writing" ? "size-l" : "size-m";
+}
+
+// Id sintético por tarefa (#A-01 automáticas, #B-01 assistidas) — cosmético,
+// ecoa o estudo. O índice é calculado por grupo no render do painel.
+function synthId(task: WorkerAssignmentView, n: number): string {
+  const prefix = task.taskType === "automation" ? "A" : "B";
+  return `${prefix}-${String(n).padStart(2, "0")}`;
+}
+
+const InfoIcon = (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
+    <path d="M12 11v5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    <circle cx="12" cy="7.8" r="1.1" fill="currentColor" />
+  </svg>
+);
+const PlayIcon = (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <path d="M8 5v14l11-7z" />
+  </svg>
+);
 
 function Pill({ tone, label }: { tone: Tone; label: string }) {
   return (
@@ -783,12 +869,14 @@ function LastSummaryModal({
 
 function TaskCard({
   task,
+  seq,
   dragging,
   onHandleDragStart,
   onCardDragEnter,
   onDragEnd,
 }: {
   task: WorkerAssignmentView;
+  seq: number;
   dragging: boolean;
   onHandleDragStart: (e: DragEvent<HTMLSpanElement>) => void;
   onCardDragEnter: () => void;
@@ -803,6 +891,8 @@ function TaskCard({
   const pill = readinessPill(task);
   const styleBadge = writingStyleBadge(task);
   const blocked = !task.enabled || !task.ready;
+  const hue = taskHue(task.assignmentId);
+  const isAuto = task.taskType === "automation";
 
   const onRunNow = useCallback(async () => {
     setBusy(true);
@@ -826,15 +916,26 @@ function TaskCard({
   }, []);
 
   return (
-    <div
-      className={`task-card${dragging ? " wf-dragging" : ""}`}
+    <article
+      className={`wf-tc${dragging ? " is-dragging" : ""}`}
+      style={{ "--tc": hue } as React.CSSProperties}
       onDragOver={(e) => e.preventDefault()}
       onDragEnter={onCardDragEnter}
       onDragEnd={onDragEnd}
     >
-      <div className="task-card-head">
+      {/* FAIXA SUPERIOR (cor da tarefa): ícone + id + nome; (i) e pega de mover */}
+      <header className="wf-tc-top">
+        <span className="wf-tc-ic">{taskIcon(task.taskRuntime)}</span>
+        <div className="wf-tc-meta">
+          <div className="wf-tc-id">#{synthId(task, seq)}</div>
+          <div className="wf-tc-nm">{task.taskName}</div>
+        </div>
+        <span className="wf-tc-tip" tabIndex={0} aria-label="O que faz esta tarefa">
+          <span className="wf-tc-tip-ic">{InfoIcon}</span>
+          <span className="wf-tc-tipc">{taskBlurb(task)}</span>
+        </span>
         <span
-          className="wf-move"
+          className="wf-move wf-tc-move"
           draggable
           onDragStart={onHandleDragStart}
           title="Arrastar para mover"
@@ -842,70 +943,81 @@ function TaskCard({
         >
           {GripIcon}
         </span>
-        <p className="task-card-title">{task.taskName}</p>
-        <Pill tone={pill.tone} label={pill.label} />
-      </div>
-      <div className="task-meta">
-        <span>{metaLine(task)}</span>
+      </header>
+
+      {/* ÁREA CENTRAL: tipo + contexto + innards interativos */}
+      <div className={`wf-tc-mid ${cardSize(task)}`}>
+        <span className="wf-tc-type">
+          <span className="wf-tc-dot" aria-hidden />
+          {isAuto ? "Automática" : "Assistida"}
+        </span>
+        {isAuto && (
+          <p className="wf-tc-sched">
+            {task.schedule ? describeCron(task.schedule) : "Sem agenda definida"}
+          </p>
+        )}
+
+        {styleBadge && (
+          <div className="wrt-badge-row">
+            <span className={`wrt-badge wrt-badge--${styleBadge.tone}`} title={styleBadge.title}>
+              <span className="wrt-badge-dot" aria-hidden />
+              {styleBadge.label}
+            </span>
+          </div>
+        )}
+
+        {isAuto ? (
+          <>
+            {error && <p className="task-error">{error}</p>}
+            {blocked && (
+              <p className="task-hint">
+                {!task.enabled
+                  ? "Desativada pelo administrador."
+                  : "Liga as ferramentas em falta em «As minhas conexões»."}
+              </p>
+            )}
+          </>
+        ) : blocked ? (
+          <p className="task-hint">
+            {!task.enabled
+              ? "Desativada pelo administrador."
+              : "Liga as ferramentas em falta em «As minhas conexões»."}
+          </p>
+        ) : task.taskRuntime === "assistant.writing" ? (
+          <WritingConsole assignmentId={task.assignmentId} styleAvailable={task.hasWritingStyle} />
+        ) : (
+          <AssistedConsole assignmentId={task.assignmentId} />
+        )}
       </div>
 
-      {styleBadge && (
-        <div className="wrt-badge-row">
-          <span className={`wrt-badge wrt-badge--${styleBadge.tone}`} title={styleBadge.title}>
-            <span className="wrt-badge-dot" aria-hidden />
-            {styleBadge.label}
-          </span>
-        </div>
-      )}
-
-      {task.taskType === "automation" ? (
-        <>
-          <div className="task-actions">
+      {/* FAIXA INFERIOR (cor a ~40%): controlos reais */}
+      <footer className="wf-tc-bot">
+        {isAuto ? (
+          <>
             <button
               type="button"
-              className="btn-primary btn-sm"
+              className="wf-tc-play"
               disabled={busy || blocked}
               onClick={() => void onRunNow()}
+              title={busy ? "A enfileirar…" : runNowLabel(task.taskRuntime)}
+              aria-label={runNowLabel(task.taskRuntime)}
             >
-              {busy ? "A enfileirar…" : runNowLabel(task.taskRuntime)}
+              {PlayIcon}
             </button>
             {isDigest && (
-              <button
-                type="button"
-                className="btn-secondary btn-sm"
-                onClick={() => setSummaryOpen(true)}
-              >
-                Ver último resumo
+              <button type="button" className="wf-tc-ghost" onClick={() => setSummaryOpen(true)}>
+                Resumo
               </button>
             )}
-            <button type="button" className="btn-secondary btn-sm" onClick={openHistory}>
-              Ver histórico
+            <button type="button" className="wf-tc-ghost" onClick={openHistory}>
+              Histórico
             </button>
-          </div>
-          {error && <p className="task-error">{error}</p>}
-          {blocked && (
-            <p className="task-hint">
-              {!task.enabled
-                ? "Desativada pelo administrador."
-                : "Liga as ferramentas em falta em «As minhas conexões»."}
-            </p>
-          )}
-        </>
-      ) : blocked ? (
-        <p className="task-hint">
-          {!task.enabled
-            ? "Desativada pelo administrador."
-            : "Liga as ferramentas em falta em «As minhas conexões»."}
-        </p>
-      ) : (
-        <>
-          {task.taskRuntime === "assistant.writing" ? (
-            <WritingConsole assignmentId={task.assignmentId} styleAvailable={task.hasWritingStyle} />
-          ) : (
-            <AssistedConsole assignmentId={task.assignmentId} />
-          )}
-        </>
-      )}
+            <Pill tone={pill.tone} label={pill.label} />
+          </>
+        ) : (
+          <Pill tone={pill.tone} label={pill.label} />
+        )}
+      </footer>
 
       {historyOpen && (
         <HistoryModal
@@ -921,7 +1033,7 @@ function TaskCard({
           onClose={() => setSummaryOpen(false)}
         />
       )}
-    </div>
+    </article>
   );
 }
 
@@ -960,7 +1072,7 @@ export function WorkerTasksPanel() {
       } catch {
         /* Firefox exige setData; ignora se falhar */
       }
-      const card = e.currentTarget.closest(".task-card");
+      const card = e.currentTarget.closest(".wf-tc");
       if (card) {
         try {
           e.dataTransfer.setDragImage(card, 24, 24);
@@ -1032,19 +1144,45 @@ export function WorkerTasksPanel() {
     .map((id) => byId.get(id))
     .filter((t): t is WorkerAssignmentView => Boolean(t));
 
+  // Índice sintético por grupo (#A-01 automáticas, #B-01 assistidas), na ordem.
+  let autoN = 0;
+  let asstN = 0;
+  const seqOf = new Map<string, number>();
+  for (const t of ordered) {
+    seqOf.set(t.assignmentId, t.taskType === "automation" ? ++autoN : ++asstN);
+  }
+
   return (
-    <div className="wf-board wf-masonry" ref={boardRef}>
-      {ordered.map((t) => (
-        <div className="wf-cell" key={t.assignmentId}>
-          <TaskCard
-            task={t}
-            dragging={draggingId === t.assignmentId}
-            onHandleDragStart={onHandleDragStart(t.assignmentId)}
-            onCardDragEnter={onCardDragEnter(t.assignmentId)}
-            onDragEnd={onDragEnd}
-          />
-        </div>
-      ))}
-    </div>
+    <>
+      {/* Toolbar de ícones das tarefas (estática, não são botões) — ecoa o estudo */}
+      <div className="wf-trade-toolbar" aria-hidden>
+        {ordered.map((t) => (
+          <span
+            key={t.assignmentId}
+            className="wf-trade-tool"
+            style={{ "--tc": taskHue(t.assignmentId) } as React.CSSProperties}
+            title={t.taskName}
+          >
+            {taskIcon(t.taskRuntime)}
+          </span>
+        ))}
+      </div>
+      <div className="wf-trade-rule" />
+
+      <div className="wf-board wf-masonry" ref={boardRef}>
+        {ordered.map((t) => (
+          <div className="wf-cell" key={t.assignmentId}>
+            <TaskCard
+              task={t}
+              seq={seqOf.get(t.assignmentId) ?? 1}
+              dragging={draggingId === t.assignmentId}
+              onHandleDragStart={onHandleDragStart(t.assignmentId)}
+              onCardDragEnter={onCardDragEnter(t.assignmentId)}
+              onDragEnd={onDragEnd}
+            />
+          </div>
+        ))}
+      </div>
+    </>
   );
 }

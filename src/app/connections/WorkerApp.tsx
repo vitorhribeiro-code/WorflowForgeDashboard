@@ -23,7 +23,6 @@ import { workerThemesCss } from "./workerThemeCss";
 import { ConnectionsPanel } from "@/modules/connections/ui/ConnectionsPanel";
 import { WorkerTasksPanel } from "@/modules/assignments/ui/WorkerTasksPanel";
 import { WorkerArchivePanel } from "@/modules/archives/ui/WorkerArchivePanel";
-import { NextRunWidget, RecentRunsWidget } from "@/modules/assignments/ui/SidebarWidgets";
 import { WorkerActivityStats } from "@/modules/assignments/ui/WorkerActivityStats";
 import {
   DEFAULT_BACKGROUND,
@@ -100,6 +99,20 @@ const IcMoon = (
   </svg>
 );
 
+// Marca hexágono do cabeçalho «trade-in» (ecoa o estudo 1e).
+const IcHex = (
+  <svg width="25" height="25" viewBox="0 0 32 30" fill="none" aria-hidden>
+    <path d="M16 2.5l12 6.8v11.4L16 27.5 4 20.7V9.3L16 2.5z" stroke="#e8e8e8" strokeWidth="2.2" strokeLinejoin="round" />
+    <path d="M8.5 11.5l4 5 3.5-3 3.5 3 4-5-.5 5.6-7 6.4-7-6.4z" fill="#c0472a" />
+  </svg>
+);
+const IcPerson = (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <circle cx="12" cy="8.5" r="3.5" stroke="currentColor" strokeWidth="1.6" />
+    <path d="M5 19a7 7 0 0114 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);
+
 // Tarefas e conexões são pessoais do trabalhador. Um super-utilizador que abra
 // esta área vê uma nota (e tem o atalho para a consola nas Definições).
 function AdminNote() {
@@ -137,6 +150,28 @@ export function WorkerApp({
   const [view, setView] = useState<View>(banner ? "connections" : "tasks");
   const [loggingOut, setLoggingOut] = useState(false);
   const router = useRouter();
+
+  // Relógio ao vivo (pt-PT) do cabeçalho da vista de tarefas. Client-only com
+  // placeholder para não dar mismatch de hidratação (arranca null no server).
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Garante a fonte «Plus Jakarta Sans» (só a ilha trade-in a usa). Injetada uma
+  // vez no cliente, à semelhança das fontes de título já suportadas.
+  useEffect(() => {
+    if (isAdmin) return;
+    if (document.querySelector('link[data-wf-font="jakarta"]')) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap";
+    link.setAttribute("data-wf-font", "jakarta");
+    document.head.appendChild(link);
+  }, [isAdmin]);
 
   // Fundo pessoal do painel (só trabalhadores). O token é uma classe na raiz
   // `.wf-app`; a troca é otimista (preview imediato) e persiste no PUT.
@@ -416,17 +451,51 @@ export function WorkerApp({
               <AdminNote />
             </>
           ) : (
-            <>
-              <div className="wf-page-head">
-                <h1>As minhas tarefas</h1>
-                <p>Executa as automáticas quando precisares e acompanha o histórico.</p>
+            <div className="wf-trade">
+              <div className="wf-trade-panel">
+                <div className="wf-trade-head">
+                  <span className="wf-trade-brand-ic">{IcHex}</span>
+                  <div className="wf-trade-brand">
+                    <div className="wf-trade-brand-t">Work Flow Forge</div>
+                    <div className="wf-trade-brand-s">Dashboard</div>
+                  </div>
+                  <div className="wf-trade-clock">
+                    <div className="d">
+                      {now
+                        ? new Intl.DateTimeFormat("pt-PT", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          }).format(now)
+                        : "\u00A0"}
+                    </div>
+                    <div className="t">
+                      {now
+                        ? new Intl.DateTimeFormat("pt-PT", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }).format(now)
+                        : "\u00A0"}
+                    </div>
+                  </div>
+                  <span className="wf-trade-avatar" title={roleLabel} aria-hidden>
+                    {IcPerson}
+                  </span>
+                  <button
+                    type="button"
+                    className="wf-trade-logout"
+                    onClick={() => void logout()}
+                    disabled={loggingOut}
+                    aria-label={loggingOut ? "A sair…" : "Terminar sessão"}
+                  >
+                    {loggingOut ? "A SAIR…" : "LOG OUT"}
+                    {IcLogout}
+                  </button>
+                </div>
+                <WorkerTasksPanel />
               </div>
-              <div className="wf-topcards">
-                <NextRunWidget />
-                <RecentRunsWidget />
-              </div>
-              <WorkerTasksPanel />
-            </>
+            </div>
           )}
         </section>
 

@@ -3316,3 +3316,189 @@ button.btn-danger:disabled {
   .cx-card.is-span2 { grid-column: span 2; }
   .cx-clock { display: none; }
 }
+
+/* ==========================================================================
+   VISTA DE TAREFAS — ilha «trade-in» (redesign do estudo 1e, SEMPRE ESCURA)
+   --------------------------------------------------------------------------
+   Namespace `.wf-trade`, acrescentado no FIM (globals é quente). É uma ILHA:
+   redeclara o conjunto `--wf-*` na versão escura NEUTRA do estudo, scoped a
+   `.wf-trade`, para que TODA a UI interna que consome tokens (consola de
+   escrita `.wrt-*`, resumos `.sum-*`, modais `.wt-modal*`, botões, pills)
+   herde o escuro — mesmo com o painel em modo claro. Não depende dos 5 temas
+   nem do modo (decisão: este painel é dark-only). Não toca no bloco `.wf-app`.
+   ========================================================================== */
+
+.wf-trade {
+  /* Tokens escuros neutros (paleta do estudo) — herdados pelos innards. */
+  --wf-bg: #08090b;
+  --wf-surface: #1b1e22;
+  --wf-ink: #f2f3f5;
+  --wf-muted: #8b9099;
+  --wf-faint: #6f757d;
+  --wf-line: rgba(255, 255, 255, .09);
+  --wf-line2: rgba(255, 255, 255, .06);
+  --wf-green: #3fb968;
+  --wf-green-600: #34a259;
+  --wf-green-hero-1: #2f9e57;
+  --wf-green-hero-2: #123f28;
+  --wf-tint: #1a2620;
+  --wf-tint2: #22322a;
+  --wf-amber: #e0a53f;
+  --wf-amber-tint: #2a2113;
+  --wf-amber-ink: #edc684;
+  --wf-red: #e0685f;
+  --wf-red-tint: #2c1a18;
+  --wf-red-ink: #f0a49d;
+  --wf-canvas-ink: #f2f3f5;
+  --wf-canvas-muted: #8b9099;
+  --wf-on-accent: #0b1410;
+  --wf-shadow: 0 1px 2px rgba(0, 0, 0, .42), 0 10px 26px rgba(0, 0, 0, .40);
+
+  font-family: "Plus Jakarta Sans", var(--wf-font-display, system-ui), -apple-system, sans-serif;
+  color: var(--wf-ink);
+  background: #050608;
+  border: 1px solid rgba(255, 255, 255, .05);
+  border-radius: 22px;
+  padding: 16px;
+}
+.wf-trade-panel {
+  background: #14161a;
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 18px;
+  padding: 20px 24px 26px;
+}
+
+/* ---- cabeçalho ---- */
+.wf-trade-head { display: flex; align-items: center; gap: 16px; }
+.wf-trade-brand-ic {
+  width: 44px; height: 44px; border-radius: 12px; flex: none;
+  display: grid; place-items: center;
+  background: #202327; border: 1px solid rgba(255, 255, 255, .08);
+}
+.wf-trade-brand { min-width: 0; }
+.wf-trade-brand-t { font-size: 16px; font-weight: 700; color: #f2f3f5; letter-spacing: -.01em; }
+.wf-trade-brand-s { font-size: 12px; color: #8b9099; }
+.wf-trade-clock { margin-left: auto; text-align: right; line-height: 1.2; }
+.wf-trade-clock .d { font-size: 12.5px; color: #8b9099; }
+.wf-trade-clock .t { font-size: 15px; font-weight: 800; color: #f2f3f5; font-variant-numeric: tabular-nums; }
+.wf-trade-avatar {
+  width: 44px; height: 44px; border-radius: 12px; flex: none;
+  display: grid; place-items: center;
+  background: #202327; border: 1px solid rgba(255, 255, 255, .1); color: #5b6068;
+}
+.wf-trade-logout {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: inherit; font-weight: 800; font-size: 12px; letter-spacing: .03em;
+  padding: 9px 14px; border-radius: 10px; border: 0; cursor: pointer;
+  background: #e5484d; color: #fff; box-shadow: 0 6px 14px rgba(229, 72, 77, .3);
+}
+.wf-trade-logout:disabled { opacity: .6; cursor: default; }
+.wf-trade-logout svg { width: 14px; height: 14px; }
+
+/* ---- toolbar de ícones (estática) ---- */
+.wf-trade-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.wf-trade-tool {
+  width: 40px; height: 38px; display: grid; place-items: center; border-radius: 10px;
+  background: color-mix(in srgb, var(--tc) 16%, transparent);
+  color: color-mix(in srgb, var(--tc) 65%, #fff);
+}
+.wf-trade-tool svg { width: 19px; height: 19px; }
+
+.wf-trade-rule { height: 1px; background: rgba(255, 255, 255, .08); margin: 16px 0 20px; }
+
+/* ---- grelha (mantém a masonry: colunas/gap só, auto-rows fica na wf-app) ---- */
+.wf-trade .wf-board { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+.wf-trade .wf-board.wf-masonry .wf-cell > .wf-tc { height: 100%; }
+
+/* ---- cartão ---- */
+.wf-trade .wf-tc {
+  display: flex; flex-direction: column;
+  background: #1b1e22; border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 16px; overflow: visible;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.wf-trade .wf-tc:hover { border-color: rgba(255, 255, 255, .16); transform: translateY(-2px); }
+.wf-trade .wf-tc.is-dragging { opacity: .55; border-style: dashed; transform: none; }
+
+/* faixa superior (cor da tarefa) */
+.wf-tc-top {
+  padding: 13px 14px; display: flex; align-items: center; gap: 12px;
+  background: var(--tc); border-radius: 16px 16px 0 0; color: #fff;
+}
+.wf-tc-ic {
+  width: 40px; height: 40px; border-radius: 11px; flex: none;
+  display: grid; place-items: center; background: rgba(255, 255, 255, .18); color: #fff;
+}
+.wf-tc-ic svg { width: 21px; height: 21px; }
+.wf-tc-meta { flex: 1; min-width: 0; }
+.wf-tc-id { font-size: 11.5px; font-weight: 700; color: rgba(255, 255, 255, .82); }
+.wf-tc-nm {
+  font-size: 14px; font-weight: 700; color: #fff; letter-spacing: -.01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wf-tc-move {
+  width: 24px; height: 24px; flex: none; display: grid; place-items: center;
+  border-radius: 7px; color: rgba(255, 255, 255, .7); cursor: grab;
+}
+.wf-tc-move:hover { background: rgba(255, 255, 255, .18); color: #fff; }
+
+/* (i) tooltip (abre ABAIXO — sem risco de recorte) */
+.wf-tc-tip { position: relative; display: inline-flex; flex: none; }
+.wf-tc-tip-ic {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .16);
+  color: #fff; cursor: help;
+}
+.wf-tc-tipc {
+  position: absolute; top: calc(100% + 9px); right: -6px; width: 216px;
+  background: #0b0c0e; color: #f1f5f2; font-size: 11.5px; line-height: 1.5; font-weight: 500;
+  padding: 10px 12px; border-radius: 11px; text-align: left;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .5); border: 1px solid rgba(255, 255, 255, .1);
+  opacity: 0; visibility: hidden; transform: translateY(-4px);
+  transition: opacity .16s ease, transform .16s ease; z-index: 30; pointer-events: none;
+}
+.wf-tc-tipc::after {
+  content: ""; position: absolute; bottom: 100%; right: 12px;
+  border: 6px solid transparent; border-bottom-color: #0b0c0e;
+}
+.wf-tc-tip:hover .wf-tc-tipc,
+.wf-tc-tip:focus-within .wf-tc-tipc { opacity: 1; visibility: visible; transform: translateY(0); }
+
+/* área central */
+.wf-tc-mid { padding: 13px 14px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.wf-tc-mid.size-m { min-height: 200px; }
+.wf-tc-mid.size-l { min-height: 300px; }
+.wf-tc-type { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--wf-muted); }
+.wf-tc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tc); }
+.wf-tc-sched { margin: -2px 0 0; font-size: 12px; color: var(--wf-faint); }
+
+/* faixa inferior (cor a ~40%) — controlos reais */
+.wf-tc-bot {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  background: color-mix(in srgb, var(--tc) 40%, #12151a);
+  border-radius: 0 0 16px 16px;
+}
+.wf-tc-play {
+  width: 30px; height: 30px; flex: none; display: grid; place-items: center;
+  border-radius: 9px; border: 0; cursor: pointer; background: #fff; color: #17201b;
+}
+.wf-tc-play:disabled { background: rgba(255, 255, 255, .14); color: rgba(255, 255, 255, .4); cursor: not-allowed; }
+.wf-tc-ghost {
+  font: inherit; font-weight: 700; font-size: 11.5px; height: 30px; padding: 0 12px;
+  border-radius: 9px; border: 0; cursor: pointer;
+  background: rgba(255, 255, 255, .14); color: #fff;
+}
+.wf-tc-ghost:hover { background: rgba(255, 255, 255, .22); }
+.wf-tc-bot .status-pill { margin-left: auto; }
+
+/* pills legíveis na ilha escura (o green precisa do acento vivo; grey é claro na wf-app) */
+.wf-trade .status-pill.status-green { color: var(--wf-green); }
+.wf-trade .status-pill.status-grey { background: rgba(255, 255, 255, .08); color: var(--wf-muted); }
+
+/* estados vazio/erro/loading da ilha herdam os tokens escuros (nada a fazer) */
+
+@media (max-width: 640px) {
+  .wf-trade-panel { padding: 16px 14px 20px; }
+  .wf-trade-clock { display: none; }
+  .wf-trade .wf-board { grid-template-columns: 1fr; }
+}
