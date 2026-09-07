@@ -390,7 +390,13 @@ export function WorkerApp({
     : undefined;
 
   return (
-    <div className={`wf-app${bgClass}${modeClass}`} data-theme={consoleTheme} style={rootStyle}>
+    <div
+      className={`wf-app${bgClass}${modeClass}${
+        view === "tasks" && !isAdmin ? " wf-island-route" : ""
+      }`}
+      data-theme={consoleTheme}
+      style={rootStyle}
+    >
       {/* Temas do painel (acento por tema, claro+escuro), scoped a `.wf-app`.
           Gerado do mapa de tokens; injetado uma vez, sem tocar na consola. */}
       <style dangerouslySetInnerHTML={{ __html: workerThemesCss() }} />

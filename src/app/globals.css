@@ -3495,10 +3495,42 @@ button.btn-danger:disabled {
 .wf-trade .status-pill.status-green { color: var(--wf-green); }
 .wf-trade .status-pill.status-grey { background: rgba(255, 255, 255, .08); color: var(--wf-muted); }
 
-/* estados vazio/erro/loading da ilha herdam os tokens escuros (nada a fazer) */
+/* estados vazio/erro/loading + modais: afinados via aliases de tokens da
+   consola no bloco de POLIMENTO ao fim do ficheiro (não herdavam --wf-*). */
 
 @media (max-width: 640px) {
   .wf-trade-panel { padding: 16px 14px 20px; }
   .wf-trade-clock { display: none; }
   .wf-trade .wf-board { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   POLIMENTO DA ILHA (v40) — completa a abstração do v39 + chrome da rota
+   --------------------------------------------------------------------------
+   O v39 redeclarou os `--wf-*` escuros scoped a `.wf-trade`, MAS alguns innards
+   (modais `.wt-modal*`, run-rows `.run-*`, `.task-error`, `.stream-console`,
+   estados `.conn-*`) consomem tokens da CONSOLA (`--panel/--border/--text/…`),
+   que caíam no `:root` — escuros por acaso, mas desafinados da paleta da ilha
+   (tracejado quase invisível, erro em rosa da consola, cinzentos trocados).
+   Aliasar esses tokens para os `--wf-*` da ilha fecha o buraco de uma vez, sem
+   reescrever regras. Scoped a `.wf-trade` → não vaza para o resto do painel.
+   NÃO aliasamos `--accent`/`--sel-*` (highlights semânticos: o primário branco
+   combina com o `.wf-tc-play`; a seleção verde é intencional).
+   ========================================================================== */
+.wf-trade {
+  --panel: var(--wf-surface);
+  --border: var(--wf-line);
+  --text: var(--wf-ink);
+  --muted: var(--wf-muted);
+  --bg: var(--wf-bg);
+  --danger: var(--wf-red);
+  --danger-bg: var(--wf-red-tint);
+}
+
+/* Chrome: na rota da ilha (tarefas, não-admin) o carril fica SÓ-NAV e a topbar
+   desaparece — a marca + avatar + LOG OUT vivem no cabeçalho da ilha, evitando
+   a marca/logout em dobro. As outras vistas mantêm o carril completo + topbar. */
+.wf-island-route .wf-topbar { display: none; }
+.wf-island-route .wf-side .wf-brand,
+.wf-island-route .wf-side-foot,
+.wf-island-route .wf-nav-item.wf-danger { display: none; }
