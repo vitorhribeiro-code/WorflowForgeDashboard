@@ -2,6 +2,8 @@
 //  Tipos puros do M4 (catálogo de Tasks). Sem IO.                             //
 // -------------------------------------------------------------------------- //
 
+import type { TaskCard } from "./card";
+
 // Espelha o enum `task_type` do schema (fonte de verdade).
 //  automation: corre sozinha (fila + schedule)
 //  assistant:  o trabalhador aciona (stream interativo, sem schedule)
@@ -20,6 +22,7 @@ export type Task = {
   type: TaskType;
   runtime: string; // identificador do handler (resolúvel no M7)
   configSchema: JsonSchema | null;
+  card: TaskCard | null; // apresentação do cartão (v41); null → cardSize derivado
   createdAt: Date;
 };
 
@@ -40,6 +43,7 @@ export type TaskPatch = {
   areaId?: string | null;
   runtime?: string;
   configSchema?: JsonSchema | null;
+  card?: TaskCard | null;
 };
 
 // Ferramenta exigida por uma Task + scopes mínimos (⊆ scopes da Tool — M3).

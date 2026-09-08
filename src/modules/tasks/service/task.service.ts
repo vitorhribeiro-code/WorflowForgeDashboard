@@ -8,6 +8,7 @@ import {
   type Publishability,
 } from "../domain/publishability";
 import type { NewTask, RequiredTool, Task, TaskPatch } from "../domain/types";
+import { validateCard, type TaskCard } from "../domain/card";
 import { requireAdmin } from "./guards";
 import type {
   PublicationPort,
@@ -216,6 +217,34 @@ export function createTaskService(deps: TaskServiceDeps) {
         }
       }
       return computePublishability({ configSchemaValid, runtimeKnown, requiredToolsResolved });
+    },
+
+    // Define/atualiza a APRESENTAÇÃO do cartão (v41). Só admin, escopado por
+    // org. Valida contra o catálogo de blocos + envelope do template. `null`
+    // limpa o cartão (volta ao cardSize derivado). NÃO mexe no publish.
+    async setCard(
+      session: SessionContext,
+      taskId: string,
+      card: TaskCard | null,
+    ): Promise<Task> {
+      requireAdmin(session);
+      await load(session, taskId); // garante existência + isolamento por org
+      if (card !== null) {
+        const check = validateCard(card);
+        if (!check.valid) {
+          throw new DomainError("INVALID_CARD", "Cartão inválido", 422, check.errors);
+        }
+      }
+      const updated = await repo.update(taskId, session.orgId, { card });
+      if (!updated) throw new DomainError("TASK_NOT_FOUND", "Task inexistente", 404);
+      await safeAudit(audit, {
+        actorId: session.userId,
+        action: "task.card_set",
+        entity: "task",
+        entityId: taskId,
+        metadata: { cleared: card === null, template: card?.template },
+      });
+      return updated;
     },
 
     async publish(session: SessionContext, taskId: string): Promise<Publishability> {

@@ -30,6 +30,7 @@ function toTask(row: typeof tasks.$inferSelect): Task {
     type: row.type as TaskType,
     runtime: row.runtime,
     configSchema: (row.configSchema as Record<string, unknown> | null) ?? null,
+    card: (row.card as Task["card"]) ?? null,
     createdAt: row.createdAt,
   };
 }
@@ -61,6 +62,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     if (patch.areaId !== undefined) values.areaId = patch.areaId;
     if (patch.runtime !== undefined) values.runtime = patch.runtime;
     if (patch.configSchema !== undefined) values.configSchema = patch.configSchema;
+    if (patch.card !== undefined) values.card = patch.card;
     if (Object.keys(values).length === 0) return this.getById(id, orgId);
 
     const [row] = await this.db

@@ -12,6 +12,7 @@ import {
   primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import type { TaskCard } from "@/modules/tasks/domain/card";
 
 /* -------------------------------------------------------------------------- */
 /*  Enums                                                                      */
@@ -167,6 +168,14 @@ export const tasks = pgTable(
     runtime: text("runtime").notNull(),
     // Schema dos inputs (usado para gerar o formulário das assistidas).
     configSchema: jsonb("config_schema").$type<Record<string, unknown>>(),
+    // Estado de publicação. A COLUNA JÁ EXISTE na BD desde a migração 0001
+    // (ADD COLUMN IF NOT EXISTS ... DEFAULT false); aqui é apenas espelhada no
+    // Drizzle (v41). published=false = rascunho não-atribuível (gate M5).
+    published: boolean("published").notNull().default(false),
+    // Camada de APRESENTAÇÃO do cartão (v41, migração 0008). NULLABLE:
+    // null → cardSize() derivado (retrocompatível). Só apresentação; o
+    // comportamento do cartão deriva do `runtime`, nunca daqui.
+    card: jsonb("card").$type<TaskCard>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

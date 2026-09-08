@@ -24,6 +24,7 @@ function build(opts: { assignments: number }) {
     type: "automation",
     runtime: "email.digest",
     configSchema: null,
+    card: null,
     createdAt: new Date(),
   };
 
