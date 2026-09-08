@@ -222,6 +222,7 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
           missing: r.connections.missing,
           useWritingStyle: a.useWritingStyle,
           hasWritingStyle,
+          card: t.card,
         });
       }
       return views;

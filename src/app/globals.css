@@ -3534,3 +3534,64 @@ button.btn-danger:disabled {
 .wf-island-route .wf-side .wf-brand,
 .wf-island-route .wf-side-foot,
 .wf-island-route .wf-nav-item.wf-danger { display: none; }
+
+/* ==========================================================================
+   CARTÃO — APRESENTAÇÃO + PREVIEW (v42)
+   --------------------------------------------------------------------------
+   1) Apresentação do cartão (blurb + blocos) — o <TaskCardPresentation>,
+      partilhado pela ilha do trabalhador E pelo preview do catálogo. Scoped a
+      `.wf-trade` (ambas as superfícies renderizam dentro da ilha), pelo que
+      herda os `--wf-*` escuros da ilha em ambos os lados → zero drift.
+   2) Chrome do preview na CONSOLA (`.card-preview*`) — vive fora da ilha, usa
+      os tokens da consola (`--panel/--border/--text/--muted/--accent`).
+   Append-only (globals é quente).
+   ========================================================================== */
+
+/* --- 1) Apresentação partilhada (dentro de `.wf-trade`) --- */
+.wf-trade .wf-tc-pres { display: flex; flex-direction: column; gap: 9px; }
+.wf-trade .wf-tc-blurb { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--wf-ink); }
+.wf-trade .wf-tc-blurb.is-placeholder { color: var(--wf-faint); font-style: italic; }
+.wf-trade .wf-tc-blocks { display: flex; flex-direction: column; gap: 7px; }
+.wf-trade .wf-tc-block { font-size: 12px; line-height: 1.4; color: var(--wf-muted); }
+.wf-trade .wf-tc-block--note { display: flex; gap: 7px; align-items: flex-start; }
+.wf-trade .wf-tc-block--kv { display: flex; gap: 7px; align-items: center; }
+.wf-trade .wf-tc-block-ic {
+  flex: none; width: 15px; height: 15px; margin-top: 1px;
+  color: var(--wf-muted); display: inline-flex;
+}
+.wf-trade .wf-tc-block-ic svg { width: 15px; height: 15px; }
+.wf-trade .wf-tc-block-tx { min-width: 0; }
+.wf-trade .wf-tc-kv-label { color: var(--wf-faint); }
+.wf-trade .wf-tc-kv-value {
+  margin-left: auto; font-weight: 700; color: var(--wf-ink); text-align: right;
+}
+.wf-trade .wf-tc-block--emphasis {
+  margin: 0; font-size: 12.5px; font-weight: 700; color: var(--wf-ink);
+  padding: 7px 9px; border-radius: 8px;
+  background: var(--wf-tint); border: 1px solid var(--wf-line);
+}
+/* Play inerte no preview (mesma aparência do botão, sem interação). */
+.wf-trade .wf-tc-play--inert { cursor: default; }
+
+/* --- 2) Chrome do preview (consola) --- */
+.card-preview { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
+.card-preview-head { display: flex; align-items: center; gap: 10px; }
+.card-preview-head h3 { margin: 0; }
+.card-status {
+  font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted);
+}
+.card-status--ready { color: #52c07a; border-color: #52c07a; }
+.card-status--draft { color: var(--muted); }
+.card-status--none { color: var(--muted); opacity: .75; }
+.card-tpl { display: flex; gap: 8px; margin: 12px 0 14px; }
+.card-tpl-btn {
+  font: inherit; font-weight: 600; font-size: 12.5px; padding: 6px 14px;
+  border-radius: 999px; border: 1px solid var(--border);
+  background: transparent; color: var(--text); cursor: pointer;
+  transition: border-color .12s ease, background .12s ease;
+}
+.card-tpl-btn:hover { border-color: var(--muted); }
+.card-tpl-btn.on { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.card-preview-stage { max-width: 400px; margin: 0 0 16px; }
+.card-preview-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

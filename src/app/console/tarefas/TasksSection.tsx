@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { TaskForm } from "@/modules/tasks/ui/TaskForm";
 import { TaskList } from "@/modules/tasks/ui/TaskList";
+import { CardPreview } from "@/modules/tasks/ui/CardPreview";
 import { useTasks } from "@/modules/tasks/ui/hooks";
 import type { Publishability, PublishBlocker } from "@/modules/tasks/domain/publishability";
 import type { RequiredTool, Task } from "@/modules/tasks/domain/types";
+import type { TaskCard } from "@/modules/tasks/domain/card";
 import { useTools } from "@/modules/tools/ui/hooks";
 import { useAreas } from "@/modules/org/ui/hooks";
 import type { Tool } from "@/modules/tools/domain/types";
@@ -263,6 +265,16 @@ function TaskDetail({
       ) : null}
 
       {msg ? <p className="panel-note">{msg}</p> : null}
+
+      {/* Preview do cartão (v42): mesmo render que o trabalhador vê. Guardar o
+          template fixa a moldura (draft); o conteúdo e o flip→ready são o v44. */}
+      <CardPreview
+        task={task}
+        onSave={async (card: TaskCard | null) => {
+          await apiPut(`/api/tasks/${task.id}/card`, { card });
+          onPublished(); // refetch → task.card (e o status) atualizam na UI
+        }}
+      />
     </div>
   );
 }

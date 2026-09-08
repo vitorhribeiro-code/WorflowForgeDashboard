@@ -4,6 +4,10 @@ import type {
   MissingDep,
   RequiredTool,
 } from "../domain/types";
+// Tipo puro (sem IO/runtime dep) do módulo de tasks: a view projeta o cartão
+// tal como projeta nome/runtime/tipo. Import type-only → não cruza a fronteira
+// de DI (as tasks continuam a chegar por `taskDeps`, não por import direto).
+import type { TaskCard } from "@/modules/tasks/domain/card";
 
 export type { AssignmentReadiness, ConnectionReadiness } from "../domain/types";
 
@@ -27,6 +31,7 @@ export type TaskSummary = {
   runtime: string;
   published: boolean;
   configSchema: Record<string, unknown> | null;
+  card: TaskCard | null;
 };
 
 // M4: contexto da Task + as suas required_tools. Interface do CONSUMIDOR.
@@ -143,4 +148,8 @@ export type WorkerAssignmentView = {
   // A UI combina-os: ambos → «a usar o teu estilo»; só o 1.º → «estilo pendente».
   useWritingStyle: boolean;
   hasWritingStyle: boolean;
+  // Apresentação do cartão (v42). null → sem cartão composto (cai no derivado).
+  // O trabalhador só VÊ a apresentação quando `card.status === "ready"`; drafts
+  // são privados do super-utilizador (o render aplica esse gate).
+  card: TaskCard | null;
 };

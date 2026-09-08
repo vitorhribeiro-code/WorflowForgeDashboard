@@ -1,4 +1,5 @@
 import type { JsonSchema, TaskType } from "../domain/types";
+import type { TaskCard } from "../domain/card";
 
 /* --- Consumidos (injetados no container) ---------------------------------- */
 
@@ -43,6 +44,7 @@ export type TaskSummary = {
   runtime: string;
   published: boolean;
   configSchema: JsonSchema | null;
+  card: TaskCard | null;
 };
 
 export interface TaskCatalogPort {

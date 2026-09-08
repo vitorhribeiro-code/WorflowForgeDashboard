@@ -312,6 +312,7 @@ export function createTaskCatalogPort(
           runtime: t.runtime,
           published: await publication.isPublished(t.id),
           configSchema: t.configSchema,
+          card: t.card,
         })),
       );
     },

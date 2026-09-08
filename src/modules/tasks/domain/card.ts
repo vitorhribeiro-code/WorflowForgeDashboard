@@ -22,6 +22,17 @@ export const CARD_TEMPLATES: readonly CardTemplate[] = [
   "size-l",
 ] as const;
 
+// Estado do CARTÃO (distinto do `published` da TAREFA — ver ERD/handoff v42).
+//  - draft: em construção; só o super-utilizador o vê (no preview do catálogo).
+//           O trabalhador NUNCA vê a apresentação de um cartão em draft.
+//  - ready: validado pelo super-utilizador ("disponível para publicação"); a
+//           sua apresentação passa a ser mostrada ao trabalhador (quando a
+//           tarefa está publicada). O flip draft→ready é ato do super-utilizador
+//           (aterra no v44, junto do editor). No v42, os cartões nascem draft.
+export type CardStatus = "draft" | "ready";
+
+export const CARD_STATUSES: readonly CardStatus[] = ["draft", "ready"] as const;
+
 // Registo FECHADO de ícones (curado de Lucide, MIT). O render mapeia nome→SVG
 // inline. Alargar é decisão deliberada (schema + render), nunca do LLM.
 export const ICON_NAMES = [
@@ -72,6 +83,7 @@ export type CardPresentation = {
 
 export type TaskCard = {
   template: CardTemplate;
+  status: CardStatus;
   presentation: CardPresentation;
 };
 
@@ -165,6 +177,11 @@ export function validateCard(input: unknown): CardValidation {
   }
   const envelope = CARD_ENVELOPES[template];
 
+  const status = card.status;
+  if (status !== "draft" && status !== "ready") {
+    errors.push(`status inválido (${String(status)})`);
+  }
+
   const presentation = card.presentation;
   if (typeof presentation !== "object" || presentation === null) {
     return { valid: false, errors: ["presentation: em falta ou inválida"] };
@@ -194,4 +211,17 @@ export function validateCard(input: unknown): CardValidation {
 // Type guard conveniente (usa a validação acima).
 export function isValidCard(input: unknown): input is TaskCard {
   return validateCard(input).valid;
+}
+
+// Cartão-semente para um template (v42): fixa o TAMANHO (a decisão do
+// super-utilizador antes do editor), em estado `draft`, com uma apresentação
+// mínima VÁLIDA (blurb vazio + zero blocos — o render degrada com placeholder).
+// O editor do v44 preenche este esqueleto e valida (draft→ready). Fixar o
+// template primeiro dá ao gerador/editor o envelope certo à partida.
+export function seedCard(template: CardTemplate): TaskCard {
+  return {
+    template,
+    status: "draft",
+    presentation: { blurb: "", blocks: [] },
+  };
 }

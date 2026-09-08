@@ -34,6 +34,14 @@ export const setRequiredToolsSchema = z.object({
 });
 export type SetRequiredToolsInput = z.infer<typeof setRequiredToolsSchema>;
 
+// Envelope da rota de cartão (v42). Forma solta de propósito: a validação
+// determinística (catálogo/envelope/ícones/status) é do DOMÍNIO — `setCard`
+// chama `validateCard` e devolve 422 INVALID_CARD com os erros. `null` limpa.
+export const setCardSchema = z.object({
+  card: z.union([z.record(z.string(), z.unknown()), z.null()]),
+});
+export type SetCardInput = z.infer<typeof setCardSchema>;
+
 export const listTasksQuerySchema = z.object({
   areaId: z.string().uuid().optional(),
   type: z.enum(TASK_TYPES as unknown as [string, ...string[]]).optional(),

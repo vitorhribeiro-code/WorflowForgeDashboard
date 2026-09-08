@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import type { WorkerAssignmentView } from "@/modules/assignments";
+import { TaskCardPresentation } from "@/modules/tasks/ui/TaskCardPresentation";
 import { describeCron } from "../domain/recurrence";
 import { useMasonry } from "./useMasonry";
 import {
@@ -945,8 +946,19 @@ function TaskCard({
         </span>
       </header>
 
-      {/* ÁREA CENTRAL: tipo + contexto + innards interativos */}
-      <div className={`wf-tc-mid ${cardSize(task)}`}>
+      {/* ÁREA CENTRAL: tipo + contexto + innards interativos.
+          Apresentação do cartão só quando READY (drafts são privados do
+          super-utilizador). Tamanho segue o template do cartão quando mostrado;
+          senão o derivado (retrocompat). Mesmo <TaskCardPresentation> do preview
+          do catálogo → zero drift. */}
+      <div
+        className={`wf-tc-mid ${
+          task.card && task.card.status === "ready" ? task.card.template : cardSize(task)
+        }`}
+      >
+        {task.card && task.card.status === "ready" ? (
+          <TaskCardPresentation card={task.card} fallbackBlurb={taskBlurb(task)} />
+        ) : null}
         <span className="wf-tc-type">
           <span className="wf-tc-dot" aria-hidden />
           {isAuto ? "Automática" : "Assistida"}

@@ -52,6 +52,7 @@ function build() {
 
 const goodCard: TaskCard = {
   template: "size-s",
+  status: "draft",
   presentation: {
     blurb: "Chega às 8h",
     blocks: [{ type: "kv", icon: "clock", label: "Cadência", value: "Diária" }],

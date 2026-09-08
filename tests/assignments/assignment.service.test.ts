@@ -110,8 +110,8 @@ class FakeRepo implements AssignmentRepository {
 }
 
 const TASKS: TaskSummary[] = [
-  { id: "t1", name: "Resumo diário", type: "automation", runtime: "email.digest", published: true, configSchema: null },
-  { id: "t2", name: "Rascunho", type: "assistant", runtime: "assistant.generic", published: false, configSchema: null },
+  { id: "t1", name: "Resumo diário", type: "automation", runtime: "email.digest", published: true, configSchema: null, card: null },
+  { id: "t2", name: "Rascunho", type: "assistant", runtime: "assistant.generic", published: false, configSchema: null, card: null },
 ];
 const REQUIRED: Record<string, { toolId: string; scopes: string[] }[]> = {
   t1: [{ toolId: "tool-google", scopes: ["gmail.read"] }],

@@ -1,9 +1,11 @@
 import { DomainError } from "@/lib/errors";
 import { taskService } from "../container";
 import type { TaskType } from "../domain/types";
+import type { TaskCard } from "../domain/card";
 import {
   createTaskSchema,
   listTasksQuerySchema,
+  setCardSchema,
   setRequiredToolsSchema,
   updateTaskSchema,
 } from "../validation/schemas";
@@ -67,6 +69,15 @@ export const requiredToolsPUT = withSession(async (session, req, ctx) => {
   const input = await readJson(req, setRequiredToolsSchema);
   const items = input.items.map((i) => ({ toolId: i.toolId, scopes: i.scopes ?? [] }));
   return json(await taskService.setRequiredTools(session, id(ctx), items));
+});
+
+// PUT /api/tasks/[id]/card — compõe/edita o cartão (admin). `card: null` limpa.
+// A validação determinística (catálogo/envelope/ícones/status) é do domínio:
+// `setCard` chama `validateCard` e devolve 422 INVALID_CARD se falhar.
+export const cardPUT = withSession(async (session, req, ctx) => {
+  const input = await readJson(req, setCardSchema);
+  const card = (input.card ?? null) as TaskCard | null;
+  return json(await taskService.setCard(session, id(ctx), card));
 });
 
 // POST /api/tasks/[id]/publish — publica; ?unpublish=1 despublica.

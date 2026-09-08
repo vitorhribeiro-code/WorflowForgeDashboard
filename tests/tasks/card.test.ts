@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   validateCard,
   isValidCard,
+  seedCard,
   CARD_ENVELOPES,
   type TaskCard,
 } from "@/modules/tasks/domain/card";
@@ -10,6 +11,7 @@ import {
 function card(over: Partial<TaskCard> = {}): TaskCard {
   return {
     template: "size-m",
+    status: "draft",
     presentation: { blurb: "Resumo curto", blocks: [] },
     ...over,
   };
@@ -137,5 +139,37 @@ describe("isValidCard", () => {
   it("é type guard consistente com validateCard", () => {
     expect(isValidCard(card())).toBe(true);
     expect(isValidCard({ template: "nope" })).toBe(false);
+  });
+});
+
+describe("validateCard — status (v42)", () => {
+  it("aceita draft e ready", () => {
+    expect(validateCard(card({ status: "draft" })).valid).toBe(true);
+    expect(validateCard(card({ status: "ready" })).valid).toBe(true);
+  });
+
+  it("rejeita status em falta", () => {
+    const noStatus = { template: "size-m", presentation: { blurb: "x", blocks: [] } };
+    const r = validateCard(noStatus);
+    expect(r.valid).toBe(false);
+    expect(r.errors.join()).toContain("status inválido");
+  });
+
+  it("rejeita status fora de {draft, ready}", () => {
+    const r = validateCard({ ...card(), status: "published" as unknown as TaskCard["status"] });
+    expect(r.valid).toBe(false);
+    expect(r.errors.join()).toContain("status inválido");
+  });
+});
+
+describe("seedCard (v42)", () => {
+  it("produz um cartão draft mínimo VÁLIDO para cada template", () => {
+    for (const t of ["size-s", "size-m", "size-l"] as const) {
+      const c = seedCard(t);
+      expect(c.template).toBe(t);
+      expect(c.status).toBe("draft");
+      expect(c.presentation.blocks).toEqual([]);
+      expect(validateCard(c).valid).toBe(true);
+    }
   });
 });
