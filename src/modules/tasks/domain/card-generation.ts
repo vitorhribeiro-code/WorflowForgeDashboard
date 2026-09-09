@@ -43,6 +43,11 @@ export type CardGenInput = {
   description: string | null;
   runtime: string;
   type: TaskType;
+  // v44: instruções livres do super-utilizador para orientar/regenerar a
+  // apresentação (ex.: "mais direto", "realça a cadência"). Opcional — ausente
+  // ⇒ geração de raiz (v43). Passa pelo MESMO harness/validação; não altera as
+  // regras (o modelo continua a produzir só {blurb, blocks}).
+  instructions?: string | null;
 };
 
 export type CardGenOptions = {
@@ -149,6 +154,17 @@ export function buildCardPrompt(
     "EXEMPLO de uma resposta bem formada para este template:",
     JSON.stringify(fewshot),
   ];
+
+  // v44: instruções do super-utilizador (editor por prompt). Orientam o
+  // CONTEÚDO; as regras (envelope/blocos/ícones) mantêm-se inalteradas acima.
+  const instructions = input.instructions?.trim();
+  if (instructions) {
+    lines.push(
+      "",
+      "INSTRUÇÕES ADICIONAIS DO SUPER-UTILIZADOR (segue-as, sem violar os limites acima):",
+      instructions,
+    );
+  }
 
   if (prevErrors && prevErrors.length > 0) {
     lines.push(

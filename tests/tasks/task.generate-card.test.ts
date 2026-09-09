@@ -109,6 +109,32 @@ describe("taskService.generateCard", () => {
     expect(patches[0]?.card).toMatchObject({ template: "size-m" });
   });
 
+  it("passa as instruções ao prompt e marca regenerated na auditoria (v44)", async () => {
+    let received: { prompt: string } | null = null;
+    const complete: CardCompleteFn = async (inp) => {
+      received = inp;
+      return { text: VALID_JSON };
+    };
+    const { service, audit } = build(fakeLlm(complete));
+
+    await service.generateCard(admin, "t1", undefined, "realça a cadência");
+
+    expect(received).not.toBeNull();
+    expect(received!.prompt).toContain("INSTRUÇÕES ADICIONAIS");
+    expect(received!.prompt).toContain("realça a cadência");
+
+    const ev = audit.entries.find((e) => e.action === "task.card_generated");
+    expect(ev?.metadata).toMatchObject({ regenerated: true });
+  });
+
+  it("sem instruções: audit marca regenerated=false (geração de raiz)", async () => {
+    const complete: CardCompleteFn = async () => ({ text: VALID_JSON });
+    const { service, audit } = build(fakeLlm(complete));
+    await service.generateCard(admin, "t1");
+    const ev = audit.entries.find((e) => e.action === "task.card_generated");
+    expect(ev?.metadata).toMatchObject({ regenerated: false });
+  });
+
   it("sem dep de IA → 422 CARD_AI_UNAVAILABLE (não grava)", async () => {
     const { service, patches } = build(undefined);
     await expect(service.generateCard(admin, "t1")).rejects.toMatchObject({

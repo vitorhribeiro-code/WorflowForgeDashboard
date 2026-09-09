@@ -1,8 +1,9 @@
 import { DomainError } from "@/lib/errors";
 import { taskService } from "../container";
 import type { TaskType } from "../domain/types";
-import type { CardTemplate, TaskCard } from "../domain/card";
+import type { CardStatus, CardTemplate, TaskCard } from "../domain/card";
 import {
+  cardStatusSchema,
   createTaskSchema,
   generateCardSchema,
   listTasksQuerySchema,
@@ -81,13 +82,29 @@ export const cardPUT = withSession(async (session, req, ctx) => {
   return json(await taskService.setCard(session, id(ctx), card));
 });
 
-// POST /api/tasks/[id]/card/generate — gera a apresentação do cartão via IA (v43).
-// Corpo opcional { template }; sem IA → 422 CARD_AI_UNAVAILABLE. Persiste draft.
+// POST /api/tasks/[id]/card/generate — gera a apresentação do cartão via IA
+// (v43 + v44). Corpo opcional { template, instructions }; sem IA → 422
+// CARD_AI_UNAVAILABLE. Persiste draft. `instructions` (v44) orienta a
+// regeneração pelo editor por prompt; ausente ⇒ geração de raiz.
 export const cardGeneratePOST = withSession(async (session, req, ctx) => {
   const input = await readJson(req, generateCardSchema);
   return json(
-    await taskService.generateCard(session, id(ctx), input.template as CardTemplate | undefined),
+    await taskService.generateCard(
+      session,
+      id(ctx),
+      input.template as CardTemplate | undefined,
+      input.instructions ?? undefined,
+    ),
   );
+});
+
+// POST /api/tasks/[id]/card/status — marca o estado do cartão (v44). Corpo
+// { status?: "draft" | "ready" } (default "ready"). «Validar» (draft→ready)
+// torna a apresentação visível ao trabalhador; «Voltar a rascunho» esconde-a.
+// ORTOGONAL ao publish da tarefa (ver handoff v42 §2).
+export const cardStatusPOST = withSession(async (session, req, ctx) => {
+  const input = await readJson(req, cardStatusSchema);
+  return json(await taskService.setCardStatus(session, id(ctx), input.status as CardStatus));
 });
 
 // POST /api/tasks/[id]/publish — publica; ?unpublish=1 despublica.

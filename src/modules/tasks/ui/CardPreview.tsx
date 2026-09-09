@@ -9,15 +9,26 @@
 //                                                                             //
 //  Seletor dos 3 templates: troca `card.template` localmente; «Guardar        //
 //  template» persiste (via `onSave`) o TAMANHO em estado `draft` — fixa a     //
-//  moldura antes de o editor (v44) a preencher. A persistência de conteúdo    //
-//  e o flip draft→ready são do v44.                                          //
+//  moldura antes de o editor a preencher.                                     //
+//                                                                             //
+//  v44 — editor por prompt + «Validar»:                                       //
+//   · textarea de INSTRUÇÕES → o botão «Gerar/Regenerar» reusa a geração do   //
+//     v43 com essas instruções (mesmo harness/validação; só orienta o texto). //
+//   · «Validar» faz o flip draft→ready (via `onValidate`) — a apresentação    //
+//     passa a ser mostrada ao trabalhador (se a tarefa estiver publicada).    //
+//     É ORTOGONAL ao publish da tarefa (esse vive no TaskDetail).             //
 // -------------------------------------------------------------------------- //
 
 "use client";
 
 import { useState } from "react";
 import type { Task } from "../domain/types";
-import { CARD_TEMPLATES, type CardTemplate, type TaskCard } from "../domain/card";
+import {
+  CARD_TEMPLATES,
+  type CardStatus,
+  type CardTemplate,
+  type TaskCard,
+} from "../domain/card";
 import { TaskCardPresentation } from "./TaskCardPresentation";
 
 const TEMPLATE_LABEL: Record<CardTemplate, string> = {
@@ -56,15 +67,21 @@ export function CardPreview({
   task,
   onSave,
   onGenerate,
+  onValidate,
 }: {
   task: Task;
   // Persiste o cartão (null limpa). A consola liga isto ao PUT /api/tasks/[id]/card.
   onSave: (card: TaskCard | null) => Promise<void>;
-  // Gera a apresentação via IA para o template selecionado (v43). Opcional: se
-  // ausente, o botão «Gerar com IA» não aparece. Liga ao POST .../card/generate.
-  onGenerate?: (template: CardTemplate) => Promise<void>;
+  // Gera/regenera a apresentação via IA para o template selecionado (v43+v44).
+  // `instructions` (v44) orienta o texto; ausente ⇒ geração de raiz. Opcional:
+  // se ausente, o bloco de geração não aparece. Liga ao POST .../card/generate.
+  onGenerate?: (template: CardTemplate, instructions?: string) => Promise<void>;
+  // v44: flip do estado do cartão (draft↔ready). Opcional: se ausente, o botão
+  // «Validar» não aparece. Liga ao POST .../card/status.
+  onValidate?: (status: CardStatus) => Promise<void>;
 }) {
   const [template, setTemplate] = useState<CardTemplate>(defaultTemplate(task));
+  const [instructions, setInstructions] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -72,6 +89,8 @@ export function CardPreview({
   const isAuto = task.type === "automation";
   const hue = hueFor(task.id);
   const status = task.card?.status ?? null;
+  // Há conteúdo real a validar? (o esqueleto-semente tem blurb vazio → não).
+  const hasContent = (task.card?.presentation.blurb.trim().length ?? 0) > 0;
 
   // Cartão a pré-visualizar: presentation atual (se houver) sob o template
   // selecionado; senão semente vazia (o render mostra placeholder).
@@ -109,11 +128,38 @@ export function CardPreview({
     setErr(null);
     try {
       // A IA compõe a apresentação para o template selecionado; nasce em rascunho.
-      // O harness (validateCard) garante um cartão válido; o parent faz refetch.
-      await onGenerate(template);
-      setMsg(`Cartão gerado para «${TEMPLATE_LABEL[template]}» (rascunho).`);
+      // Com instruções (v44) regenera orientada; o harness (validateCard) garante
+      // sempre um cartão válido. O parent faz refetch.
+      const instr = instructions.trim();
+      await onGenerate(template, instr || undefined);
+      setMsg(
+        instr
+          ? `Cartão regenerado para «${TEMPLATE_LABEL[template]}» (rascunho).`
+          : `Cartão gerado para «${TEMPLATE_LABEL[template]}» (rascunho).`,
+      );
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Erro a gerar o cartão");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function validate(next: CardStatus) {
+    if (!onValidate) return;
+    setBusy(true);
+    setMsg(null);
+    setErr(null);
+    try {
+      // draft→ready («Validar»): a apresentação passa a ser mostrada ao
+      // trabalhador. ready→draft («Voltar a rascunho»): volta a escondê-la.
+      await onValidate(next);
+      setMsg(
+        next === "ready"
+          ? "Cartão validado — o trabalhador passa a ver a apresentação (se a tarefa estiver publicada)."
+          : "Cartão devolvido a rascunho — deixa de aparecer ao trabalhador.",
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Erro a mudar o estado do cartão");
     } finally {
       setBusy(false);
     }
@@ -192,6 +238,28 @@ export function CardPreview({
         </div>
       </div>
 
+      {/* v44 — editor por prompt: instruções livres orientam a (re)geração. */}
+      {onGenerate ? (
+        <div className="card-gen-editor">
+          <label className="card-gen-label" htmlFor="card-instructions">
+            Instruções para a IA <span className="muted">(opcional)</span>
+          </label>
+          <textarea
+            id="card-instructions"
+            className="card-gen-input"
+            rows={2}
+            value={instructions}
+            disabled={busy}
+            placeholder={
+              task.card
+                ? "Ex.: mais direto; realça a cadência; menos técnico."
+                : "Ex.: destaca o valor para quem recebe; tom simples."
+            }
+            onChange={(e) => setInstructions(e.target.value)}
+          />
+        </div>
+      ) : null}
+
       <div className="card-preview-actions">
         <button type="button" disabled={busy} onClick={save}>
           Guardar template ({TEMPLATE_LABEL[template]})
@@ -204,12 +272,47 @@ export function CardPreview({
             onClick={generate}
             title="A IA compõe a apresentação para o tamanho selecionado (rascunho)."
           >
-            Gerar com IA
+            {task.card ? "Regenerar com IA" : "Gerar com IA"}
+          </button>
+        ) : null}
+        {/* v44 — «Validar» (draft→ready) / «Voltar a rascunho» (ready→draft). */}
+        {onValidate && status === "draft" ? (
+          <button
+            type="button"
+            className="card-validate-btn"
+            disabled={busy || !hasContent}
+            onClick={() => validate("ready")}
+            title={
+              hasContent
+                ? "Torna a apresentação visível ao trabalhador (se a tarefa estiver publicada)."
+                : "Gera ou escreve conteúdo antes de validar."
+            }
+          >
+            Validar cartão
+          </button>
+        ) : null}
+        {onValidate && status === "ready" ? (
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={busy}
+            onClick={() => validate("draft")}
+            title="Volta o cartão a rascunho — deixa de aparecer ao trabalhador."
+          >
+            Voltar a rascunho
           </button>
         ) : null}
         {msg ? <span className="panel-note">{msg}</span> : null}
         {err ? <span className="panel-error">{err}</span> : null}
       </div>
+
+      {/* Nota de fronteira (v42 §2): validar o cartão ≠ publicar a tarefa. */}
+      {onValidate && status === "ready" ? (
+        <p className="muted card-preview-hint">
+          Cartão validado. Para o trabalhador o ver, a tarefa também tem de estar{" "}
+          <strong>publicada</strong> (botão «Publicar», acima).
+        </p>
+      ) : null}
     </div>
   );
 }

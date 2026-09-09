@@ -8,7 +8,7 @@ import {
   type Publishability,
 } from "../domain/publishability";
 import type { NewTask, RequiredTool, Task, TaskPatch } from "../domain/types";
-import { validateCard, type CardTemplate, type TaskCard } from "../domain/card";
+import { validateCard, type CardStatus, type CardTemplate, type TaskCard } from "../domain/card";
 import { deriveTemplate, generateCard as generateCardDomain, type CardGenOptions } from "../domain/card-generation";
 import { requireAdmin } from "./guards";
 import type {
@@ -266,6 +266,7 @@ export function createTaskService(deps: TaskServiceDeps) {
       session: SessionContext,
       taskId: string,
       template?: CardTemplate,
+      instructions?: string | null,
     ): Promise<Task> {
       requireAdmin(session);
       const task = await load(session, taskId); // existência + isolamento por org
@@ -291,6 +292,8 @@ export function createTaskService(deps: TaskServiceDeps) {
           description: task.description,
           runtime: task.runtime,
           type: task.type,
+          // v44: instruções livres do editor (ausente ⇒ geração de raiz, v43).
+          instructions: instructions ?? null,
         },
         chosen,
         genOptions,
@@ -325,7 +328,64 @@ export function createTaskService(deps: TaskServiceDeps) {
           provider: handle.provider,
           model: handle.model,
           attempts: result.attempts,
+          // v44: distingue geração de raiz de uma regeneração com instruções.
+          regenerated: Boolean(instructions && instructions.trim()),
         },
+      });
+      return updated;
+    },
+
+    // Marca o estado do CARTÃO (v44): draft→ready («Validar») ou ready→draft
+    // («Voltar a rascunho»). Só admin, escopado por org. É ORTOGONAL ao
+    // `published` da TAREFA (ver ERD/handoff v42 §2): validar o cartão NÃO
+    // publica a tarefa — só decide se a APRESENTAÇÃO é mostrada ao trabalhador
+    // (o gate `card.status==='ready'` da ilha, já no v42).
+    //
+    // Guardas: exige um cartão existente e válido; para marcar `ready` exige
+    // conteúdo real (blurb não-vazio) — não se valida um esqueleto-semente que
+    // renderia como placeholder ao trabalhador.
+    async setCardStatus(
+      session: SessionContext,
+      taskId: string,
+      status: CardStatus,
+    ): Promise<Task> {
+      requireAdmin(session);
+      const task = await load(session, taskId); // existência + isolamento por org
+
+      const card = task.card;
+      if (!card) {
+        throw new DomainError(
+          "CARD_MISSING",
+          "Não há cartão para validar; gera ou compõe o cartão primeiro",
+          422,
+        );
+      }
+
+      const next: TaskCard = { ...card, status };
+      // Defensivo: o cartão persistido devia estar sempre válido, mas revalida-se
+      // (o harness é o gate único — o mesmo do setCard/geração).
+      const check = validateCard(next);
+      if (!check.valid) {
+        throw new DomainError("INVALID_CARD", "Cartão inválido", 422, check.errors);
+      }
+      if (status === "ready" && next.presentation.blurb.trim() === "") {
+        throw new DomainError(
+          "CARD_EMPTY",
+          "O cartão está vazio; gera ou escreve conteúdo antes de validar",
+          422,
+        );
+      }
+
+      if (card.status === status) return task; // no-op idempotente (não audita)
+
+      const updated = await repo.update(taskId, session.orgId, { card: next });
+      if (!updated) throw new DomainError("TASK_NOT_FOUND", "Task inexistente", 404);
+      await safeAudit(audit, {
+        actorId: session.userId,
+        action: status === "ready" ? "task.card_validated" : "task.card_unvalidated",
+        entity: "task",
+        entityId: taskId,
+        metadata: { template: next.template },
       });
       return updated;
     },

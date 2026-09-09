@@ -3605,3 +3605,23 @@ button.btn-danger:disabled {
 }
 .card-gen-btn:hover:not(:disabled) { background: var(--accent); color: var(--bg); }
 .card-gen-btn:disabled { opacity: .55; cursor: default; }
+
+/* --- Editor por prompt + «Validar» do cartão (v44) — tokens da CONSOLA --- */
+.card-gen-editor { margin: 4px 0 12px; }
+.card-gen-label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+.card-gen-input {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 13px;
+  padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); resize: vertical; min-height: 40px;
+}
+.card-gen-input:focus { outline: none; border-color: var(--accent); }
+.card-gen-input:disabled { opacity: .6; cursor: default; }
+.card-validate-btn {
+  font: inherit; font-weight: 600; font-size: 12.5px; padding: 7px 14px;
+  border-radius: 8px; border: 1px solid #52c07a;
+  background: #52c07a; color: var(--bg); cursor: pointer;
+  transition: filter .12s ease, opacity .12s ease;
+}
+.card-validate-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.card-validate-btn:disabled { opacity: .5; cursor: default; }
+.card-preview-hint { margin-top: 10px; font-size: 12.5px; }

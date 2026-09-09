@@ -97,6 +97,20 @@ describe("buildCardPrompt — o harness em texto", () => {
     expect(prompt).toContain("REJEITADA");
     expect(prompt).toContain("blurb > 90");
   });
+
+  it("injeta as instruções do super-utilizador quando presentes (v44)", () => {
+    const { prompt } = buildCardPrompt(
+      { ...input, instructions: "usa um tom mais direto" },
+      "size-s",
+    );
+    expect(prompt).toContain("INSTRUÇÕES ADICIONAIS");
+    expect(prompt).toContain("usa um tom mais direto");
+  });
+
+  it("ignora instruções vazias/em branco (comporta-se como geração de raiz)", () => {
+    const { prompt } = buildCardPrompt({ ...input, instructions: "   " }, "size-s");
+    expect(prompt).not.toContain("INSTRUÇÕES ADICIONAIS");
+  });
 });
 
 describe("generateCard — orquestração (retry + validação)", () => {

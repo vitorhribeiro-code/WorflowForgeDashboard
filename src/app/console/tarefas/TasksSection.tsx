@@ -285,10 +285,16 @@ function TaskDetail({
           await apiPut(`/api/tasks/${task.id}/card`, { card });
           onPublished(); // refetch → task.card (e o status) atualizam na UI
         }}
-        onGenerate={async (template) => {
-          // v43: a IA compõe a apresentação (rascunho) para o template escolhido.
-          await apiPost(`/api/tasks/${task.id}/card/generate`, { template });
+        onGenerate={async (template, instructions) => {
+          // v43+v44: a IA compõe/regenera a apresentação (rascunho) para o
+          // template escolhido; `instructions` (v44) orienta o texto.
+          await apiPost(`/api/tasks/${task.id}/card/generate`, { template, instructions });
           onPublished(); // refetch → mostra o cartão gerado no preview
+        }}
+        onValidate={async (status) => {
+          // v44: flip draft↔ready. Torna (ou esconde) a apresentação ao trabalhador.
+          await apiPost(`/api/tasks/${task.id}/card/status`, { status });
+          onPublished(); // refetch → estado do cartão atualiza na UI
         }}
       />
     </div>
