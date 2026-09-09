@@ -37,6 +37,8 @@ import { DrizzleTaskRepository } from "@/modules/tasks/data/task.repository";
 import { createAjvSchemaValidator } from "@/modules/tasks/infra/ajv-schema-validator";
 import { createDrizzlePublication } from "@/modules/tasks/infra/publication.drizzle";
 import { createTaskCatalogPort, createTaskService } from "@/modules/tasks/service/task.service";
+import { createCardLlmPort } from "@/modules/tasks/infra/card-llm";
+import { getLlmResolver } from "@/modules/ai/container";
 
 /* -- M5 Atribuições/Toggle ------------------------------------------------- */
 import { DrizzleAssignmentRepository } from "@/modules/assignments/data/assignment.repository";
@@ -137,6 +139,14 @@ const readinessPort = createDrizzleReadiness(db);
 // -------------------------------------------------------------------------- //
 const taskRepo = new DrizzleTaskRepository(db);
 const publication = createDrizzlePublication(db); // migração: tasks.published
+// v43: geração do cartão via IA (adapta o LlmResolver; guarded p/ sem ENCRYPTION_KEY).
+const cardLlm = createCardLlmPort(() => {
+  try {
+    return getLlmResolver();
+  } catch {
+    return null;
+  }
+});
 export const taskService = createTaskService({
   repo: taskRepo,
   tools: toolCatalog,
@@ -144,6 +154,7 @@ export const taskService = createTaskService({
   isKnownRuntime,
   publication,
   audit,
+  llm: cardLlm,
 });
 const taskCatalog = createTaskCatalogPort(taskRepo, publication); // getTaskContext + getRequiredTools → M5
 

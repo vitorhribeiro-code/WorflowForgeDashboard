@@ -3595,3 +3595,13 @@ button.btn-danger:disabled {
 .card-tpl-btn.on { background: var(--accent); border-color: var(--accent); color: var(--bg); }
 .card-preview-stage { max-width: 400px; margin: 0 0 16px; }
 .card-preview-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* --- Botão «Gerar com IA» do preview do cartão (v43) --- */
+.card-gen-btn {
+  font: inherit; font-weight: 600; font-size: 12.5px; padding: 7px 14px;
+  border-radius: 8px; border: 1px solid var(--accent);
+  background: transparent; color: var(--accent); cursor: pointer;
+  transition: background .12s ease, color .12s ease, opacity .12s ease;
+}
+.card-gen-btn:hover:not(:disabled) { background: var(--accent); color: var(--bg); }
+.card-gen-btn:disabled { opacity: .55; cursor: default; }

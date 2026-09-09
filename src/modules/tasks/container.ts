@@ -11,12 +11,23 @@ import { isKnownRuntime } from "./domain/runtimes";
 // estruturalmente compatível com o ToolCatalogPort do M4. Sem import circular:
 // o M3 não depende do M4.
 import { toolCatalogPort } from "@/modules/tools";
+// v43: geração do cartão via IA. Adapta o LlmResolver do módulo `ai` ao porto
+// estreito CardLlmPort. Guarded: sem ENCRYPTION_KEY → null (sem IA, 422 no serviço).
+import { getLlmResolver } from "@/modules/ai/container";
+import { createCardLlmPort } from "./infra/card-llm";
 
 const repo = new DrizzleTaskRepository(db);
 const publication = createDrizzlePublication(db);
 
 // --- Wiring cross-module ---
 const toolCatalog = toolCatalogPort;
+const cardLlm = createCardLlmPort(() => {
+  try {
+    return getLlmResolver();
+  } catch {
+    return null;
+  }
+});
 
 export const taskService = createTaskService({
   repo,
@@ -25,6 +36,7 @@ export const taskService = createTaskService({
   isKnownRuntime,
   publication,
   audit: createDrizzleAudit(db),
+  llm: cardLlm,
 });
 
 // Port exposto ao M5.

@@ -36,6 +36,17 @@ async function apiPut<T>(url: string, payload: unknown): Promise<T> {
   return body as T;
 }
 
+async function apiPost<T>(url: string, payload: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.message ?? `HTTP ${res.status}`);
+  return body as T;
+}
+
 type AreaLite = { id: string; name: string };
 
 /* -- Editor de ferramentas exigidas + publicação (só com uma Task selecionada) -- */
@@ -273,6 +284,11 @@ function TaskDetail({
         onSave={async (card: TaskCard | null) => {
           await apiPut(`/api/tasks/${task.id}/card`, { card });
           onPublished(); // refetch → task.card (e o status) atualizam na UI
+        }}
+        onGenerate={async (template) => {
+          // v43: a IA compõe a apresentação (rascunho) para o template escolhido.
+          await apiPost(`/api/tasks/${task.id}/card/generate`, { template });
+          onPublished(); // refetch → mostra o cartão gerado no preview
         }}
       />
     </div>

@@ -1,7 +1,22 @@
 import type { JsonSchema, TaskType } from "../domain/types";
 import type { TaskCard } from "../domain/card";
+import type { CardCompleteFn } from "../domain/card-generation";
 
 /* --- Consumidos (injetados no container) ---------------------------------- */
+
+// Porto ESTREITO para a geração do cartão (v43). Desacopla o M4 do módulo `ai`:
+// dado o org, devolve uma completude de LLM (a capacidade "card.compose" já
+// resolvida) ou null quando não há IA configurada (o serviço faz 422 explícito).
+// A composição adapta o `LlmResolver` real a esta forma; os testes passam um fake.
+export interface CardLlmPort {
+  resolve(orgId: string): Promise<CardLlmHandle | null>;
+}
+
+export type CardLlmHandle = {
+  complete: CardCompleteFn;
+  provider: string;
+  model: string;
+};
 
 // Catálogo de Tools (M3). Interface DEFINIDA PELO CONSUMIDOR (M4) — o adaptador
 // que embrulha o toolCatalogPort do M3 é estruturalmente compatível.

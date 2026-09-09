@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TASK_TYPES } from "../domain/types";
+import { CARD_TEMPLATES } from "../domain/card";
 
 const jsonSchema = z.record(z.string(), z.unknown());
 
@@ -41,6 +42,13 @@ export const setCardSchema = z.object({
   card: z.union([z.record(z.string(), z.unknown()), z.null()]),
 });
 export type SetCardInput = z.infer<typeof setCardSchema>;
+
+// Geração do cartão via IA (v43). `template` opcional: se ausente, o serviço usa
+// o do cartão atual ou o derivado do tipo da tarefa.
+export const generateCardSchema = z.object({
+  template: z.enum(CARD_TEMPLATES as unknown as [string, ...string[]]).optional(),
+});
+export type GenerateCardInput = z.infer<typeof generateCardSchema>;
 
 export const listTasksQuerySchema = z.object({
   areaId: z.string().uuid().optional(),

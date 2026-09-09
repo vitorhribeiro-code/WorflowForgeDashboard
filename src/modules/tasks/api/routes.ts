@@ -1,9 +1,10 @@
 import { DomainError } from "@/lib/errors";
 import { taskService } from "../container";
 import type { TaskType } from "../domain/types";
-import type { TaskCard } from "../domain/card";
+import type { CardTemplate, TaskCard } from "../domain/card";
 import {
   createTaskSchema,
+  generateCardSchema,
   listTasksQuerySchema,
   setCardSchema,
   setRequiredToolsSchema,
@@ -78,6 +79,15 @@ export const cardPUT = withSession(async (session, req, ctx) => {
   const input = await readJson(req, setCardSchema);
   const card = (input.card ?? null) as TaskCard | null;
   return json(await taskService.setCard(session, id(ctx), card));
+});
+
+// POST /api/tasks/[id]/card/generate — gera a apresentação do cartão via IA (v43).
+// Corpo opcional { template }; sem IA → 422 CARD_AI_UNAVAILABLE. Persiste draft.
+export const cardGeneratePOST = withSession(async (session, req, ctx) => {
+  const input = await readJson(req, generateCardSchema);
+  return json(
+    await taskService.generateCard(session, id(ctx), input.template as CardTemplate | undefined),
+  );
 });
 
 // POST /api/tasks/[id]/publish — publica; ?unpublish=1 despublica.

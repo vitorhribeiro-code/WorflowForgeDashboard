@@ -33,5 +33,8 @@ export const KNOWN_CAPABILITIES = [
   "email.summary",
   "assistant.generic",
   "assistant.writing",
+  // Authoring-time (v43): compõe a APRESENTAÇÃO do cartão da tarefa. Distinta das
+  // capacidades de runtime — não corre numa Task, gera o cartão no catálogo.
+  "card.compose",
   "ocr",
 ] as const;

@@ -55,10 +55,14 @@ const PlayIcon = (
 export function CardPreview({
   task,
   onSave,
+  onGenerate,
 }: {
   task: Task;
   // Persiste o cartão (null limpa). A consola liga isto ao PUT /api/tasks/[id]/card.
   onSave: (card: TaskCard | null) => Promise<void>;
+  // Gera a apresentação via IA para o template selecionado (v43). Opcional: se
+  // ausente, o botão «Gerar com IA» não aparece. Liga ao POST .../card/generate.
+  onGenerate?: (template: CardTemplate) => Promise<void>;
 }) {
   const [template, setTemplate] = useState<CardTemplate>(defaultTemplate(task));
   const [busy, setBusy] = useState(false);
@@ -93,6 +97,23 @@ export function CardPreview({
       setMsg(`Template «${TEMPLATE_LABEL[template]}» guardado (rascunho).`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Erro a guardar o cartão");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function generate() {
+    if (!onGenerate) return;
+    setBusy(true);
+    setMsg(null);
+    setErr(null);
+    try {
+      // A IA compõe a apresentação para o template selecionado; nasce em rascunho.
+      // O harness (validateCard) garante um cartão válido; o parent faz refetch.
+      await onGenerate(template);
+      setMsg(`Cartão gerado para «${TEMPLATE_LABEL[template]}» (rascunho).`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Erro a gerar o cartão");
     } finally {
       setBusy(false);
     }
@@ -175,6 +196,17 @@ export function CardPreview({
         <button type="button" disabled={busy} onClick={save}>
           Guardar template ({TEMPLATE_LABEL[template]})
         </button>
+        {onGenerate ? (
+          <button
+            type="button"
+            className="card-gen-btn"
+            disabled={busy}
+            onClick={generate}
+            title="A IA compõe a apresentação para o tamanho selecionado (rascunho)."
+          >
+            Gerar com IA
+          </button>
+        ) : null}
         {msg ? <span className="panel-note">{msg}</span> : null}
         {err ? <span className="panel-error">{err}</span> : null}
       </div>

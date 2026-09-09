@@ -8,9 +8,11 @@ import {
   type Publishability,
 } from "../domain/publishability";
 import type { NewTask, RequiredTool, Task, TaskPatch } from "../domain/types";
-import { validateCard, type TaskCard } from "../domain/card";
+import { validateCard, type CardTemplate, type TaskCard } from "../domain/card";
+import { deriveTemplate, generateCard as generateCardDomain, type CardGenOptions } from "../domain/card-generation";
 import { requireAdmin } from "./guards";
 import type {
+  CardLlmPort,
   PublicationPort,
   RuntimeRegistry,
   SchemaValidatorPort,
@@ -26,6 +28,11 @@ export type TaskServiceDeps = {
   isKnownRuntime: RuntimeRegistry; // M7
   publication: PublicationPort;
   audit: AuditPort;
+  // v43: geração do cartão via IA. Opcional — null/ausente ⇒ sem IA (a geração
+  // devolve 422 CARD_AI_UNAVAILABLE). Injetado pela composição (adapta o resolver).
+  llm?: CardLlmPort | null;
+  // Política de retry/backoff da geração (opcional; default do domínio: 3/700/300ms).
+  genOptions?: CardGenOptions;
 };
 
 export type TaskService = ReturnType<typeof createTaskService>;
@@ -40,6 +47,8 @@ async function safeAudit(audit: AuditPort, ev: AuditEvent): Promise<void> {
 
 export function createTaskService(deps: TaskServiceDeps) {
   const { repo, tools, schema, isKnownRuntime, publication, audit } = deps;
+  const llm = deps.llm ?? null;
+  const genOptions = deps.genOptions;
 
   // Carrega a Task garantindo o isolamento por org (senão 404, não vaza).
   async function load(session: SessionContext, taskId: string): Promise<Task> {
@@ -243,6 +252,80 @@ export function createTaskService(deps: TaskServiceDeps) {
         entity: "task",
         entityId: taskId,
         metadata: { cleared: card === null, template: card?.template },
+      });
+      return updated;
+    },
+
+    // Gera a APRESENTAÇÃO do cartão via IA (v43). Só admin, escopado por org.
+    // Resolve a capacidade "card.compose" da org; sem IA → 422 CARD_AI_UNAVAILABLE.
+    // O gerador só devolve cartões que passam `validateCard` (o harness); persiste
+    // sempre como `draft` e audita `task.card_generated`. O flip draft→ready (e a
+    // edição por prompt) são do v44. `template` opcional: default = o do cartão
+    // atual, senão o derivado do tipo.
+    async generateCard(
+      session: SessionContext,
+      taskId: string,
+      template?: CardTemplate,
+    ): Promise<Task> {
+      requireAdmin(session);
+      const task = await load(session, taskId); // existência + isolamento por org
+
+      if (!llm) {
+        throw new DomainError("CARD_AI_UNAVAILABLE", "IA não configurada para gerar cartões", 422);
+      }
+      const handle = await llm.resolve(session.orgId);
+      if (!handle) {
+        throw new DomainError(
+          "CARD_AI_UNAVAILABLE",
+          'Liga um modelo à capacidade "card.compose" na consola de IA',
+          422,
+        );
+      }
+
+      const chosen: CardTemplate = template ?? task.card?.template ?? deriveTemplate(task.type);
+
+      const result = await generateCardDomain(
+        { complete: handle.complete },
+        {
+          name: task.name,
+          description: task.description,
+          runtime: task.runtime,
+          type: task.type,
+        },
+        chosen,
+        genOptions,
+      );
+
+      if (!result.ok) {
+        if (result.reason === "llm-error") {
+          throw new DomainError(
+            "CARD_AI_ERROR",
+            result.message ?? "Falha ao contactar o modelo",
+            502,
+            { attempts: result.attempts },
+          );
+        }
+        throw new DomainError(
+          "CARD_GENERATION_FAILED",
+          "O modelo não produziu um cartão válido",
+          422,
+          { attempts: result.attempts, errors: result.errors ?? [] },
+        );
+      }
+
+      const updated = await repo.update(taskId, session.orgId, { card: result.card });
+      if (!updated) throw new DomainError("TASK_NOT_FOUND", "Task inexistente", 404);
+      await safeAudit(audit, {
+        actorId: session.userId,
+        action: "task.card_generated",
+        entity: "task",
+        entityId: taskId,
+        metadata: {
+          template: chosen,
+          provider: handle.provider,
+          model: handle.model,
+          attempts: result.attempts,
+        },
       });
       return updated;
     },
