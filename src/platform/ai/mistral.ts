@@ -56,7 +56,10 @@ export function createMistralAdapter(cfg: LlmAdapterConfig): LlmPort {
       throw llmTransient("Mistral inacessível.");
     }
     if (!res.ok) {
-      throw llmHttpError(`Mistral respondeu ${res.status}.`, res.status);
+      // Inclui o corpo do erro (truncado) para diagnóstico (causa exata do 4xx/5xx).
+      const detail = await res.text().catch(() => "");
+      const extra = detail.trim() ? ` ${detail.trim().slice(0, 400)}` : "";
+      throw llmHttpError(`Mistral respondeu ${res.status}.${extra}`, res.status);
     }
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     return { text: extractText(data) };

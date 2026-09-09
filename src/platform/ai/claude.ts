@@ -56,7 +56,11 @@ export function createClaudeAdapter(cfg: LlmAdapterConfig): LlmPort {
       throw llmTransient("Claude inacessível.");
     }
     if (!res.ok) {
-      throw llmHttpError(`Claude respondeu ${res.status}.`, res.status);
+      // Inclui o corpo do erro (truncado) para diagnóstico: um 400 da Anthropic
+      // costuma trazer {error:{type,message}} a dizer a causa (ex.: modelo inválido).
+      const detail = await res.text().catch(() => "");
+      const extra = detail.trim() ? ` ${detail.trim().slice(0, 400)}` : "";
+      throw llmHttpError(`Claude respondeu ${res.status}.${extra}`, res.status);
     }
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     return { text: extractText(data) };
