@@ -7,7 +7,7 @@ import type {
 // Tipo puro (sem IO/runtime dep) do módulo de tasks: a view projeta o cartão
 // tal como projeta nome/runtime/tipo. Import type-only → não cruza a fronteira
 // de DI (as tasks continuam a chegar por `taskDeps`, não por import direto).
-import type { TaskCard } from "@/modules/tasks/domain/card";
+import type { CardStatus, TaskCard } from "@/modules/tasks/domain/card";
 
 export type { AssignmentReadiness, ConnectionReadiness } from "../domain/types";
 
@@ -107,6 +107,10 @@ export type MatrixTask = {
   type: TaskType;
   runtime: string;
   published: boolean;
+  // Estado do CARTÃO (ortogonal ao `published`): `null` = sem cartão, `"draft"`
+  // = em rascunho (worker vê o derivado), `"ready"` = validado (worker vê a
+  // apresentação autoral). Alimenta os chips de ciclo de vida do cabeçalho.
+  cardStatus: CardStatus | null;
 };
 
 // O que o serviço `matrix()` produz — SEM áreas. A junção com as áreas

@@ -42,11 +42,12 @@ export const tasksPOST = withSession(async (session, req) => {
 // GET /api/tasks/[id] — detalhe + publicabilidade.
 export const taskGET = withSession(async (session, _req, ctx) => {
   const taskId = id(ctx);
-  const [task, publishability] = await Promise.all([
+  const [task, publishability, published] = await Promise.all([
     taskService.get(session, taskId),
     taskService.publishability(session, taskId),
+    taskService.isPublished(session, taskId),
   ]);
-  return json({ task, publishability });
+  return json({ task, publishability, published });
 });
 
 // PATCH /api/tasks/[id] — edita (admin).

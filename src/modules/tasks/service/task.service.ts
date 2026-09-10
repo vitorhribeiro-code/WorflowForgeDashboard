@@ -128,6 +128,15 @@ export function createTaskService(deps: TaskServiceDeps) {
       return load(session, taskId);
     },
 
+    // Estado atual de publicação (a coluna real vive à parte do domínio `Task`,
+    // gerida pelo PublicationPort). `load` garante o isolamento por org (404 se
+    // a task não for da org). Alimenta a strip de ciclo de vida no catálogo.
+    async isPublished(session: SessionContext, taskId: string): Promise<boolean> {
+      requireAdmin(session);
+      await load(session, taskId);
+      return publication.isPublished(taskId);
+    },
+
     // Apaga a Task. Por defeito BLOQUEIA se tiver atribuições (evita destruir
     // histórico do M5/M7 em cascata). Com { force: true } o admin confirma o
     // apagar em cascata: a cascata do schema limpa required_tools, assignments e

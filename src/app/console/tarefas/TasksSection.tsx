@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { TaskForm } from "@/modules/tasks/ui/TaskForm";
 import { TaskList } from "@/modules/tasks/ui/TaskList";
 import { CardPreview } from "@/modules/tasks/ui/CardPreview";
+import { TaskLifecycleStrip } from "@/modules/tasks/ui/TaskLifecycle";
 import { useTasks } from "@/modules/tasks/ui/hooks";
 import type { Publishability, PublishBlocker } from "@/modules/tasks/domain/publishability";
 import type { RequiredTool, Task } from "@/modules/tasks/domain/types";
@@ -64,6 +65,8 @@ function TaskDetail({
   const { setRequiredTools, publish } = useTasks();
   const [sel, setSel] = useState<Record<string, { required: boolean; scopes: Set<string> }>>({});
   const [pub, setPub] = useState<Publishability | null>(null);
+  // Estado ATUAL de publicação (distinto de `pub`, que é "pode publicar?").
+  const [published, setPublished] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Áreas onde a tarefa está DISPONÍVEL (task_areas — o que a matriz usa).
@@ -78,13 +81,14 @@ function TaskDetail({
     try {
       const [current, detail, taskAreas] = await Promise.all([
         apiGet<RequiredTool[]>(`/api/tasks/${task.id}/required-tools`),
-        apiGet<{ publishability: Publishability }>(`/api/tasks/${task.id}`),
+        apiGet<{ publishability: Publishability; published: boolean }>(`/api/tasks/${task.id}`),
         apiGet<{ areaIds: string[] }>(`/api/tasks/${task.id}/areas`),
       ]);
       const map: Record<string, { required: boolean; scopes: Set<string> }> = {};
       for (const rt of current) map[rt.toolId] = { required: true, scopes: new Set(rt.scopes) };
       setSel(map);
       setPub(detail.publishability);
+      setPublished(detail.published);
       setMyAreas(new Set(taskAreas.areaIds));
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Erro a carregar detalhe");
@@ -135,6 +139,8 @@ function TaskDetail({
     try {
       const r = await publish(task.id, unpublish);
       if (!unpublish && r.publishability) setPub(r.publishability);
+      if (unpublish) setPublished(false);
+      else if (r.published) setPublished(true);
       setMsg(unpublish ? "Tarefa despublicada." : r.published ? "Tarefa publicada." : "Não foi possível publicar.");
       onPublished();
     } catch (e) {
@@ -168,6 +174,10 @@ function TaskDetail({
 
   return (
     <div className="panel task-detail">
+      {/* v45 — ciclo de vida: torna explícita a ordem publicar → validar → ativar
+          e a ortogonalidade dos três estados (o «ativar» é por-trabalhador). */}
+      <TaskLifecycleStrip published={published} cardStatus={task.card?.status ?? null} />
+
       <h2>Ferramentas exigidas — {task.name}</h2>
 
       {/* Áreas onde a tarefa fica disponível (task_areas — usado pela matriz) */}

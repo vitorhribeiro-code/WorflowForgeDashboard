@@ -4,6 +4,8 @@ import { useState } from "react";
 import { light } from "@/modules/assignments/ui/AssignmentCell";
 import { useAreas, useMatrix } from "@/modules/assignments/ui/hooks";
 import { RecurrenceBuilder } from "@/modules/assignments/ui/RecurrenceBuilder";
+import { Switch } from "@/modules/assignments/ui/Switch";
+import { TaskLifecycleChips } from "@/modules/tasks/ui/TaskLifecycle";
 import type { AssignmentReadiness, MatrixCell } from "@/modules/assignments/service/ports";
 
 const REASON_PT: Record<string, string> = {
@@ -29,38 +31,6 @@ function intersects(a: string[], b: string[]): boolean {
   if (a.length === 0 || b.length === 0) return false;
   const s = new Set(a);
   return b.some((x) => s.has(x));
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Interruptor ON/OFF (estilo do anexo — cores pelos tokens dos 5 temas)      */
-/* -------------------------------------------------------------------------- */
-function Switch({
-  checked,
-  disabled,
-  onChange,
-  ariaLabel,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (v: boolean) => void;
-  ariaLabel: string;
-}) {
-  return (
-    <label className="wf-switch" aria-label={ariaLabel} title={checked ? "A trabalhar" : "Pausada"}>
-      <input
-        type="checkbox"
-        className="wf-switch-input"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      <span className="wf-switch-track">
-        <span className="wf-switch-text wf-switch-text-on">ON</span>
-        <span className="wf-switch-text wf-switch-text-off">OFF</span>
-        <span className="wf-switch-knob" />
-      </span>
-    </label>
-  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -151,6 +121,13 @@ export function MatrixSection() {
         das áreas em comum entre trabalhador e tarefa ficam esbatidas. O ponto mostra a prontidão das
         ligações: verde = pronto, âmbar = faltam permissões, vermelho = sem ligação.
       </p>
+      <p className="muted">
+        Os selos por baixo de cada tarefa são de <strong>autoria</strong> e independentes do
+        interruptor: <strong>Rascunho/Publicada</strong> (a tarefa é atribuível?) e o estado do{" "}
+        <strong>cartão</strong> (validado = o trabalhador vê a apresentação que compuseste; em
+        rascunho ou sem cartão = vê a versão automática). Publicar e validar fazem-se no{" "}
+        <a href="/console/tarefas">Catálogo</a>.
+      </p>
 
       {actionError ? <p className="panel-error">{actionError}</p> : null}
 
@@ -182,8 +159,8 @@ export function MatrixSection() {
                         </span>
                         <span className="matrix-task-meta">
                           {isAuto ? "automática" : "assistida"}
-                          {t.published ? "" : " · rascunho"}
                         </span>
+                        <TaskLifecycleChips published={t.published} cardStatus={t.cardStatus} />
                       </div>
                     </th>
                   );
@@ -237,6 +214,7 @@ export function MatrixSection() {
                             disabled={busy}
                             onChange={(v) => onToggle(cell, v)}
                             ariaLabel={`${cell.enabled ? "Desligar" : "Ligar"} ${t.name} para ${w.email}`}
+                            title={cell.enabled ? "A trabalhar" : "Pausada"}
                           />
                           <span className="readiness-dot" aria-label={status} title={status} />
                           {cell.assignmentId ? (

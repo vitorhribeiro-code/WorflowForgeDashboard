@@ -176,6 +176,7 @@ export function createAssignmentService(deps: AssignmentServiceDeps) {
           type: t.type,
           runtime: t.runtime,
           published: t.published,
+          cardStatus: t.card?.status ?? null,
         })),
         workers: workerList,
         cells,

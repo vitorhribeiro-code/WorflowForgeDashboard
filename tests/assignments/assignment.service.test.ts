@@ -110,7 +110,15 @@ class FakeRepo implements AssignmentRepository {
 }
 
 const TASKS: TaskSummary[] = [
-  { id: "t1", name: "Resumo diário", type: "automation", runtime: "email.digest", published: true, configSchema: null, card: null },
+  {
+    id: "t1",
+    name: "Resumo diário",
+    type: "automation",
+    runtime: "email.digest",
+    published: true,
+    configSchema: null,
+    card: { template: "size-s", status: "ready", presentation: { blurb: "Resumo pronto.", blocks: [] } },
+  },
   { id: "t2", name: "Rascunho", type: "assistant", runtime: "assistant.generic", published: false, configSchema: null, card: null },
 ];
 const REQUIRED: Record<string, { toolId: string; scopes: string[] }[]> = {
@@ -198,6 +206,15 @@ describe("matrix", () => {
     expect(t1cell.assignmentId).toBeNull(); // ainda não atribuída
     expect(t1cell.schedule).toBeNull(); // sem atribuição → sem agenda
     expect(t1cell.readiness.eligible).toBe(true); // publicada + conexões OK
+  });
+
+  it("projeta o cardStatus de cada tarefa (ortogonal ao published)", async () => {
+    const { service } = setup(true);
+    const m = await service.matrix(ADMIN);
+    const t1 = m.tasks.find((t) => t.id === "t1")!;
+    const t2 = m.tasks.find((t) => t.id === "t2")!;
+    expect(t1.cardStatus).toBe("ready"); // cartão validado
+    expect(t2.cardStatus).toBeNull(); // sem cartão
   });
 
   it("marca não-elegível a task despublicada mesmo com conexões OK", async () => {
