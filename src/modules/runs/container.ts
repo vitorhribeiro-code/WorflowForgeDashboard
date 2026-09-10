@@ -11,7 +11,11 @@ import { loadEnv } from "@/platform/config/env";
 import { createDrizzleRunsRepository } from "./data/runs.repository";
 import { createRunsService, type RunsService } from "./service/runs.service";
 import { createHandlerRegistry, type RunHandler } from "./service/handlers/handler";
-import { builtinHandlers, createAssistantWritingHandler } from "./service/handlers/builtin";
+import {
+  builtinHandlers,
+  createAssistantGenericHandler,
+  createAssistantWritingHandler,
+} from "./service/handlers/builtin";
 import type { ArtifactSink, InputProvider } from "./service/ports";
 import { getArtifactContainer } from "@/modules/artifacts/container";
 import { getWorkerTokenPort } from "@/modules/connections";
@@ -91,11 +95,13 @@ export function getRunsService(): RunsService {
     });
   }
 
-  // Registo de handlers por runtime. Os built-in são puros; o assistant.writing
-  // (§5.4 opção a) recebe o resolver injetado — a chamada `complete` é dentro
-  // do handler, com fallback a scaffold quando não há IA configurada.
+  // Registo de handlers por runtime. Os built-in são puros; o assistant.generic
+  // (v46) e o assistant.writing (§5.4 opção a) recebem o resolver injetado — a
+  // chamada `complete` é dentro do handler, com fallback a scaffold quando não há
+  // IA configurada.
   const handlers: RunHandler[] = [
     ...builtinHandlers,
+    createAssistantGenericHandler({ resolver: llmResolver }),
     createAssistantWritingHandler({ resolver: llmResolver }),
   ];
 

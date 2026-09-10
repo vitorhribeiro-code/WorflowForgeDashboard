@@ -398,13 +398,20 @@ function HistoryModal({
 /* --- Consola de stream de uma assistida ----------------------------------- */
 
 function AssistedConsole({ assignmentId }: { assignmentId: string }) {
+  const [prompt, setPrompt] = useState("");
   const [lines, setLines] = useState<string[]>([]);
+  const [output, setOutput] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  const canRun = prompt.trim().length > 0 && !running;
+
   const start = useCallback(async () => {
     setLines([]);
+    setOutput(null);
+    setCopied(false);
     setError(null);
     setRunning(true);
     const ctrl = new AbortController();
@@ -412,8 +419,20 @@ function AssistedConsole({ assignmentId }: { assignmentId: string }) {
     try {
       await openAssisted(
         assignmentId,
-        (e) => setLines((prev) => [...prev, streamEventText(e)]),
+        (e) => {
+          if (e.type === "result") {
+            // v46: o assistant.generic devolve a resposta do modelo em `text`.
+            const text = (e.data as { text?: unknown }).text;
+            if (typeof text === "string") setOutput(text);
+          } else if (e.type === "error") {
+            setError(typeof e.data === "string" ? e.data : e.data.message);
+          } else {
+            // progress/log → feedback ao vivo enquanto o modelo responde.
+            setLines((prev) => [...prev, streamEventText(e)]);
+          }
+        },
         ctrl.signal,
+        { prompt: prompt.trim() },
       );
     } catch (e) {
       if ((e as Error).name !== "AbortError") setError((e as Error).message);
@@ -421,26 +440,54 @@ function AssistedConsole({ assignmentId }: { assignmentId: string }) {
       setRunning(false);
       abortRef.current = null;
     }
-  }, [assignmentId]);
+  }, [assignmentId, prompt]);
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
   }, []);
 
+  const copy = useCallback(async () => {
+    if (!output) return;
+    try {
+      await navigator.clipboard.writeText(output);
+      setCopied(true);
+    } catch {
+      /* clipboard indisponível — ignora */
+    }
+  }, [output]);
+
   return (
     <div className="assisted">
+      <div className="wrt-field">
+        <span className="wrt-label">O que precisas?</span>
+        <textarea
+          className="wrt-textarea"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          disabled={running}
+          placeholder="Descreve o pedido — ex.: resumir estas notas de reunião em tópicos"
+        />
+      </div>
+
       <div className="task-actions">
         {running ? (
           <button type="button" className="btn-danger btn-sm" onClick={stop}>
             Cancelar
           </button>
         ) : (
-          <button type="button" className="btn-primary btn-sm" onClick={() => void start()}>
+          <button
+            type="button"
+            className="btn-primary btn-sm"
+            disabled={!canRun}
+            onClick={() => void start()}
+          >
             Iniciar
           </button>
         )}
       </div>
+
       {error && <p className="task-error">{error}</p>}
+
       {lines.length > 0 && (
         <div className="stream-console" aria-live="polite">
           {lines.map((l, i) => (
@@ -448,6 +495,18 @@ function AssistedConsole({ assignmentId }: { assignmentId: string }) {
               {l}
             </div>
           ))}
+        </div>
+      )}
+
+      {output !== null && (
+        <div className="wrt-output">
+          <div className="wrt-output-head">
+            <span className="wrt-output-title">Resposta</span>
+            <button type="button" className="task-link" onClick={() => void copy()}>
+              {copied ? "Copiado" : "Copiar"}
+            </button>
+          </div>
+          <div className="wrt-output-body">{output}</div>
         </div>
       )}
     </div>

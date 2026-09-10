@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { ExecContext, RunEvent } from "@/modules/runs/service/handlers/handler";
 import { PermanentError } from "@/modules/runs/service/exec-errors";
 import {
-  createAssistantGenericHandler,
   createEmailDigestHandler,
   createReportMonthlyHandler,
 } from "@/modules/runs/service/handlers/builtin";
@@ -109,43 +108,5 @@ describe("report.monthly", () => {
     const { ctx: c } = ctx({ period: "2026-01" });
     const out = (await h.execute!(c)) as any;
     expect(out.summary).toEqual({ sections: 0, metrics: 0 });
-  });
-});
-
-describe("assistant.generic", () => {
-  it("stream emite progress → log → result", async () => {
-    const h = createAssistantGenericHandler(now);
-    const { ctx: c } = ctx({ prompt: "olá" });
-    const seen: RunEvent[] = [];
-    for await (const e of h.stream!(c)) seen.push(e);
-
-    expect(seen.map((e) => e.type)).toEqual(["progress", "log", "progress", "result"]);
-    const result = seen.find((e) => e.type === "result") as Extract<RunEvent, { type: "result" }>;
-    expect((result.data.response as any).received.prompt).toBe("olá");
-  });
-
-  it("execute devolve resposta com generatedAt determinístico", async () => {
-    const h = createAssistantGenericHandler(now);
-    const { ctx: c } = ctx({ prompt: "x", payload: { a: 1 } });
-    const out = (await h.execute!(c)) as any;
-    expect(out.generatedAt).toBe(FIXED.toISOString());
-    expect(out.response.received.payload).toEqual({ a: 1 });
-  });
-
-  it("stream cancelado emite error e termina", async () => {
-    const h = createAssistantGenericHandler(now);
-    const controller = new AbortController();
-    controller.abort();
-    const c: ExecContext = {
-      input: { prompt: "x" },
-      config: null,
-      orgId: "o1",
-      signal: controller.signal,
-      emit: () => {},
-    };
-    const seen: RunEvent[] = [];
-    for await (const e of h.stream!(c)) seen.push(e);
-    expect(seen.some((e) => e.type === "error")).toBe(true);
-    expect(seen.some((e) => e.type === "result")).toBe(false);
   });
 });

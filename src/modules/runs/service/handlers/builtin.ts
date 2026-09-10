@@ -331,35 +331,106 @@ export function createReportMonthlyHandler(now: Now = defaultNow): RunHandler {
 }
 
 /* --------------------------- assistant.generic --------------------------- */
-// Tarefa assistida: sessão interativa com stream. Aqui a "inteligência" é um
-// eco estruturado determinístico — é o ponto onde um LLM entra em Tier-2.
-// input: { prompt?: string, payload?: Record }
+// Tarefa assistida genérica (v46). A "inteligência" é DENTRO do handler: resolve
+// o adapter da org para a capacidade `assistant.generic` e chama `complete`. É o
+// gémeo do assistant.writing (§5.4 opção a), sem os modos/tons de escrita: recebe
+// um prompt livre do trabalhador e devolve o texto do modelo.
+//   input:  { prompt: string, payload?: Record }  // payload = contexto opcional
+//   output: { text, ai:{ used, provider?, model?, reason? }, generatedAt }
+//
+// Fallback: sem adapter (org sem binding/modelo) → texto-scaffold honesto que diz
+// que a IA não está configurada, e o run fica verde (o worker vê a nota). Erro do
+// modelo (401/5xx) → RE-LANÇA (não mascara com scaffold — igual ao writing).
 
-function acknowledge(prompt: string, input: Record<string, unknown>): Record<string, unknown> {
-  return {
-    received: { prompt, payload: asRecord(input.payload) ?? {} },
-    // Placeholder honesto: substituir por uma chamada a um LLM (Tier-2).
-    note: "assistant.generic: scaffold determinístico — ligar a um LLM em Tier-2",
-  };
+const GENERIC_CAPABILITY = "assistant.generic";
+
+const GENERIC_SYSTEM =
+  "És um assistente genérico. Respondes de forma útil, clara e direta, em " +
+  "português europeu, sem preâmbulos nem formatação desnecessária.";
+
+// Prompt do utilizador: o pedido livre + (se houver) o payload como contexto.
+function buildGenericPrompt(input: Record<string, unknown>): string {
+  const prompt = (asString(input.prompt) ?? "").trim();
+  const payload = asRecord(input.payload);
+  if (payload && Object.keys(payload).length > 0) {
+    return `${prompt}\n\nContexto (dados):\n${JSON.stringify(payload, null, 2)}`;
+  }
+  return prompt;
 }
 
-export function createAssistantGenericHandler(now: Now = defaultNow): RunHandler {
+// Scaffold honesto quando não há IA configurada — mantém o run verde e diz o que
+// falta, em vez de fingir uma resposta real.
+function genericScaffold(reason: string): string {
+  return (
+    "[assistente genérico: a IA não está configurada para esta organização. " +
+    "O super-utilizador precisa de ligar um modelo à capacidade " +
+    `\"assistant.generic\" na consola de IA. (motivo: ${reason})]`
+  );
+}
+
+export interface AssistantGenericDeps {
+  // null quando a plataforma não tem ENCRYPTION_KEY (sem IA) — sempre fallback.
+  resolver: LlmResolver | null;
+  now?: Now;
+}
+
+export function createAssistantGenericHandler(deps: AssistantGenericDeps): RunHandler {
+  const now = deps.now ?? defaultNow;
+
+  async function run(ctx: ExecContext): Promise<Record<string, unknown>> {
+    // Validação de input → PermanentError (não se repete).
+    if (!(asString(ctx.input.prompt) ?? "").trim()) {
+      throw new PermanentError("assistant.generic: 'prompt' é obrigatório.");
+    }
+
+    const prompt = buildGenericPrompt(ctx.input);
+
+    // Resolve o adapter da org para a capacidade genérica. null → scaffold.
+    let adapter = null;
+    if (deps.resolver) {
+      try {
+        adapter = await deps.resolver.resolve(ctx.orgId, GENERIC_CAPABILITY);
+      } catch {
+        adapter = null;
+      }
+    }
+
+    if (!adapter) {
+      const reason = deps.resolver ? "no-provider" : "no-resolver";
+      console.warn(
+        `[assistant.generic] sem provider para "${GENERIC_CAPABILITY}" (org ${ctx.orgId}) — scaffold.`,
+      );
+      return {
+        text: genericScaffold(reason),
+        ai: { used: false, reason },
+        generatedAt: now().toISOString(),
+      };
+    }
+
+    // Erro do modelo propaga-se (transient/permanent via classify do motor).
+    const out = await adapter.complete({ system: GENERIC_SYSTEM, prompt, maxTokens: 1500 });
+    console.info(
+      `[assistant.generic] resposta via ${adapter.provider} · ${adapter.model} (org ${ctx.orgId}).`,
+    );
+    return {
+      text: out.text,
+      ai: { used: true, provider: adapter.provider, model: adapter.model },
+      generatedAt: now().toISOString(),
+    };
+  }
+
   return {
     runtime: "assistant.generic",
-    async execute(ctx: ExecContext) {
-      const prompt = asString(ctx.input.prompt) ?? "";
-      return { response: acknowledge(prompt, ctx.input), generatedAt: now().toISOString() };
-    },
+    execute: run,
     async *stream(ctx: ExecContext): AsyncIterable<RunEvent> {
-      const prompt = asString(ctx.input.prompt) ?? "";
       yield { type: "progress", data: { pct: 10 } };
-      yield { type: "log", data: { message: `recebido: ${prompt.slice(0, 80)}` } };
       if (ctx.signal.aborted) {
         yield { type: "error", data: { message: "sessão cancelada" } };
         return;
       }
+      const result = await run(ctx);
       yield { type: "progress", data: { pct: 90 } };
-      yield { type: "result", data: { response: acknowledge(prompt, ctx.input) } };
+      yield { type: "result", data: result };
     },
   };
 }
@@ -533,13 +604,13 @@ export function createAssistantWritingHandler(deps: AssistantWritingDeps): RunHa
 }
 
 /* ------------------------------- instâncias ------------------------------ */
+// Só os handlers PUROS (sem deps) são instanciados aqui. O assistant.generic e o
+// assistant.writing recebem o resolver de IA e são montados no container (M7).
 export const emailDigestHandler = createEmailDigestHandler();
 export const reportMonthlyHandler = createReportMonthlyHandler();
-export const assistantGenericHandler = createAssistantGenericHandler();
 
-/** Registo por defeito, na ordem dos runtimes conhecidos. */
+/** Registo por defeito (handlers puros), na ordem dos runtimes conhecidos. */
 export const builtinHandlers: RunHandler[] = [
   emailDigestHandler,
   reportMonthlyHandler,
-  assistantGenericHandler,
 ];
