@@ -344,6 +344,83 @@ function reportScaffold(period: string, reason: string): string {
   );
 }
 
+/**
+ * Renderiza o output do report.monthly num documento Markdown — o entregável
+ * (work_document) que aterra na cloud do trabalhador (Dropbox/Drive via M6/M8).
+ * PURO (output → bytes). A narrativa por IA abre o documento; a agregação
+ * determinística (secções + métricas) segue por baixo como base auditável.
+ */
+export function renderReportMonthlyMarkdown(result: Record<string, unknown>): DeliverableDraft {
+  const period = asString(result.period) ?? null;
+  const narrative = asString(result.narrative) ?? "";
+  const sectionsRaw = asArray(result.sections) ?? [];
+  const sections = sectionsRaw
+    .map((s) => {
+      const r = asRecord(s);
+      if (!r) return null;
+      const title = asString(r.title) ?? "(secção)";
+      const metrics = asRecord(r.metrics) ?? {};
+      return { title, metrics };
+    })
+    .filter((x): x is { title: string; metrics: Record<string, unknown> } => x !== null);
+
+  const summary = asRecord(result.summary);
+  const nSections = summary && typeof summary.sections === "number" ? summary.sections : sections.length;
+  const nMetrics =
+    summary && typeof summary.metrics === "number"
+      ? summary.metrics
+      : sections.reduce((n, s) => n + Object.keys(s.metrics).length, 0);
+
+  const generatedAt = asString(result.generatedAt);
+  const headerDate = fmtDatePt(generatedAt);
+
+  const lines: string[] = [];
+  lines.push(`# Relatório mensal${period ? ` — ${prettyPeriod(period)}` : ""}`);
+  lines.push("");
+  // "secção" pluraliza para "secções" (irregular), por isso não usa o plural()
+  // simples (que só acrescenta "s"). "métrica" → "métricas" é regular.
+  const meta = [`${nSections} ${nSections === 1 ? "secção" : "secções"}`, plural(nMetrics, "métrica")];
+  if (headerDate) meta.push(headerDate);
+  lines.push(meta.join(" · "));
+  lines.push("");
+
+  if (narrative.trim().length > 0) {
+    lines.push(narrative.trim());
+    lines.push("");
+  }
+
+  for (const s of sections) {
+    lines.push(`## ${s.title}`);
+    const entries = Object.entries(s.metrics);
+    if (entries.length === 0) {
+      lines.push("_sem métricas_");
+    } else {
+      for (const [k, v] of entries) lines.push(`- ${k}: ${String(v)}`);
+    }
+    lines.push("");
+  }
+
+  // Rodapé de proveniência: quando a narrativa veio de IA, deixa rasto do
+  // provider/modelo (a escolha de provider é a alavanca de residência de dados).
+  const ai = asRecord(result.ai);
+  if (ai && ai.used === true) {
+    const provider = asString(ai.provider);
+    const model = asString(ai.model);
+    const label = [provider, model].filter(Boolean).join(" · ");
+    lines.push(label ? `_Narrativa por IA — ${label}._` : "_Narrativa por IA._");
+  }
+  if (generatedAt) lines.push(`_Gerado em ${generatedAt}._`);
+
+  const stamp = period ?? ((generatedAt ?? "").slice(0, 7) || "sem-periodo");
+  return {
+    filename: `relatorio-mensal-${stamp}.md`,
+    mimeType: "text/markdown",
+    bytes: new TextEncoder().encode(lines.join("\n")),
+    // Mesmo período → mesmo documento: o storage reescreve em vez de duplicar.
+    idempotencyKey: `report.monthly:${period ?? "sem-periodo"}`,
+  };
+}
+
 export interface ReportMonthlyDeps {
   // null quando a plataforma não tem ENCRYPTION_KEY (sem IA) — sempre fallback.
   resolver: LlmResolver | null;
@@ -355,6 +432,11 @@ export function createReportMonthlyHandler(deps: ReportMonthlyDeps): RunHandler 
 
   return {
     runtime: "report.monthly",
+    // Entregável final (work_document): narrativa + agregação num .md que aterra
+    // na cloud do worker (Dropbox/Drive, M6/M8). Como o email.digest, o
+    // deliverable é o objetivo — se não houver cloud ligada, o motor classifica
+    // o run (o gate de prontidão do M5 garante a conexão antes de ativar).
+    deliverable: renderReportMonthlyMarkdown,
     async execute(ctx: ExecContext) {
       // 'period' em falta ⇒ usa o mês corrente (deixa a automática ficar verde
       // sem exigir config). Presente mas malformado ⇒ erro permanente.

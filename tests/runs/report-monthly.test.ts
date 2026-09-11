@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExecContext, RunEvent } from "@/modules/runs/service/handlers/handler";
-import { createReportMonthlyHandler } from "@/modules/runs/service/handlers/builtin";
+import {
+  createReportMonthlyHandler,
+  renderReportMonthlyMarkdown,
+} from "@/modules/runs/service/handlers/builtin";
 import { PermanentError } from "@/modules/runs/service/exec-errors";
 import type { LlmCompleteInput, LlmPort } from "@/platform/ai/port";
 import type { LlmResolver } from "@/modules/ai/service/resolver";
@@ -149,5 +152,72 @@ describe("report.monthly", () => {
     const h = createReportMonthlyHandler({ resolver: resolverOf(adapter), now });
     const { ctx: c } = ctx({ period: "2026-07" });
     await expect(h.execute!(c)).rejects.toThrow("401");
+  });
+
+  // v48 — o report.monthly ganhou `deliverable`: o output vira um .md que aterra
+  // na cloud do worker (Dropbox/Drive via M6/M8). O render é PURO (output→bytes).
+  it("expõe um deliverable (o .md aterra na cloud do worker)", async () => {
+    const h = createReportMonthlyHandler({ resolver: resolverOf(fakeAdapter().adapter), now });
+    expect(typeof h.deliverable).toBe("function");
+  });
+
+  describe("renderReportMonthlyMarkdown (deliverable, puro)", () => {
+    const out = {
+      period: "2026-07",
+      sections: [
+        { title: "Vendas", metrics: { total: 10, novos: 3 } },
+        { title: "Suporte", metrics: { tickets: 5 } },
+      ],
+      summary: { sections: 2, metrics: 3 },
+      narrative: "Mês forte em vendas.",
+      ai: { used: true, provider: "mistral", model: "mistral-small-latest" },
+      generatedAt: "2026-07-25T00:00:00.000Z",
+    };
+
+    it("compõe cabeçalho, narrativa, secções e proveniência de IA", () => {
+      const d = renderReportMonthlyMarkdown(out);
+      const md = new TextDecoder().decode(d.bytes);
+      expect(d.filename).toBe("relatorio-mensal-2026-07.md");
+      expect(d.mimeType).toBe("text/markdown");
+      expect(md).toContain("# Relatório mensal — julho 2026");
+      expect(md).toContain("2 secções · 3 métricas");
+      expect(md).toContain("Mês forte em vendas.");
+      expect(md).toContain("## Vendas");
+      expect(md).toContain("- total: 10");
+      expect(md).toContain("## Suporte");
+      expect(md).toContain("- tickets: 5");
+      expect(md).toContain("Narrativa por IA — mistral · mistral-small-latest");
+    });
+
+    it("idempotencyKey por período (upsert — não duplica)", () => {
+      expect(renderReportMonthlyMarkdown(out).idempotencyKey).toBe("report.monthly:2026-07");
+    });
+
+    it("sem IA (scaffold) não escreve rodapé de proveniência", () => {
+      const scaffold = {
+        ...out,
+        narrative: "[relatório mensal: a IA não está configurada…]",
+        ai: { used: false, reason: "no-provider" },
+      };
+      const md = new TextDecoder().decode(renderReportMonthlyMarkdown(scaffold).bytes);
+      expect(md).not.toContain("Narrativa por IA");
+      expect(md).toContain("[relatório mensal");
+    });
+
+    it("secção sem métricas rende _sem métricas_", () => {
+      const md = new TextDecoder().decode(
+        renderReportMonthlyMarkdown({
+          period: "2026-01",
+          sections: [{ title: "Vazia", metrics: {} }],
+          summary: { sections: 1, metrics: 0 },
+          narrative: "",
+          ai: { used: false, reason: "no-provider" },
+          generatedAt: "2026-01-31T00:00:00.000Z",
+        }).bytes,
+      );
+      expect(md).toContain("## Vazia");
+      expect(md).toContain("_sem métricas_");
+      expect(md).toContain("1 secção · 0 métricas");
+    });
   });
 });

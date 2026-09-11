@@ -63,8 +63,9 @@ describe("createM6StorageConnectionBridge", () => {
 });
 
 describe("defaultCloudSdkRegistry", () => {
-  it("devolve um SDK para google e undefined para o resto", () => {
+  it("devolve um SDK para google e para dropbox; undefined para o resto", () => {
     expect(defaultCloudSdkRegistry("google")).toBeDefined();
-    expect(defaultCloudSdkRegistry("dropbox")).toBeUndefined();
+    expect(defaultCloudSdkRegistry("dropbox")).toBeDefined();
+    expect(defaultCloudSdkRegistry("onedrive")).toBeUndefined();
   });
 });

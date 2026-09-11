@@ -7,6 +7,7 @@ import type { PgDatabase } from "drizzle-orm/pg-core";
 import { tools, workerConnections } from "@/db/schema";
 import type { CloudSdk, StorageConnectionPort } from "./cloud-storage.worker-connection";
 import { createGoogleDriveSdk } from "@/platform/cloud/google-drive";
+import { createDropboxSdk } from "@/platform/cloud/dropbox";
 
 // Scopes de escrita conhecidos por ferramenta. Heurística até os SDKs reais
 // cobrirem todas (aí a decisão de writeScope passa a ser do próprio provider).
@@ -80,13 +81,16 @@ export function createM6StorageConnectionBridge(
 }
 
 /**
- * Registo de SDKs de cloud por Tool.key. O Google Drive já está ligado; as
- * restantes (Dropbox/OneDrive) aterram quando as suas consolas OAuth estiverem
- * verificadas. Para uma cloud sem SDK, o adapter lança CLOUD_CONNECTION_MISSING.
+ * Registo de SDKs de cloud por Tool.key. O Google Drive e o Dropbox já estão
+ * ligados; as restantes (OneDrive/…) aterram quando as suas consolas OAuth
+ * estiverem verificadas. Para uma cloud sem SDK, o adapter lança
+ * CLOUD_CONNECTION_MISSING.
  */
 const googleDrive = createGoogleDriveSdk();
+const dropbox = createDropboxSdk();
 
 export function defaultCloudSdkRegistry(toolKey: string): CloudSdk | undefined {
   if (toolKey === "google") return googleDrive;
+  if (toolKey === "dropbox") return dropbox;
   return undefined;
 }
