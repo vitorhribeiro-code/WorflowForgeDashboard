@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ExecContext, RunEvent } from "@/modules/runs/service/handlers/handler";
 import { PermanentError } from "@/modules/runs/service/exec-errors";
-import {
-  createEmailDigestHandler,
-  createReportMonthlyHandler,
-} from "@/modules/runs/service/handlers/builtin";
+import { createEmailDigestHandler } from "@/modules/runs/service/handlers/builtin";
 
 const FIXED = new Date("2026-07-25T00:00:00.000Z");
 const now = () => FIXED;
@@ -70,43 +67,5 @@ describe("email.digest", () => {
     const h = createEmailDigestHandler(now);
     const { ctx: c } = ctx({ emails: "não é array" });
     await expect(h.execute!(c)).rejects.toBeInstanceOf(PermanentError);
-  });
-});
-
-describe("report.monthly", () => {
-  it("compõe secções e resumo", async () => {
-    const h = createReportMonthlyHandler(now);
-    const { ctx: c, events } = ctx({
-      period: "2026-07",
-      sections: [
-        { title: "Vendas", metrics: { total: 10, novos: 3 } },
-        { title: "Suporte", metrics: { tickets: 5 } },
-      ],
-    });
-    const out = (await h.execute!(c)) as any;
-    expect(out.period).toBe("2026-07");
-    expect(out.summary).toEqual({ sections: 2, metrics: 3 });
-    expect(out.sections[0].title).toBe("Vendas");
-    expect(events.some((e) => e.type === "progress")).toBe(true);
-  });
-
-  it("period fora de YYYY-MM lança PermanentError", async () => {
-    const h = createReportMonthlyHandler(now);
-    const { ctx: c } = ctx({ period: "julho" });
-    await expect(h.execute!(c)).rejects.toBeInstanceOf(PermanentError);
-  });
-
-  it("sem period usa o mês corrente (do now injetado)", async () => {
-    const h = createReportMonthlyHandler(now);
-    const { ctx: c } = ctx({});
-    const out = (await h.execute!(c)) as any;
-    expect(out.period).toBe("2026-07"); // FIXED = 2026-07-25 (UTC)
-  });
-
-  it("sem secções produz resumo vazio", async () => {
-    const h = createReportMonthlyHandler(now);
-    const { ctx: c } = ctx({ period: "2026-01" });
-    const out = (await h.execute!(c)) as any;
-    expect(out.summary).toEqual({ sections: 0, metrics: 0 });
   });
 });

@@ -281,9 +281,26 @@ export function createEmailDigestHandler(now: Now = defaultNow): RunHandler {
 
 /* ----------------------------- report.monthly ---------------------------- */
 // input:  { period: "YYYY-MM", sections?: Array<{ title, metrics: Record }> }
-// output: { period, sections, summary, generatedAt }
+// output: { period, sections, summary, narrative, ai:{ used, provider?, model?, reason? }, generatedAt }
+//
+// Automática (v47). Mantém a AGREGAÇÃO determinística (period, sections, summary)
+// como base factual e ACRESCENTA uma narrativa composta por IA (capacidade
+// `report.compose`) a partir dessa base — em vez de devolver só a agregação crua.
+// Mesmo contrato dos assistidos (§5.3, nota de coerência):
+//   - sem adapter (org sem binding/modelo, ou plataforma sem ENCRYPTION_KEY) →
+//     narrativa-scaffold honesta, `ai:{used:false, reason}`, run VERDE;
+//   - com adapter → `complete(...)` → narrativa real, `ai:{used:true, provider, model}`;
+//   - erro do modelo (401/5xx) → RE-LANÇA (não mascara com scaffold).
+// A narrativa NÃO inventa números: o prompt só transporta as métricas agregadas.
 
 const PERIOD_RE = /^\d{4}-\d{2}$/;
+const REPORT_CAPABILITY = "report.compose";
+
+const REPORT_SYSTEM =
+  "És um analista que redige relatórios mensais. A partir das métricas fornecidas, " +
+  "escreves um resumo executivo claro e conciso em português europeu: um parágrafo de " +
+  "visão geral seguido de uma linha por secção com o que se destaca. Usas apenas os " +
+  "dados dados — não inventas números nem secções. Sem preâmbulos nem formatação supérflua.";
 
 // Mês corrente em UTC (YYYY-MM), determinístico com o `now` injetado.
 function periodOf(d: Date): string {
@@ -292,7 +309,50 @@ function periodOf(d: Date): string {
   return `${y}-${m}`;
 }
 
-export function createReportMonthlyHandler(now: Now = defaultNow): RunHandler {
+interface ReportSection {
+  title: string;
+  metrics: Record<string, unknown>;
+}
+
+// Verte o período + as secções/métricas agregadas para texto legível — a ÚNICA
+// fonte de factos que o modelo vê (não inventa números fora daqui).
+function buildReportPrompt(period: string, sections: ReportSection[]): string {
+  const lines = [`Período: ${period}`, ""];
+  if (sections.length === 0) {
+    lines.push("(sem secções com dados neste período)");
+  } else {
+    for (const s of sections) {
+      lines.push(`Secção: ${s.title}`);
+      const entries = Object.entries(s.metrics);
+      if (entries.length === 0) lines.push("  (sem métricas)");
+      for (const [k, v] of entries) lines.push(`  - ${k}: ${String(v)}`);
+      lines.push("");
+    }
+  }
+  lines.push("Redige o relatório mensal a partir destes dados.");
+  return lines.join("\n");
+}
+
+// Narrativa honesta quando não há IA configurada — mantém o run verde e diz o
+// que falta, sem fingir um relatório real (a agregação segue no output).
+function reportScaffold(period: string, reason: string): string {
+  return (
+    `[relatório mensal (${period}): a IA não está configurada para esta organização. ` +
+    "O super-utilizador precisa de ligar um modelo à capacidade " +
+    `\"report.compose\" na consola de IA. Segue a agregação de métricas em bruto. ` +
+    `(motivo: ${reason})]`
+  );
+}
+
+export interface ReportMonthlyDeps {
+  // null quando a plataforma não tem ENCRYPTION_KEY (sem IA) — sempre fallback.
+  resolver: LlmResolver | null;
+  now?: Now;
+}
+
+export function createReportMonthlyHandler(deps: ReportMonthlyDeps): RunHandler {
+  const now = deps.now ?? defaultNow;
+
   return {
     runtime: "report.monthly",
     async execute(ctx: ExecContext) {
@@ -304,9 +364,9 @@ export function createReportMonthlyHandler(now: Now = defaultNow): RunHandler {
         throw new PermanentError("report.monthly: 'period' deve ter o formato YYYY-MM.");
       }
       const rawSections = asArray(ctx.input.sections) ?? [];
-      ctx.emit({ type: "progress", data: { stage: "compondo", sections: rawSections.length } });
+      ctx.emit({ type: "progress", data: { stage: "agregando", sections: rawSections.length } });
 
-      const sections = rawSections.map((s) => {
+      const sections: ReportSection[] = rawSections.map((s) => {
         const r = asRecord(s) ?? {};
         return {
           title: asString(r.title) ?? "(secção)",
@@ -320,10 +380,50 @@ export function createReportMonthlyHandler(now: Now = defaultNow): RunHandler {
         data: { message: `${sections.length} secções, ${metricCount} métricas` },
       });
 
-      return {
+      // Base determinística: preservada tal e qual (o narrativa/ai é aditivo).
+      const base = {
         period,
         sections,
         summary: { sections: sections.length, metrics: metricCount },
+      };
+
+      // Composição por IA a partir da agregação. Resolve o adapter da org; null → scaffold.
+      let adapter = null;
+      if (deps.resolver) {
+        try {
+          adapter = await deps.resolver.resolve(ctx.orgId, REPORT_CAPABILITY);
+        } catch {
+          adapter = null;
+        }
+      }
+
+      if (!adapter) {
+        const reason = deps.resolver ? "no-provider" : "no-resolver";
+        console.warn(
+          `[report.monthly] sem provider para "${REPORT_CAPABILITY}" (org ${ctx.orgId}) — scaffold.`,
+        );
+        return {
+          ...base,
+          narrative: reportScaffold(period, reason),
+          ai: { used: false, reason },
+          generatedAt: now().toISOString(),
+        };
+      }
+
+      // Erro do modelo propaga-se (transient/permanent via classify do motor).
+      ctx.emit({ type: "progress", data: { stage: "compondo" } });
+      const out = await adapter.complete({
+        system: REPORT_SYSTEM,
+        prompt: buildReportPrompt(period, sections),
+        maxTokens: 1200,
+      });
+      console.info(
+        `[report.monthly] narrativa via ${adapter.provider} · ${adapter.model} (org ${ctx.orgId}).`,
+      );
+      return {
+        ...base,
+        narrative: out.text,
+        ai: { used: true, provider: adapter.provider, model: adapter.model },
         generatedAt: now().toISOString(),
       };
     },
@@ -604,13 +704,12 @@ export function createAssistantWritingHandler(deps: AssistantWritingDeps): RunHa
 }
 
 /* ------------------------------- instâncias ------------------------------ */
-// Só os handlers PUROS (sem deps) são instanciados aqui. O assistant.generic e o
-// assistant.writing recebem o resolver de IA e são montados no container (M7).
+// Só os handlers PUROS (sem deps) são instanciados aqui. O report.monthly (v47),
+// o assistant.generic (v46) e o assistant.writing recebem o resolver de IA e são
+// montados no container (M7) com deps.
 export const emailDigestHandler = createEmailDigestHandler();
-export const reportMonthlyHandler = createReportMonthlyHandler();
 
 /** Registo por defeito (handlers puros), na ordem dos runtimes conhecidos. */
 export const builtinHandlers: RunHandler[] = [
   emailDigestHandler,
-  reportMonthlyHandler,
 ];

@@ -15,6 +15,7 @@ import {
   builtinHandlers,
   createAssistantGenericHandler,
   createAssistantWritingHandler,
+  createReportMonthlyHandler,
 } from "./service/handlers/builtin";
 import type { ArtifactSink, InputProvider } from "./service/ports";
 import { getArtifactContainer } from "@/modules/artifacts/container";
@@ -95,12 +96,13 @@ export function getRunsService(): RunsService {
     });
   }
 
-  // Registo de handlers por runtime. Os built-in são puros; o assistant.generic
-  // (v46) e o assistant.writing (§5.4 opção a) recebem o resolver injetado — a
-  // chamada `complete` é dentro do handler, com fallback a scaffold quando não há
-  // IA configurada.
+  // Registo de handlers por runtime. Os built-in são puros (só email.digest); o
+  // report.monthly (v47), o assistant.generic (v46) e o assistant.writing (§5.4
+  // opção a) recebem o resolver injetado — a chamada `complete` é dentro do
+  // handler, com fallback a scaffold quando não há IA configurada.
   const handlers: RunHandler[] = [
     ...builtinHandlers,
+    createReportMonthlyHandler({ resolver: llmResolver }),
     createAssistantGenericHandler({ resolver: llmResolver }),
     createAssistantWritingHandler({ resolver: llmResolver }),
   ];

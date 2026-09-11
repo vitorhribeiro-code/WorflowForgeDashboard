@@ -33,6 +33,9 @@ export const KNOWN_CAPABILITIES = [
   "email.summary",
   "assistant.generic",
   "assistant.writing",
+  // Runtime automático (v47): compõe a narrativa do relatório mensal a partir da
+  // agregação determinística de secções/métricas.
+  "report.compose",
   // Authoring-time (v43): compõe a APRESENTAÇÃO do cartão da tarefa. Distinta das
   // capacidades de runtime — não corre numa Task, gera o cartão no catálogo.
   "card.compose",

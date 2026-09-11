@@ -11,7 +11,8 @@ const RUNTIME_TO_CAPABILITY: Record<string, string> = {
   "email.digest": "email.summary",
   "assistant.generic": "assistant.generic",
   "assistant.writing": "assistant.writing",
-  // report.monthly ainda não usa IA (§5.5).
+  // report.monthly compõe uma narrativa mensal por IA a partir da agregação (v47).
+  "report.monthly": "report.compose",
 };
 
 export function capabilityForRuntime(runtime: string): string | null {

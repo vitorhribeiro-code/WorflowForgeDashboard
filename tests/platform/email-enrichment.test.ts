@@ -125,7 +125,9 @@ describe("enriquecimento de emails por IA", () => {
       resolver: resolverOf(adapter),
       inner: innerReturning(base),
     });
-    const out = await provider.resolve(ctx({ runtime: "report.monthly" }));
+    // 'echo' (reference) é um runtime sem capacidade de IA. NOTA: o report.monthly
+    // deixou de servir de exemplo aqui — desde o v47 mapeia para 'report.compose'.
+    const out = await provider.resolve(ctx({ runtime: "echo" }));
     expect(out).toBe(base); // devolve o mesmo objeto, sem tocar
     expect(spy).not.toHaveBeenCalled();
   });
