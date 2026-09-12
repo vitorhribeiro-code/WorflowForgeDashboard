@@ -5,8 +5,12 @@ import { DrizzleTaskRepository } from "./data/task.repository";
 import { createAjvSchemaValidator } from "./infra/ajv-schema-validator";
 import { createDrizzlePublication } from "./infra/publication.drizzle";
 import { createTaskCatalogPort, createTaskService } from "./service/task.service";
-// M7: registo de runtimes com handler — fonte única partilhada com a UI.
-import { isKnownRuntime } from "./domain/runtimes";
+// M7/v50: o isKnownRuntime passou a ser built-in (RUNTIME_KEYS, code-backed) OU
+// catálogo na BD (runtimes generated). RUNTIME_KEYS continua a ser a fonte-de-
+// verdade dos 4 de fábrica; o catálogo ACRESCENTA os criados na app.
+import { RUNTIME_KEYS } from "./domain/runtimes";
+import { createRuntimeRegistry } from "./service/runtime-registry";
+import { createDrizzleRuntimeCatalog } from "./data/runtime-catalog.repository";
 // M3: port cross-module real (getAvailableScopes + assertScopesAvailable),
 // estruturalmente compatível com o ToolCatalogPort do M4. Sem import circular:
 // o M3 não depende do M4.
@@ -18,6 +22,7 @@ import { createCardLlmPort } from "./infra/card-llm";
 
 const repo = new DrizzleTaskRepository(db);
 const publication = createDrizzlePublication(db);
+const isKnownRuntime = createRuntimeRegistry(RUNTIME_KEYS, createDrizzleRuntimeCatalog(db));
 
 // --- Wiring cross-module ---
 const toolCatalog = toolCatalogPort;

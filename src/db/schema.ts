@@ -62,6 +62,14 @@ export const archiveStatus = pgEnum("archive_status", [
   "error",
 ]);
 
+// Natureza de um runtime no catálogo.
+//  - builtin: tem um handler CONSTRUÍDO no código (os 4 de fábrica). Sempre
+//    executável; é a fonte de verdade em código (RUNTIMES em domain/runtimes.ts).
+//  - generic: runtime CRIADO na app (a partir de um mapeamento), apoiado no
+//    executor genérico + `spec`. Vive só na BD; associável a tarefas de qualquer
+//    utilizador. (A execução do generic entra numa fatia seguinte.)
+export const runtimeKind = pgEnum("runtime_kind", ["builtin", "generic"]);
+
 /* -------------------------------------------------------------------------- */
 /*  Tenant                                                                     */
 /* -------------------------------------------------------------------------- */
@@ -144,6 +152,36 @@ export const tools = pgTable(
   },
   (t) => ({
     keyUq: uniqueIndex("tools_key_uq").on(t.key),
+  }),
+);
+
+/* -------------------------------------------------------------------------- */
+/*  Catálogo de runtimes (GLOBAL — capacidade partilhada, como as tools)       */
+/*  Um runtime é o "COMO" (a capacidade); o "com que modelo" vem do binding de */
+/*  IA da org e o "com que tokens" da conexão do trabalhador — resolvidos no    */
+/*  run. Por isso um runtime GLOBAL não vaza dados de ninguém, e o mesmo        */
+/*  runtime serve tarefas de utilizadores diferentes.                          */
+/*                                                                             */
+/*  Os 4 built-in são semeados pela migração 0009 (espelham RUNTIMES em         */
+/*  domain/runtimes.ts, que continua a ser a fonte-de-verdade em código para o  */
+/*  isKnownRuntime — a BD ACRESCENTA os generated, não substitui os built-in).  */
+/* -------------------------------------------------------------------------- */
+
+export const runtimes = pgTable(
+  "runtimes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    key: text("key").notNull(), // "email.digest", "assistant.generic", ...
+    label: text("label").notNull(), // rótulo legível na UI
+    taskType: taskType("task_type").notNull(),
+    kind: runtimeKind("kind").notNull().default("generic"),
+    // Especificação do generic (prompt/instrução) que o executor genérico usa.
+    // null para os built-in (o comportamento vive no handler em código).
+    spec: jsonb("spec").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    keyUq: uniqueIndex("runtimes_key_uq").on(t.key),
   }),
 );
 

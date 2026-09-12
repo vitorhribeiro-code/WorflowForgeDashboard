@@ -43,7 +43,7 @@ function build() {
     repo,
     tools: {} as never,
     schema: {} as never,
-    isKnownRuntime: () => true,
+    isKnownRuntime: async () => true,
     publication: {} as never,
     audit,
   });

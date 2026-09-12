@@ -47,7 +47,7 @@ function build(opts: { assignments: number }) {
     // deps não exercitadas pelo remove — stubs tipados.
     tools: {} as never,
     schema: {} as never,
-    isKnownRuntime: () => true,
+    isKnownRuntime: async () => true,
     publication: {} as never,
     audit,
   });

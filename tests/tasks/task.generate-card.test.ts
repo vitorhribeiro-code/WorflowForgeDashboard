@@ -61,7 +61,7 @@ function build(llm?: CardLlmPort | null) {
     repo,
     tools: {} as never,
     schema: {} as never,
-    isKnownRuntime: () => true,
+    isKnownRuntime: async () => true,
     publication: {} as never,
     audit,
     llm,

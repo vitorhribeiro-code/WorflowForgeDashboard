@@ -64,7 +64,7 @@ export function createTaskService(deps: TaskServiceDeps) {
     organizationId: string;
     areaId?: string | null;
   }): Promise<void> {
-    if (!isKnownRuntime(input.runtime)) {
+    if (!(await isKnownRuntime(input.runtime))) {
       throw new DomainError("UNKNOWN_RUNTIME", "runtime sem handler", 422);
     }
     if (input.configSchema != null) {
@@ -223,7 +223,7 @@ export function createTaskService(deps: TaskServiceDeps) {
     async computeFor(task: Task): Promise<Publishability> {
       const configSchemaValid =
         task.configSchema == null || schema.validateSchema(task.configSchema).valid;
-      const runtimeKnown = isKnownRuntime(task.runtime);
+      const runtimeKnown = await isKnownRuntime(task.runtime);
 
       const required = await repo.listRequiredTools(task.id);
       let requiredToolsResolved = true;

@@ -32,8 +32,27 @@ export interface SchemaValidatorPort {
   validateData(schema: unknown, data: unknown): ValidationResult; // usado por M5
 }
 
-// Runtimes com handler resolúvel (registo do M7). Fn simples, sem port.
-export type RuntimeRegistry = (runtime: string) => boolean;
+// Um runtime é "conhecido" (associável a uma Task) quando existe como
+// capacidade — built-in (handler em código) OU generated (catálogo na BD). Por
+// isso o predicado é ASSÍNCRONO (o catálogo vive na BD e cresce em runtime).
+export type RuntimeRegistry = (runtime: string) => Promise<boolean>;
+
+// Catálogo de runtimes na BD (v50). Interface DEFINIDA PELO CONSUMIDOR; a impl
+// Drizzle vive em data/runtime-catalog.repository.ts; os testes passam um fake.
+// GLOBAL (como as tools): um runtime serve tarefas de qualquer utilizador.
+export type RuntimeCatalogEntry = {
+  key: string;
+  label: string;
+  taskType: TaskType;
+  kind: "builtin" | "generic";
+};
+export interface RuntimeCatalog {
+  // O runtime existe no catálogo? (resiliente: erro/tabela ausente → false,
+  // para os built-in continuarem a valer pelo array mesmo antes da migração.)
+  has(key: string): Promise<boolean>;
+  // Listar o catálogo (para a UI/dropdown e futuras associações).
+  list(): Promise<RuntimeCatalogEntry[]>;
+}
 
 // Estado de publicação. O schema atual NÃO tem coluna `published` — este port é
 // o seam honesto; a impl Drizzle usa SQL cru e EXIGE a migração (ver integração).

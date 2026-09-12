@@ -77,9 +77,12 @@ const AUTH_SECRET = requireEnv("AUTH_SECRET", "dev-secret-mudar-em-producao");
 const SESSION_TTL = Number(process.env.SESSION_TTL_SECONDS ?? 60 * 60 * 8);
 const BASE_URL = process.env.APP_BASE_URL ?? "http://localhost:3000";
 
-// Registo de runtimes com handler — fonte única partilhada por M4 (catálogo) e
-// pela UI (dropdown). Ao ligar o registo real do M7, derivar as duas daqui.
-import { isKnownRuntime } from "@/modules/tasks/domain/runtimes";
+// Runtimes (v50): isKnownRuntime = built-in (RUNTIME_KEYS, code-backed) OU
+// catálogo na BD (runtimes generated). RUNTIME_KEYS continua a ser a fonte-de-
+// verdade dos 4 de fábrica e a origem do dropdown da UI.
+import { RUNTIME_KEYS } from "@/modules/tasks/domain/runtimes";
+import { createRuntimeRegistry } from "@/modules/tasks/service/runtime-registry";
+import { createDrizzleRuntimeCatalog } from "@/modules/tasks/data/runtime-catalog.repository";
 
 // -------------------------------------------------------------------------- //
 //  M2 — não depende de ninguém; produz as directories que M1/M5/M9 consomem   //
@@ -139,6 +142,7 @@ const readinessPort = createDrizzleReadiness(db);
 // -------------------------------------------------------------------------- //
 const taskRepo = new DrizzleTaskRepository(db);
 const publication = createDrizzlePublication(db); // migração: tasks.published
+const isKnownRuntime = createRuntimeRegistry(RUNTIME_KEYS, createDrizzleRuntimeCatalog(db));
 // v43: geração do cartão via IA (adapta o LlmResolver; guarded p/ sem ENCRYPTION_KEY).
 const cardLlm = createCardLlmPort(() => {
   try {
