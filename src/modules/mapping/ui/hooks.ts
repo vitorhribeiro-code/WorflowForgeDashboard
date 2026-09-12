@@ -2,6 +2,7 @@
 import { useCallback, useState } from "react";
 import type { CollisionMatch } from "../domain/collision";
 import type { CandidateCompleteness, MappingDocument, TaskCandidate } from "../domain/types";
+import type { MatchProposal } from "../service/runtime-matcher";
 
 export type ReviewedCandidate = TaskCandidate & { completeness: CandidateCompleteness };
 
@@ -99,5 +100,21 @@ export function useMapping() {
     [convert],
   );
 
-  return { candidates, warnings, error, busy, importDoc, convert, convertMany };
+  // v53: pede propostas de runtime (reuse-first, via IA) para os candidatos.
+  const matchRuntimes = useCallback(
+    async (cands: TaskCandidate[]): Promise<MatchProposal[]> => {
+      const res = await post<{ proposals: MatchProposal[] }>("/api/mapping/match", {
+        candidates: cands.map((c) => ({
+          sourceRef: c.sourceRef,
+          name: c.name,
+          description: c.description ?? null,
+          type: c.type,
+        })),
+      });
+      return res.proposals;
+    },
+    [],
+  );
+
+  return { candidates, warnings, error, busy, importDoc, convert, convertMany, matchRuntimes };
 }

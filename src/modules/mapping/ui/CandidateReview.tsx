@@ -1,4 +1,5 @@
 import type { ReviewedCandidate } from "./hooks";
+import type { MatchProposal } from "../service/runtime-matcher";
 
 type Props = {
   candidates: ReviewedCandidate[] | null;
@@ -8,6 +9,9 @@ type Props = {
   selected?: Set<string>;
   onToggleSelect?: (sourceRef: string) => void;
   onConvert?: (candidate: ReviewedCandidate) => void;
+  // v53: propostas de runtime (por sourceRef) e handler de aceitação.
+  proposals?: Record<string, MatchProposal>;
+  onAcceptProposal?: (candidate: ReviewedCandidate, proposal: MatchProposal) => void;
 };
 
 // Presentacional puro: mostra rascunhos e o que falta para converter.
@@ -17,6 +21,8 @@ export function CandidateReview({
   selected,
   onToggleSelect,
   onConvert,
+  proposals,
+  onAcceptProposal,
 }: Props) {
   if (!candidates) return <div className="mapping-empty">Importa um mapeamento para começar.</div>;
 
@@ -50,6 +56,12 @@ export function CandidateReview({
             <p className="candidate-meta">
               runtime: <code>{c.runtime ?? "—"}</code> · tools: {c.requiredTools.length}
             </p>
+            {proposals && proposals[c.sourceRef] ? (
+              <RuntimeProposalBlock
+                proposal={proposals[c.sourceRef]!}
+                onAccept={onAcceptProposal ? (p) => onAcceptProposal(c, p) : undefined}
+              />
+            ) : null}
             {c.completeness.convertible ? (
               onConvert ? (
                 <button type="button" onClick={() => onConvert(c)}>
@@ -63,5 +75,50 @@ export function CandidateReview({
         ))}
       </ul>
     </div>
+  );
+}
+
+// Bloco da proposta de runtime (v53): reutilizar existente, criar novo, ou nada.
+function RuntimeProposalBlock({
+  proposal,
+  onAccept,
+}: {
+  proposal: MatchProposal;
+  onAccept?: (proposal: MatchProposal) => void;
+}) {
+  if (proposal.kind === "existing") {
+    return (
+      <div className="candidate-proposal">
+        <span className="muted">
+          IA sugere reutilizar: <strong>{proposal.label}</strong> (<code>{proposal.runtimeKey}</code>)
+        </span>
+        {onAccept ? (
+          <button type="button" onClick={() => onAccept(proposal)}>
+            Usar e converter
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+  if (proposal.kind === "new") {
+    return (
+      <div className="candidate-proposal">
+        <span className="muted">
+          IA sugere criar: <strong>{proposal.label}</strong> (<code>{proposal.key}</code>) —{" "}
+          {proposal.instruction}
+        </span>
+        {onAccept ? (
+          <button type="button" onClick={() => onAccept(proposal)}>
+            Criar e converter
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+  return (
+    <p className="muted candidate-proposal">
+      IA: sem correspondência{proposal.reason ? ` (${proposal.reason})` : ""} — cria um runtime no
+      Catálogo e volta a sugerir.
+    </p>
   );
 }

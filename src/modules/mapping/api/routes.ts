@@ -1,5 +1,6 @@
-import { mappingService } from "../container";
+import { mappingService, runtimeMatcher } from "../container";
 import { convertSchema, mappingDocumentSchema } from "../validation/schemas";
+import { matchSchema } from "../validation/match.schema";
 import { json, parseWith, rawJson, withSession } from "./http";
 
 // POST /api/mapping/parse — documento → candidatos (nada é persistido).
@@ -18,4 +19,12 @@ export const convertPOST = withSession(async (session, req) => {
     decision: input.decision,
   });
   return json(outcome, { status: outcome.status === "created" ? 201 : 200 });
+});
+
+// POST /api/mapping/match — candidatos → propostas de runtime (reuse-first, IA).
+// Não persiste nada; o admin aceita/rejeita e depois converte com o override.
+export const matchPOST = withSession(async (session, req) => {
+  const input = parseWith(matchSchema, await rawJson(req));
+  const proposals = await runtimeMatcher.match(session, input.candidates);
+  return json({ proposals });
 });

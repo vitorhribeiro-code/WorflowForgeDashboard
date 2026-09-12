@@ -2,25 +2,53 @@
 
 import { useMemo, useState } from "react";
 import type { MappingDocument } from "@/modules/mapping/domain/types";
+import type { MatchProposal } from "@/modules/mapping/service/runtime-matcher";
 import { CandidateReview } from "@/modules/mapping/ui/CandidateReview";
 import {
   useMapping,
   type ConvertDecision,
+  type ConvertOutcome,
   type ConvertSummary,
   type ReviewedCandidate,
 } from "@/modules/mapping/ui/hooks";
+
+const EMPTY_SUMMARY: ConvertSummary = { created: [], reused: [], pending: [], failed: [] };
+
+async function createRuntimeApi(input: {
+  key: string;
+  label: string;
+  taskType: "automation" | "assistant";
+  instruction: string;
+}): Promise<void> {
+  const res = await fetch("/api/runtimes", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    // Já existir é aceitável (reuse-first / repetição): seguimos com a key.
+    if (res.status === 409) return;
+    throw new Error(body?.message ?? `HTTP ${res.status}`);
+  }
+}
 
 // Página do M11: o admin carrega o JSON do mapeamento (do trabalhador tipo),
 // revê os candidatos e converte os escolhidos em Tarefas do catálogo (M4).
 // Slice 1: conversão em lote por loop (sem reconciliação/dedup — isso é a
 // slice 2; a atribuição em massa é a slice 3).
 export function MapeamentoSection() {
-  const { candidates, warnings, error, busy, importDoc, convert, convertMany } = useMapping();
+  const { candidates, warnings, error, busy, importDoc, convert, convertMany, matchRuntimes } =
+    useMapping();
 
   const [raw, setRaw] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [result, setResult] = useState<ConvertSummary | null>(null);
+  // v53: propostas de runtime por sourceRef + estado do "sugerir".
+  const [proposals, setProposals] = useState<Record<string, MatchProposal> | null>(null);
+  const [matching, setMatching] = useState(false);
+  const [matchError, setMatchError] = useState<string | null>(null);
 
   // Só os selecionados que são de facto convertíveis contam para o botão.
   const selectableCount = useMemo(() => {
@@ -39,6 +67,8 @@ export function MapeamentoSection() {
     setParseError(null);
     setResult(null);
     setSelected(new Set());
+    setProposals(null);
+    setMatchError(null);
     let doc: MappingDocument;
     try {
       doc = JSON.parse(raw) as MappingDocument;
@@ -110,6 +140,73 @@ export function MapeamentoSection() {
     }
   }
 
+  // v53: pede propostas de runtime (reuse-first, via IA) para os candidatos.
+  async function onSuggest() {
+    if (!candidates) return;
+    setMatching(true);
+    setMatchError(null);
+    try {
+      const props = await matchRuntimes(candidates);
+      const map: Record<string, MatchProposal> = {};
+      for (const p of props) map[p.sourceRef] = p;
+      setProposals(map);
+    } catch (e) {
+      setMatchError(e instanceof Error ? e.message : "Erro ao sugerir runtimes");
+    } finally {
+      setMatching(false);
+    }
+  }
+
+  function mergeOutcome(
+    prev: ConvertSummary | null,
+    sourceRef: string,
+    outcome: ConvertOutcome,
+  ): ConvertSummary {
+    const base = prev ?? EMPTY_SUMMARY;
+    if (outcome.status === "created")
+      return { ...base, created: [...base.created, { sourceRef, id: outcome.id }] };
+    if (outcome.status === "reused")
+      return { ...base, reused: [...base.reused, { sourceRef, id: outcome.id }] };
+    return { ...base, pending: [...base.pending, { sourceRef, existing: outcome.existing }] };
+  }
+
+  // Aceitar a proposta: se for "new", cria o runtime generated (v52); depois
+  // converte o candidato com o runtime como override.
+  async function acceptProposal(candidate: ReviewedCandidate, proposal: MatchProposal) {
+    try {
+      let runtimeKey: string;
+      if (proposal.kind === "existing") {
+        runtimeKey = proposal.runtimeKey;
+      } else if (proposal.kind === "new") {
+        await createRuntimeApi({
+          key: proposal.key,
+          label: proposal.label,
+          taskType: proposal.taskType,
+          instruction: proposal.instruction,
+        });
+        runtimeKey = proposal.key;
+      } else {
+        return;
+      }
+      const outcome = await convert(candidate, { runtime: runtimeKey });
+      setResult((prev) => mergeOutcome(prev, candidate.sourceRef, outcome));
+      setProposals((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev };
+        delete next[candidate.sourceRef];
+        return next;
+      });
+    } catch (e) {
+      setResult((prev) => ({
+        ...(prev ?? EMPTY_SUMMARY),
+        failed: [
+          ...(prev ?? EMPTY_SUMMARY).failed,
+          { sourceRef: candidate.sourceRef, error: e instanceof Error ? e.message : "Erro" },
+        ],
+      }));
+    }
+  }
+
   return (
     <section className="console-section">
       <h1>Importar mapeamento</h1>
@@ -148,7 +245,11 @@ export function MapeamentoSection() {
             <button type="button" onClick={onConvertSelected} disabled={busy || selectableCount === 0}>
               Converter selecionados ({selectableCount})
             </button>
+            <button type="button" className="btn-secondary" onClick={onSuggest} disabled={matching}>
+              {matching ? "A sugerir…" : "Sugerir runtimes (IA)"}
+            </button>
           </div>
+          {matchError ? <p className="mapping-error">{matchError}</p> : null}
 
           <CandidateReview
             candidates={candidates}
@@ -156,6 +257,8 @@ export function MapeamentoSection() {
             selected={selected}
             onToggleSelect={toggle}
             onConvert={(c) => void convertList([c])}
+            proposals={proposals ?? undefined}
+            onAcceptProposal={(c, p) => void acceptProposal(c, p)}
           />
 
           {result ? (

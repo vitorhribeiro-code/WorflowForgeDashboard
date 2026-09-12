@@ -39,5 +39,8 @@ export const KNOWN_CAPABILITIES = [
   // Authoring-time (v43): compõe a APRESENTAÇÃO do cartão da tarefa. Distinta das
   // capacidades de runtime — não corre numa Task, gera o cartão no catálogo.
   "card.compose",
+  // Authoring-time (v53): o matcher associa um candidato de mapeamento a um
+  // runtime do catálogo (reuse-first) ou propõe um novo. Não corre numa Task.
+  "mapping.match",
   "ocr",
 ] as const;

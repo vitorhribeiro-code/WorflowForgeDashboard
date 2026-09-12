@@ -2,9 +2,11 @@
 import { db } from "@/db/client";
 import { createDrizzleAudit } from "@/lib/audit.drizzle";
 // M4 (catálogo de Tarefas) e M3 (catálogo de Ferramentas) — serviços reais.
-import { taskService } from "@/modules/tasks";
+import { taskService, runtimeCatalogService } from "@/modules/tasks";
 import { toolService } from "@/modules/tools";
 import { createMappingService } from "./service/mapping.service";
+import { createRuntimeMatcher } from "./service/runtime-matcher";
+import { getLlmResolver } from "@/modules/ai/container";
 import type { TaskAuthoringPort, ToolResolverPort } from "./service/ports";
 
 // --- Wiring cross-module (composition root: liga o M11 aos módulos reais) ---
@@ -46,4 +48,17 @@ export const mappingService = createMappingService({
   authoring,
   tools,
   audit: createDrizzleAudit(db),
+});
+
+// v53: matcher de runtimes no import (reuse-first, via IA). Resolver guarded
+// (sem ENCRYPTION_KEY → null → propostas "none"); catálogo real do M4.
+export const runtimeMatcher = createRuntimeMatcher({
+  resolver: (() => {
+    try {
+      return getLlmResolver();
+    } catch {
+      return null;
+    }
+  })(),
+  catalog: { list: () => runtimeCatalogService.list() },
 });
