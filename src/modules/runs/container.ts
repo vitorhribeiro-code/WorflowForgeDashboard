@@ -22,6 +22,8 @@ import { getArtifactContainer } from "@/modules/artifacts/container";
 import { getWorkerTokenPort } from "@/modules/connections";
 import { createGmailAcquisition } from "@/platform/acquisition/gmail";
 import { createGmailInputProvider } from "@/platform/acquisition/gmail-input-provider";
+import { createReportMetricsInputProvider } from "@/platform/acquisition/report-metrics-input-provider";
+import { createDrizzleReportMetricsSource } from "@/platform/acquisition/report-metrics";
 import { createEmailEnrichmentProvider } from "@/platform/ai/email-enrichment";
 import { getLlmResolver } from "@/modules/ai/container";
 import type { LlmResolver } from "@/modules/ai/service/resolver";
@@ -73,14 +75,12 @@ export function getRunsService(): RunsService {
   const boss = new PgBoss(bossOptions(env.DATABASE_URL, "web"));
   boss.on("error", (e) => console.error("[pg-boss:web]", e));
 
-  // Aquisição a montante (Gmail → email.digest). Só liga se houver
-  // ENCRYPTION_KEY (necessária para decifrar o token do M6). Sem ela, o motor
-  // fica em pass-through — o comportamento de antes desta fatia.
-  let inputProvider: InputProvider | undefined;
-  // Resolver de IA: só se liga com ENCRYPTION_KEY (necessária para decifrar as
-  // chaves de LLM). Sem ela → null; o handler de escrita cai no scaffold e o
-  // enriquecimento de emails fica em pass-through.
+  // Cadeia de aquisição de EMAIL (Gmail → enriquecimento por IA). Só liga se
+  // houver ENCRYPTION_KEY (decifra o token do M6 e as chaves de LLM). Sem ela,
+  // fica em pass-through para o email.digest — como antes.
+  // Resolver de IA: idem (null → handler cai no scaffold; enrich em pass-through).
   let llmResolver: LlmResolver | null = null;
+  let emailChain: InputProvider | undefined;
   if (env.ENCRYPTION_KEY) {
     llmResolver = getLlmResolver();
     const gmail = createGmailAcquisition();
@@ -90,11 +90,21 @@ export function getRunsService(): RunsService {
     });
     // Enriquecimento por IA a montante (§5.2 fase 3): dá a cada email um `resumo`
     // via o resolver da org, com fallback ao snippet/assunto.
-    inputProvider = createEmailEnrichmentProvider({
+    emailChain = createEmailEnrichmentProvider({
       resolver: llmResolver,
       inner: gmailProvider,
     });
   }
+
+  // Métricas REAIS a montante do report.monthly (v49): conta runs/artefactos do
+  // worker no período e injeta `sections` reais (deixou de vir da config). Só
+  // precisa da BD (sem crypto) → decorator EXTERIOR sempre ligado; pass-through
+  // nos outros runtimes, delegando na cadeia de email (ou num pass-through).
+  const passthrough: InputProvider = { async resolve(ctx) { return ctx.base; } };
+  const inputProvider: InputProvider = createReportMetricsInputProvider({
+    inner: emailChain ?? passthrough,
+    metrics: createDrizzleReportMetricsSource(db),
+  });
 
   // Registo de handlers por runtime. Os built-in são puros (só email.digest); o
   // report.monthly (v47), o assistant.generic (v46) e o assistant.writing (§5.4
