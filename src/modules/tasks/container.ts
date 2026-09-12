@@ -11,6 +11,8 @@ import { createTaskCatalogPort, createTaskService } from "./service/task.service
 import { RUNTIME_KEYS } from "./domain/runtimes";
 import { createRuntimeRegistry } from "./service/runtime-registry";
 import { createDrizzleRuntimeCatalog } from "./data/runtime-catalog.repository";
+// v52: serviço do catálogo (list built-in+generated; create generated na consola).
+import { createRuntimeCatalogService } from "./service/runtime-catalog.service";
 // M3: port cross-module real (getAvailableScopes + assertScopesAvailable),
 // estruturalmente compatível com o ToolCatalogPort do M4. Sem import circular:
 // o M3 não depende do M4.
@@ -22,7 +24,14 @@ import { createCardLlmPort } from "./infra/card-llm";
 
 const repo = new DrizzleTaskRepository(db);
 const publication = createDrizzlePublication(db);
-const isKnownRuntime = createRuntimeRegistry(RUNTIME_KEYS, createDrizzleRuntimeCatalog(db));
+const runtimeCatalog = createDrizzleRuntimeCatalog(db);
+const isKnownRuntime = createRuntimeRegistry(RUNTIME_KEYS, runtimeCatalog);
+
+// v52: catálogo de runtimes gerível na consola (dropdown + criar generated).
+export const runtimeCatalogService = createRuntimeCatalogService({
+  repo: runtimeCatalog,
+  audit: createDrizzleAudit(db),
+});
 
 // --- Wiring cross-module ---
 const toolCatalog = toolCatalogPort;

@@ -2,9 +2,13 @@
 import { useEffect, useState } from "react";
 import { TASK_TYPES, type JsonSchema, type Task, type TaskType } from "../domain/types";
 import { runtimesForType } from "../domain/runtimes";
+import type { RuntimeCatalogItem } from "../domain/runtime-catalog";
 
 type Props = {
   initial?: Task;
+  // Catálogo de runtimes (built-in + generated). Se ausente, cai no estático
+  // (retrocompatível). v52: a página passa o catálogo lido de /api/runtimes.
+  runtimeOptions?: RuntimeCatalogItem[];
   onSubmit: (v: {
     name: string;
     description: string | null;
@@ -15,7 +19,7 @@ type Props = {
 };
 
 // type imutável em edição (muda a semântica de execução). Sem <form>.
-export function TaskForm({ initial, onSubmit }: Props) {
+export function TaskForm({ initial, runtimeOptions: catalog, onSubmit }: Props) {
   const editing = Boolean(initial);
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -27,18 +31,28 @@ export function TaskForm({ initial, onSubmit }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Opções de runtime para o tipo atual. Runtime legado (fora do catálogo) é
-  // preservado como opção para não ser trocado em silêncio ao editar.
-  const runtimeOptions = runtimesForType(type);
-  const legacyRuntime = runtime && !runtimeOptions.some((o) => o.key === runtime) ? runtime : null;
+  // Opções para o tipo atual: catálogo (built-in+generated) se fornecido, senão
+  // o estático (fallback). Runtime legado (fora das opções) é preservado como
+  // opção para não ser trocado em silêncio ao editar.
+  const options: RuntimeCatalogItem[] = catalog
+    ? catalog.filter((o) => o.taskType === type)
+    : runtimesForType(type).map((r) => ({
+        key: r.key,
+        label: r.label,
+        taskType: r.taskType,
+        kind: "builtin" as const,
+      }));
+  const legacyRuntime = runtime && !options.some((o) => o.key === runtime) ? runtime : null;
 
-  // Mantém o runtime válido: em CRIAÇÃO, ao arrancar ou ao mudar o tipo, se o
-  // atual não servir escolhe o primeiro disponível. Em edição não mexe.
+  // Mantém o runtime válido: em CRIAÇÃO, ao arrancar ou ao mudar o tipo (ou o
+  // catálogo chegar), se o atual não servir escolhe o primeiro. Em edição não mexe.
   useEffect(() => {
     if (editing) return;
-    const keys = runtimesForType(type).map((o) => o.key);
-    setRuntime((cur) => (keys.includes(cur) ? cur : (runtimesForType(type)[0]?.key ?? "")));
-  }, [type, editing]);
+    const keys = (catalog ? catalog.filter((o) => o.taskType === type) : runtimesForType(type)).map(
+      (o) => o.key,
+    );
+    setRuntime((cur) => (keys.includes(cur) ? cur : (keys[0] ?? "")));
+  }, [type, editing, catalog]);
 
   async function submit() {
     setBusy(true);
@@ -89,15 +103,16 @@ export function TaskForm({ initial, onSubmit }: Props) {
       <label>
         Runtime
         <select value={runtime} onChange={(e) => setRuntime(e.target.value)}>
-          {runtimeOptions.length === 0 && !legacyRuntime ? (
+          {options.length === 0 && !legacyRuntime ? (
             <option value="">— sem runtime para este tipo —</option>
           ) : null}
           {legacyRuntime ? (
             <option value={legacyRuntime}>{legacyRuntime} (atual)</option>
           ) : null}
-          {runtimeOptions.map((o) => (
+          {options.map((o) => (
             <option key={o.key} value={o.key}>
               {o.label} — {o.key}
+              {o.kind === "generic" ? " (gerado)" : ""}
             </option>
           ))}
         </select>

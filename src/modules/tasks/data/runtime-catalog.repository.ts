@@ -22,9 +22,22 @@ export type RuntimeCatalogRow = RuntimeCatalogEntry & {
   spec: Record<string, unknown> | null;
 };
 
-/** O adaptador Drizzle expõe, além do porto v50, um `get(key)` com o spec (v51). */
+/** Registo a criar (v52) — sempre kind='generic' (os built-in nascem no seed). */
+export type NewRuntimeRow = {
+  key: string;
+  label: string;
+  taskType: RuntimeCatalogEntry["taskType"];
+  spec: Record<string, unknown> | null;
+};
+
+/**
+ * O adaptador Drizzle expõe, além do porto v50, `get(key)` com o spec (v51) e
+ * `create` para runtimes generated (v52). `create` NÃO engole erros (a violação
+ * de unicidade deve chegar ao serviço, que a traduz em 409).
+ */
 export interface RuntimeCatalogRepo extends RuntimeCatalog {
   get(key: string): Promise<RuntimeCatalogRow | null>;
+  create(input: NewRuntimeRow): Promise<RuntimeCatalogRow>;
 }
 
 export function createDrizzleRuntimeCatalog(db: Db): RuntimeCatalogRepo {
@@ -92,6 +105,34 @@ export function createDrizzleRuntimeCatalog(db: Db): RuntimeCatalogRepo {
         console.error("[runtime-catalog] get() falhou (a devolver null):", err);
         return null;
       }
+    },
+
+    // v52: cria um runtime generated. Erros propagam (a unicidade vira 409 no serviço).
+    async create(input: NewRuntimeRow): Promise<RuntimeCatalogRow> {
+      const [row] = await db
+        .insert(runtimes)
+        .values({
+          key: input.key,
+          label: input.label,
+          taskType: input.taskType,
+          kind: "generic",
+          spec: input.spec,
+        })
+        .returning({
+          key: runtimes.key,
+          label: runtimes.label,
+          taskType: runtimes.taskType,
+          kind: runtimes.kind,
+          spec: runtimes.spec,
+        });
+      if (!row) throw new Error("insert de runtime não devolveu linha");
+      return {
+        key: row.key,
+        label: row.label,
+        taskType: row.taskType,
+        kind: row.kind,
+        spec: row.spec ?? null,
+      };
     },
   };
 }

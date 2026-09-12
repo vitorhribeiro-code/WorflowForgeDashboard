@@ -6,6 +6,8 @@ import { TaskList } from "@/modules/tasks/ui/TaskList";
 import { CardPreview } from "@/modules/tasks/ui/CardPreview";
 import { TaskLifecycleStrip } from "@/modules/tasks/ui/TaskLifecycle";
 import { useTasks } from "@/modules/tasks/ui/hooks";
+import { useRuntimes } from "@/modules/tasks/ui/runtime-hooks";
+import { RuntimePanel } from "@/modules/tasks/ui/RuntimePanel";
 import type { Publishability, PublishBlocker } from "@/modules/tasks/domain/publishability";
 import type { RequiredTool, Task } from "@/modules/tasks/domain/types";
 import type { TaskCard } from "@/modules/tasks/domain/card";
@@ -315,6 +317,8 @@ export function TasksSection() {
   const { tasks, loading, error, createTask, updateTask, refetch, removeTask } = useTasks();
   const { tools } = useTools();
   const { areas } = useAreas();
+  // v52: catálogo de runtimes (built-in + generated) para o dropdown do form.
+  const { runtimes, createRuntime } = useRuntimes();
   const [editing, setEditing] = useState<Task | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -372,6 +376,7 @@ export function TasksSection() {
           <TaskForm
             key={editing?.id ?? "new"}
             initial={editing ?? undefined}
+            runtimeOptions={runtimes ?? undefined}
             onSubmit={async (v) => {
               if (editing) {
                 await updateTask(editing.id, {
@@ -415,6 +420,8 @@ export function TasksSection() {
           />
         </div>
       </div>
+
+      <RuntimePanel runtimes={runtimes} onCreate={createRuntime} />
 
       {selected ? (
         <TaskDetail task={selected} tools={tools} areas={areas ?? null} onPublished={refetch} />
