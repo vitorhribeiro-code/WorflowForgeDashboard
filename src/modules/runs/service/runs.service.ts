@@ -23,7 +23,7 @@ import { assertTransition, canCancel } from "../domain/state-machine";
 import { backoffMs, buildIdempotencyKey } from "../domain/idempotency";
 import type { RunRow, RunsRepository, WorkerRunRow } from "../data/runs.repository";
 import type { ArtifactSink, InputProvider, ReadinessChecker, RunQueue } from "./ports";
-import type { HandlerRegistry, RunEvent } from "./handlers/handler";
+import type { HandlerRegistry, RunEvent, RunHandler } from "./handlers/handler";
 import { classify, messageOf } from "./exec-errors";
 import type { AuditPort } from "@/lib/audit";
 import type { SessionContext } from "@/lib/session";
@@ -50,6 +50,12 @@ export interface RunsServiceDeps {
   // atribuição tiver o flag ligado (senão null). Opcional (sem ele, sem estilo).
   writingStyle?: {
     resolveForAssistedRun(assignmentId: string, workerId: string): Promise<string | null>;
+  };
+  // Executor de runtimes GENERATED (v51): quando não há handler built-in para o
+  // runtime, resolve um handler a partir do spec do catálogo (kind='generic').
+  // Opcional — sem ele, só os built-in correm (comportamento pré-v51).
+  genericRuntime?: {
+    resolve(runtime: string): Promise<RunHandler | null>;
   };
   maxAttempts?: number; // default 3
   now?: () => Date;
@@ -241,7 +247,11 @@ export function createRunsService(deps: RunsServiceDeps) {
     const { assignment, task } = await loadContext(row.assignmentId);
     const meta = readEngine(row.output);
 
-    const handler = handlers.get(task.runtime);
+    let handler = handlers.get(task.runtime);
+    // v51: sem handler built-in, tenta um runtime GENERATED (spec no catálogo).
+    if (!handler?.execute && deps.genericRuntime) {
+      handler = (await deps.genericRuntime.resolve(task.runtime)) ?? handler;
+    }
     if (!handler?.execute) {
       const output = withEngine(row.output, { errorClass: "permanent" });
       await repo.markError(runId, `Sem handler para runtime "${task.runtime}".`, output, now());
@@ -379,7 +389,11 @@ export function createRunsService(deps: RunsServiceDeps) {
     if (!assignment.enabled) throw conflict("Atribuição desativada.");
     await assertReady(assignment.workerId, task.id);
 
-    const handler = handlers.get(task.runtime);
+    let handler = handlers.get(task.runtime);
+    // v51: sem stream built-in, tenta um runtime GENERATED (spec no catálogo).
+    if (!handler?.stream && deps.genericRuntime) {
+      handler = (await deps.genericRuntime.resolve(task.runtime)) ?? handler;
+    }
     if (!handler?.stream) throw noHandler("Runtime sem stream.", { runtime: task.runtime });
 
     const row = await repo.createRun({

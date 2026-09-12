@@ -11,6 +11,8 @@ import { loadEnv } from "@/platform/config/env";
 import { createDrizzleRunsRepository } from "./data/runs.repository";
 import { createRunsService, type RunsService } from "./service/runs.service";
 import { createHandlerRegistry, type RunHandler } from "./service/handlers/handler";
+import { createGenericRuntimeResolver } from "./service/handlers/generic-runtime";
+import { createDrizzleRuntimeCatalog } from "@/modules/tasks/data/runtime-catalog.repository";
 import {
   builtinHandlers,
   createAssistantGenericHandler,
@@ -139,6 +141,12 @@ export function getRunsService(): RunsService {
     audit: createDrizzleAudit(db),
     inputProvider,
     writingStyle,
+    // v51: runtimes GENERATED (kind='generic') executam via o spec do catálogo,
+    // usando o mesmo binding de IA que o assistant.generic (null → scaffold).
+    genericRuntime: createGenericRuntimeResolver({
+      source: createDrizzleRuntimeCatalog(db),
+      resolver: llmResolver,
+    }),
   });
   return cached;
 }

@@ -17,7 +17,17 @@ import { eq } from "drizzle-orm";
 import { runtimes } from "@/db/schema";
 import type { RuntimeCatalog, RuntimeCatalogEntry } from "../service/ports";
 
-export function createDrizzleRuntimeCatalog(db: Db): RuntimeCatalog {
+/** Registo completo do catálogo (inclui o `spec` do generated). */
+export type RuntimeCatalogRow = RuntimeCatalogEntry & {
+  spec: Record<string, unknown> | null;
+};
+
+/** O adaptador Drizzle expõe, além do porto v50, um `get(key)` com o spec (v51). */
+export interface RuntimeCatalogRepo extends RuntimeCatalog {
+  get(key: string): Promise<RuntimeCatalogRow | null>;
+}
+
+export function createDrizzleRuntimeCatalog(db: Db): RuntimeCatalogRepo {
   return {
     async has(key: string): Promise<boolean> {
       try {
@@ -52,6 +62,35 @@ export function createDrizzleRuntimeCatalog(db: Db): RuntimeCatalog {
       } catch (err) {
         console.error("[runtime-catalog] list() falhou (a devolver []):", err);
         return [];
+      }
+    },
+
+    // v51: registo completo (com spec) para o executor genérico. Resiliente.
+    async get(key: string): Promise<RuntimeCatalogRow | null> {
+      try {
+        const rows = await db
+          .select({
+            key: runtimes.key,
+            label: runtimes.label,
+            taskType: runtimes.taskType,
+            kind: runtimes.kind,
+            spec: runtimes.spec,
+          })
+          .from(runtimes)
+          .where(eq(runtimes.key, key))
+          .limit(1);
+        const r = rows[0];
+        if (!r) return null;
+        return {
+          key: r.key,
+          label: r.label,
+          taskType: r.taskType,
+          kind: r.kind,
+          spec: r.spec ?? null,
+        };
+      } catch (err) {
+        console.error("[runtime-catalog] get() falhou (a devolver null):", err);
+        return null;
       }
     },
   };
