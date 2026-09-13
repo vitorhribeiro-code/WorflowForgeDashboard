@@ -835,6 +835,16 @@ function LastSummaryModal({
     void load();
   }, [load]);
   useEffect(() => {
+    // Enquanto o modal está aberto, congela o scroll da página por baixo. Com a
+    // goteira da scrollbar reservada (globals.css), não há salto de largura — e
+    // a página atrás deixa de re-fluir/piscar ao mover o cursor sobre o overlay.
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
