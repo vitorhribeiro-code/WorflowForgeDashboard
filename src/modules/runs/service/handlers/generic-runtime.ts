@@ -17,7 +17,7 @@
  * este resolver quando `handlers.get(runtime)` não devolve um handler built-in.
  */
 
-import type { ExecContext, RunEvent, RunHandler } from "./handler";
+import type { DeliverableDraft, ExecContext, RunEvent, RunHandler } from "./handler";
 import { PermanentError } from "../exec-errors";
 import type { LlmResolver } from "@/modules/ai/service/resolver";
 
@@ -109,6 +109,78 @@ function scaffold(reason: string): string {
   );
 }
 
+/* ----------------------------- entregável (v54) --------------------------- */
+// O output de um generic ({ text, ai, runtime, generatedAt }) aterra na cloud do
+// worker como um .md (tier work_document), tal como os built-in email.digest /
+// report.monthly. É uma função PURA do output — testável sem rede. O pipeline de
+// deliverable (runs.service) é agnóstico ao handler: basta declarar isto.
+
+/** "custom.resumo" → "custom-resumo" (nome de ficheiro seguro). */
+function slugifyRuntime(runtime: string): string {
+  const s = runtime
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return s || "runtime";
+}
+
+/** ISO → "2026-09-13-1435" (UTC, determinístico). Sem data válida → "sem-data". */
+function stampOf(iso: string | null): string {
+  if (!iso) return "sem-data";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "sem-data";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}` +
+    `-${p(d.getUTCHours())}${p(d.getUTCMinutes())}`
+  );
+}
+
+/**
+ * Renderiza o output de um runtime GENERATED num .md — o entregável final
+ * (work_document) que vai para a cloud do trabalhador. PURO (output → bytes).
+ *
+ * Devolve `null` quando não há nada útil a entregar — run em scaffold (a IA da
+ * org não está configurada) ou texto vazio. Não polui a cloud com um placeholder.
+ * O run continua verde; só não gera documento.
+ *
+ * SEM idempotencyKey de propósito: um generic não tem identidade estável de
+ * documento (ao contrário do `report.monthly:<período>`), por isso cada run cria
+ * o seu próprio ficheiro — o storage "cria sempre" e não sobrescreve histórico.
+ */
+export function renderGenericMarkdown(
+  result: Record<string, unknown>,
+): DeliverableDraft | null {
+  const text = (asString(result.text) ?? "").trim();
+  const ai = asRecord(result.ai);
+  const usedAi = ai?.used === true;
+  // Scaffold (IA não configurada) ou sem texto → nada a entregar.
+  if (!text || !usedAi) return null;
+
+  const runtime = asString(result.runtime) ?? "runtime";
+  const generatedAt = asString(result.generatedAt) ?? null;
+
+  const lines: string[] = [];
+  lines.push(`# Resultado — ${runtime}`);
+  lines.push("");
+  lines.push(text);
+  lines.push("");
+
+  // Rodapé de proveniência: provider/modelo (a escolha de provider é a alavanca
+  // de residência de dados — mesmo padrão do report.monthly).
+  const provider = asString(ai?.provider);
+  const model = asString(ai?.model);
+  const label = [provider, model].filter(Boolean).join(" · ");
+  lines.push(label ? `_Gerado por IA — ${label}._` : "_Gerado por IA._");
+  if (generatedAt) lines.push(`_Gerado em ${generatedAt}._`);
+
+  return {
+    filename: `${slugifyRuntime(runtime)}-${stampOf(generatedAt)}.md`,
+    mimeType: "text/markdown",
+    bytes: new TextEncoder().encode(lines.join("\n")),
+  };
+}
+
 /** Constrói o RunHandler de um runtime generated concreto (com o seu spec). */
 function makeHandler(
   runtime: string,
@@ -161,6 +233,10 @@ function makeHandler(
 
   return {
     runtime,
+    // v54: aterra o output num .md na cloud do worker (automáticas via execute,
+    // assistidas via stream — ambos os paths do runs.service chamam isto). Em
+    // scaffold devolve null (não entrega placeholder).
+    deliverable: renderGenericMarkdown,
     execute: run,
     async *stream(ctx: ExecContext): AsyncIterable<RunEvent> {
       yield { type: "progress", data: { pct: 10 } };

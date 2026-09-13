@@ -70,4 +70,38 @@ describe("processRun · entregável (work_document)", () => {
     expect(done.status).toBe("success");
     expect(artifacts.docs).toHaveLength(0);
   });
+
+  // v54: as assistidas (stream) também aterram o entregável. Gated em
+  // handler.deliverable — só dispara para handlers que o declarem (o generic).
+  it("runAssisted grava o entregável na cloud quando o handler o declara", async () => {
+    const streamDoc: RunHandler = {
+      runtime: "doc-stream",
+      async *stream() {
+        yield { type: "progress" };
+        yield { type: "result", data: { ok: true } };
+      },
+      deliverable() {
+        return {
+          filename: "assist.md",
+          mimeType: "text/markdown",
+          bytes: new TextEncoder().encode("olá assistida"),
+        };
+      },
+    };
+    const { repo, artifacts, service } = setup([streamDoc]);
+    repo.seedContext(ctx({ type: "assistant", runtime: "doc-stream" }));
+
+    const events: string[] = [];
+    let done: { run: { status: string } } | undefined;
+    for await (const e of service.runAssisted(WORKER, "asg-1", {})) {
+      events.push(e.type);
+      if (e.type === "done") done = e.data as { run: { status: string } };
+    }
+
+    expect(done!.run.status).toBe("success");
+    expect(artifacts.docs).toHaveLength(1);
+    expect(artifacts.docs[0]).toMatchObject({ filename: "assist.md" });
+    // o log do entregável é emitido no stream
+    expect(events).toContain("log");
+  });
 });

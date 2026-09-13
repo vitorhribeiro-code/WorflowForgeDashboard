@@ -447,7 +447,31 @@ export function createRunsService(deps: RunsServiceDeps) {
         const output = withEngine(row.output, { cancelled: true });
         await repo.markError(row.id, "cancelled", output, now());
       } else {
-        const output = withEngine({ result: result ?? {} }, { attempt: 1 });
+        const res = result ?? {};
+        // v54: se o handler declara um entregável (ex.: runtime generic), aterra
+        // o .md na cloud do worker — igual ao path automático. Dentro do try: uma
+        // falha de cloud (CLOUD_*/rede) classifica o run. Gated em
+        // handler.deliverable — os handlers de stream built-in não o declaram, por
+        // isso o comportamento deles NÃO muda.
+        if (handler.deliverable) {
+          const draft = handler.deliverable(res);
+          if (draft) {
+            const doc = await artifacts.writeDocument({
+              runId: row.id,
+              filename: draft.filename,
+              mimeType: draft.mimeType,
+              bytes: draft.bytes,
+              idempotencyKey: draft.idempotencyKey,
+            });
+            (res as Record<string, unknown>)._deliverable = {
+              artifactId: doc.id,
+              storageRef: doc.storageRef,
+              filename: draft.filename,
+            };
+            yield { type: "log", data: { message: `entregável: ${draft.filename}` } };
+          }
+        }
+        const output = withEngine({ result: res }, { attempt: 1 });
         await repo.markSuccess(row.id, output, now());
       }
     } catch (err) {

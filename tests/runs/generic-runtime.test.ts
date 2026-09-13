@@ -3,6 +3,7 @@ import {
   createGenericRuntimeResolver,
   parseGenericSpec,
   buildGenericRuntimePrompt,
+  renderGenericMarkdown,
   type GenericRuntimeSource,
 } from "@/modules/runs/service/handlers/generic-runtime";
 import type { ExecContext } from "@/modules/runs/service/handlers/handler";
@@ -145,5 +146,78 @@ describe("createGenericRuntimeResolver.resolve", () => {
     }
     expect(events).toContain("result");
     expect(result?.text).toBe("via stream");
+  });
+
+  it("o handler declara um deliverable (v54)", async () => {
+    const { resolver } = fakeResolver("x");
+    const r = createGenericRuntimeResolver({
+      source: sourceWith({ taskType: "automation", kind: "generic", spec: { instruction: "Faz" } }),
+      resolver,
+      now,
+    });
+    const handler = await r.resolve("custom.resumo");
+    expect(typeof handler!.deliverable).toBe("function");
+  });
+});
+
+describe("renderGenericMarkdown (v54)", () => {
+  const okResult = {
+    text: "Três pontos:\n- a\n- b\n- c",
+    ai: { used: true, provider: "prov", model: "mod" },
+    runtime: "custom.resumo",
+    generatedAt: "2026-09-13T14:35:00.000Z",
+  };
+
+  it("gera .md com título, corpo, proveniência e nome de ficheiro por key+data", () => {
+    const draft = renderGenericMarkdown(okResult);
+    expect(draft).not.toBeNull();
+    expect(draft!.mimeType).toBe("text/markdown");
+    expect(draft!.filename).toBe("custom-resumo-2026-09-13-1435.md");
+    // sem idempotencyKey: cada run cria o seu documento
+    expect(draft!.idempotencyKey).toBeUndefined();
+    const md = new TextDecoder().decode(draft!.bytes);
+    expect(md).toContain("# Resultado — custom.resumo");
+    expect(md).toContain("Três pontos:");
+    expect(md).toContain("_Gerado por IA — prov · mod._");
+    expect(md).toContain("_Gerado em 2026-09-13T14:35:00.000Z._");
+  });
+
+  it("scaffold (ai.used=false) → null (não entrega placeholder)", () => {
+    const scaffold = {
+      text: "[runtime genérico: a IA não está configurada...]",
+      ai: { used: false, reason: "no-resolver" },
+      runtime: "custom.resumo",
+      generatedAt: "2026-09-13T14:35:00.000Z",
+    };
+    expect(renderGenericMarkdown(scaffold)).toBeNull();
+  });
+
+  it("texto vazio → null", () => {
+    expect(
+      renderGenericMarkdown({ text: "   ", ai: { used: true }, runtime: "x" }),
+    ).toBeNull();
+  });
+
+  it("sem generatedAt → stamp 'sem-data' no nome", () => {
+    const draft = renderGenericMarkdown({
+      text: "conteúdo",
+      ai: { used: true, provider: "p" },
+      runtime: "a.b",
+    });
+    expect(draft!.filename).toBe("a-b-sem-data.md");
+  });
+
+  it("é chamável a partir do handler resolvido (execute → deliverable)", async () => {
+    const { resolver } = fakeResolver("resultado do modelo");
+    const r = createGenericRuntimeResolver({
+      source: sourceWith({ taskType: "automation", kind: "generic", spec: { instruction: "Faz" } }),
+      resolver,
+      now,
+    });
+    const handler = await r.resolve("custom.resumo");
+    const out = await handler!.execute!(ctx({}));
+    const draft = handler!.deliverable!(out);
+    expect(draft).not.toBeNull();
+    expect(new TextDecoder().decode(draft!.bytes)).toContain("resultado do modelo");
   });
 });
