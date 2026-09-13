@@ -48,7 +48,7 @@ export async function connectionsCallbackGET(req: Request): Promise<Response> {
     const { body } = toHttp(err);
     // Loga o detalhe real (a Google devolve o motivo em `data`: invalid_grant,
     // redirect_uri_mismatch, invalid_client, ...). Sem isto o motivo era invisível.
-    console.error("[connections] callback falhou:", body.error, JSON.stringify((err as { data?: unknown })?.data ?? null));
+    console.error("[connections] callback falhou:", body.error, JSON.stringify((err as { details?: unknown })?.details ?? null));
     panel.searchParams.set("error", body.error);
     return redirect(panel.toString());
   }
