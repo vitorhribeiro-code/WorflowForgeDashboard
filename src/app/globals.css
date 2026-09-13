@@ -21,9 +21,6 @@ html,
 body {
   margin: 0;
   padding: 0;
-  /* Reserva sempre a goteira da scrollbar: evita o salto de ~15px de largura */
-  /* quando a barra aparece/desaparece (era o que fazia a página piscar). */
-  scrollbar-gutter: stable;
   background: var(--bg);
   color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;

@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
+import { createPortal } from "react-dom";
 import type { WorkerAssignmentView } from "@/modules/assignments";
 import { TaskCardPresentation } from "@/modules/tasks/ui/TaskCardPresentation";
 import { describeCron } from "../domain/recurrence";
@@ -305,7 +306,7 @@ function HistoryModal({
     [load],
   );
 
-  return (
+  return createPortal(
     <div className="wt-modal-overlay" role="presentation" onClick={onClose}>
       <div
         className="wt-modal"
@@ -391,7 +392,8 @@ function HistoryModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -835,16 +837,6 @@ function LastSummaryModal({
     void load();
   }, [load]);
   useEffect(() => {
-    // Enquanto o modal está aberto, congela o scroll da página por baixo. Com a
-    // goteira da scrollbar reservada (globals.css), não há salto de largura — e
-    // a página atrás deixa de re-fluir/piscar ao mover o cursor sobre o overlay.
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
-  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -856,7 +848,7 @@ function LastSummaryModal({
   const aiLabel =
     ai && ai.used ? [ai.provider, ai.model].filter(Boolean).join(" · ") : null;
 
-  return (
+  return createPortal(
     <div className="wt-modal-overlay" role="presentation" onClick={onClose}>
       <div
         className="wt-modal sum-modal"
@@ -931,7 +923,8 @@ function LastSummaryModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
