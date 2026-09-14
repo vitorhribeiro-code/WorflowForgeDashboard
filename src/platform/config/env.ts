@@ -29,6 +29,10 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   MICROSOFT_CLIENT_ID: z.string().optional(),
   MICROSOFT_CLIENT_SECRET: z.string().optional(),
+  // Tenant do Entra: `common` (contas de trabalho E pessoais — o default e o
+  // recomendado para vários orgs), `organizations`, `consumers` ou um GUID de
+  // tenant único. Só o segmento do URL de authorize/token muda.
+  MICROSOFT_TENANT: z.string().default("common"),
   DROPBOX_CLIENT_ID: z.string().optional(),
   DROPBOX_CLIENT_SECRET: z.string().optional(),
 });

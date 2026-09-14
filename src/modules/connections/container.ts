@@ -16,6 +16,7 @@ import {
 import {
   createProviderRegistry,
   createStateSigner,
+  normalizeMicrosoftScope,
   type OAuthProviderConfig,
 } from "./service/oauth.provider";
 
@@ -39,11 +40,17 @@ export function buildProviderConfigs(env: ReturnType<typeof loadEnv>): Record<st
   }
 
   if (env.MICROSOFT_CLIENT_ID && env.MICROSOFT_CLIENT_SECRET) {
+    // Tenant configurável (default `common` = contas de trabalho E pessoais).
+    const tenant = env.MICROSOFT_TENANT || "common";
     configs.microsoft = {
-      authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-      tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+      authUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`,
+      tokenUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
       clientId: env.MICROSOFT_CLIENT_ID,
       clientSecret: env.MICROSOFT_CLIENT_SECRET,
+      // `offline_access` (para vir refresh token) é um SCOPE, não um param — vem
+      // dos granted_scopes da Tool, não daqui. Aqui normalizamos os scopes que o
+      // Graph devolve, para não repetir o `invalid_scopes` do Dropbox.
+      mapScope: normalizeMicrosoftScope,
     };
   }
 

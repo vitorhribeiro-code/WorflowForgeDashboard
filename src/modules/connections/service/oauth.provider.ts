@@ -30,6 +30,15 @@ export interface OAuthProviderConfig {
   clientSecret: string;
   /** Alguns providers precisam de params extra (ex.: access_type=offline). */
   extraAuthParams?: Record<string, string>;
+  /**
+   * Normaliza cada scope devolvido pelo provider na resposta de token. Alguns
+   * (Microsoft) devolvem o scope com o prefixo do recurso
+   * (`https://graph.microsoft.com/Files.ReadWrite`); isto reduz à forma curta
+   * que a Tool declara, para que a validação (granted ⊆ available) E o gate de
+   * prontidão (required ⊆ granted) usem a MESMA forma canónica. Sem isto, o
+   * mesmo tipo de desalinhamento que rebentou no Dropbox como `invalid_scopes`.
+   */
+  mapScope?: (scope: string) => string;
 }
 
 type FetchLike = typeof fetch;
@@ -65,7 +74,7 @@ export function createGenericOAuthProvider(
           client_secret: cfg.clientSecret,
         }),
       });
-      return parseTokenResponse(res);
+      return parseTokenResponse(res, cfg.mapScope);
     },
 
     async refresh(refreshToken) {
@@ -79,7 +88,7 @@ export function createGenericOAuthProvider(
           client_secret: cfg.clientSecret,
         }),
       });
-      const creds = await parseTokenResponse(res);
+      const creds = await parseTokenResponse(res, cfg.mapScope);
       // Muitos providers não reenviam o refresh_token — preserva o antigo.
       if (!creds.refreshToken) creds.refreshToken = refreshToken;
       return creds;
@@ -100,7 +109,10 @@ export function createGenericOAuthProvider(
   };
 }
 
-async function parseTokenResponse(res: Response): Promise<OAuthCredentials> {
+async function parseTokenResponse(
+  res: Response,
+  mapScope?: (scope: string) => string,
+): Promise<OAuthCredentials> {
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
     const code = String(json.error ?? "");
@@ -109,6 +121,15 @@ async function parseTokenResponse(res: Response): Promise<OAuthCredentials> {
   }
   const accessToken = json.access_token as string | undefined;
   if (!accessToken) throw providerError("Resposta sem access_token.");
+  // Normaliza o `scope` devolvido (ex.: prefixo do recurso Graph) ANTES de o
+  // service o ler de `raw.scope` — mantém granted e required na mesma forma.
+  if (mapScope && typeof json.scope === "string") {
+    json.scope = json.scope
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .map(mapScope)
+      .join(" ");
+  }
   const expiresIn = Number(json.expires_in ?? 0);
   return {
     accessToken,
@@ -116,6 +137,20 @@ async function parseTokenResponse(res: Response): Promise<OAuthCredentials> {
     expiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : undefined,
     raw: json,
   };
+}
+
+/**
+ * Reduz um scope da Microsoft à forma curta que a Tool declara. O Graph devolve
+ * por vezes o scope com o prefixo do recurso
+ * (`https://graph.microsoft.com/Files.ReadWrite`) ou de uma API custom
+ * (`api://<id>/...`). Absorve ambos. Idempotente na forma curta (`Files.ReadWrite`
+ * → `Files.ReadWrite`), por isso é seguro aplicá-lo sempre.
+ */
+export function normalizeMicrosoftScope(scope: string): string {
+  return scope
+    .trim()
+    .replace(/^https?:\/\/graph\.microsoft\.com\//i, "")
+    .replace(/^api:\/\/[^/]+\//i, "");
 }
 
 /* ------------------------------------------------------------------ */

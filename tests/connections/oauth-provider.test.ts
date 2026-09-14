@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   createGenericOAuthProvider,
   createProviderRegistry,
+  normalizeMicrosoftScope,
   type OAuthProviderConfig,
 } from "@/modules/connections/service/oauth.provider";
 import { buildProviderConfigs } from "@/modules/connections/container";
@@ -139,5 +140,69 @@ describe("wiring de produção — buildProviderConfigs", () => {
     expect(cfg.dropbox).toBeDefined();
     expect(cfg.microsoft).toBeUndefined();
     expect(cfg.google).toBeUndefined();
+  });
+
+  it("regista Microsoft com URLs /common + mapScope quando há secrets", () => {
+    const cfg = buildProviderConfigs(
+      envWith({ MICROSOFT_CLIENT_ID: "mid", MICROSOFT_CLIENT_SECRET: "msec" }),
+    );
+    expect(cfg.microsoft).toBeDefined();
+    expect(cfg.microsoft!.authUrl).toBe(
+      "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+    );
+    expect(cfg.microsoft!.tokenUrl).toBe(
+      "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    );
+    expect(typeof cfg.microsoft!.mapScope).toBe("function");
+  });
+
+  it("respeita um MICROSOFT_TENANT custom (single-tenant)", () => {
+    const cfg = buildProviderConfigs(
+      envWith({
+        MICROSOFT_CLIENT_ID: "mid",
+        MICROSOFT_CLIENT_SECRET: "msec",
+        MICROSOFT_TENANT: "contoso.onmicrosoft.com",
+      }),
+    );
+    expect(cfg.microsoft!.authUrl).toContain("/contoso.onmicrosoft.com/oauth2/v2.0/authorize");
+    expect(cfg.microsoft!.tokenUrl).toContain("/contoso.onmicrosoft.com/oauth2/v2.0/token");
+  });
+});
+
+describe("normalizeMicrosoftScope", () => {
+  it("reduz o prefixo do recurso Graph à forma curta", () => {
+    expect(normalizeMicrosoftScope("https://graph.microsoft.com/Files.ReadWrite")).toBe(
+      "Files.ReadWrite",
+    );
+  });
+  it("é idempotente na forma curta", () => {
+    expect(normalizeMicrosoftScope("Files.ReadWrite")).toBe("Files.ReadWrite");
+    expect(normalizeMicrosoftScope("openid")).toBe("openid");
+  });
+  it("absorve um recurso de API custom (api://<id>/…)", () => {
+    expect(normalizeMicrosoftScope("api://abc-123/Foo.Bar")).toBe("Foo.Bar");
+  });
+});
+
+describe("provider genérico — exchangeCode aplica mapScope ao raw.scope", () => {
+  it("normaliza scopes com prefixo Graph para a forma curta que a Tool declara", async () => {
+    const { fn } = fakeFetch({
+      access_token: "at",
+      expires_in: 3600,
+      scope: "https://graph.microsoft.com/Files.ReadWrite openid profile",
+    });
+    const microsoftCfg: OAuthProviderConfig = {
+      authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+      tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+      clientId: "mid",
+      clientSecret: "msec",
+      mapScope: normalizeMicrosoftScope,
+    };
+    const p = createGenericOAuthProvider(microsoftCfg, fn);
+    const creds = await p.exchangeCode({
+      code: "c",
+      redirectUri: "https://app.example/api/connections/callback",
+    });
+    expect((creds.raw as { scope?: string }).scope).toBe("Files.ReadWrite openid profile");
   });
 });

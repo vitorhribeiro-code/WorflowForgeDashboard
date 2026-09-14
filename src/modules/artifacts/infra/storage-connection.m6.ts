@@ -8,6 +8,7 @@ import { tools, workerConnections } from "@/db/schema";
 import type { CloudSdk, StorageConnectionPort } from "./cloud-storage.worker-connection";
 import { createGoogleDriveSdk } from "@/platform/cloud/google-drive";
 import { createDropboxSdk } from "@/platform/cloud/dropbox";
+import { createMicrosoftGraphSdk } from "@/platform/cloud/microsoft";
 
 // Scopes de escrita conhecidos por ferramenta. Heurística até os SDKs reais
 // cobrirem todas (aí a decisão de writeScope passa a ser do próprio provider).
@@ -88,9 +89,11 @@ export function createM6StorageConnectionBridge(
  */
 const googleDrive = createGoogleDriveSdk();
 const dropbox = createDropboxSdk();
+const microsoft = createMicrosoftGraphSdk();
 
 export function defaultCloudSdkRegistry(toolKey: string): CloudSdk | undefined {
   if (toolKey === "google") return googleDrive;
   if (toolKey === "dropbox") return dropbox;
+  if (toolKey === "microsoft") return microsoft;
   return undefined;
 }
