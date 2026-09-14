@@ -51,6 +51,9 @@ export function buildProviderConfigs(env: ReturnType<typeof loadEnv>): Record<st
       // dos granted_scopes da Tool, não daqui. Aqui normalizamos os scopes que o
       // Graph devolve, para não repetir o `invalid_scopes` do Dropbox.
       mapScope: normalizeMicrosoftScope,
+      // A Microsoft concede o `offline_access` (dá refresh token) mas não o ecoa
+      // nos scopes devolvidos → sem isto, o gate marcava-o sempre como em falta.
+      impliedScopes: ["offline_access"],
     };
   }
 

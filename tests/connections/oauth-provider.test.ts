@@ -154,6 +154,7 @@ describe("wiring de produção — buildProviderConfigs", () => {
       "https://login.microsoftonline.com/common/oauth2/v2.0/token",
     );
     expect(typeof cfg.microsoft!.mapScope).toBe("function");
+    expect(cfg.microsoft!.impliedScopes).toEqual(["offline_access"]);
   });
 
   it("respeita um MICROSOFT_TENANT custom (single-tenant)", () => {
@@ -204,5 +205,49 @@ describe("provider genérico — exchangeCode aplica mapScope ao raw.scope", () 
       redirectUri: "https://app.example/api/connections/callback",
     });
     expect((creds.raw as { scope?: string }).scope).toBe("Files.ReadWrite openid profile");
+  });
+});
+
+describe("provider genérico — impliedScopes (offline_access não ecoado)", () => {
+  const microsoftCfg: OAuthProviderConfig = {
+    authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+    tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    clientId: "mid",
+    clientSecret: "msec",
+    mapScope: normalizeMicrosoftScope,
+    impliedScopes: ["offline_access"],
+  };
+
+  it("acrescenta offline_access aos concedidos quando vem refresh_token", async () => {
+    // A Microsoft devolve o Files.ReadWrite mas NÃO o offline_access, mesmo dando
+    // refresh token. O impliedScopes conta-o como concedido → gate fica verde.
+    const { fn } = fakeFetch({
+      access_token: "at",
+      refresh_token: "rt",
+      expires_in: 3600,
+      scope: "Files.ReadWrite",
+    });
+    const p = createGenericOAuthProvider(microsoftCfg, fn);
+    const creds = await p.exchangeCode({
+      code: "c",
+      redirectUri: "https://app.example/api/connections/callback",
+    });
+    const granted = (creds.raw as { scope?: string }).scope!.split(" ");
+    expect(granted).toContain("Files.ReadWrite");
+    expect(granted).toContain("offline_access");
+  });
+
+  it("NÃO acrescenta offline_access se não vier refresh_token", async () => {
+    const { fn } = fakeFetch({
+      access_token: "at",
+      expires_in: 3600,
+      scope: "Files.ReadWrite",
+    });
+    const p = createGenericOAuthProvider(microsoftCfg, fn);
+    const creds = await p.exchangeCode({
+      code: "c",
+      redirectUri: "https://app.example/api/connections/callback",
+    });
+    expect((creds.raw as { scope?: string }).scope).toBe("Files.ReadWrite");
   });
 });

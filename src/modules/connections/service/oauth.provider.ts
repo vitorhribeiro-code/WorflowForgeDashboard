@@ -39,6 +39,15 @@ export interface OAuthProviderConfig {
    * mesmo tipo de desalinhamento que rebentou no Dropbox como `invalid_scopes`.
    */
   mapScope?: (scope: string) => string;
+  /**
+   * Scopes que o provider concede mas NÃO ecoa no `scope` da resposta de token.
+   * A Microsoft faz isto com o `offline_access`: consome-o para emitir o refresh
+   * token mas não o devolve na lista de scopes — pelo que o gate de prontidão o
+   * marcaria como em falta apesar de a ligação estar completa. Aqui, quando vem
+   * refresh_token (a prova de que foi concedido), estes scopes são acrescentados
+   * aos concedidos. Só se aplica se o provider os declarar (Google/Dropbox não).
+   */
+  impliedScopes?: string[];
 }
 
 type FetchLike = typeof fetch;
@@ -74,7 +83,7 @@ export function createGenericOAuthProvider(
           client_secret: cfg.clientSecret,
         }),
       });
-      return parseTokenResponse(res, cfg.mapScope);
+      return parseTokenResponse(res, cfg.mapScope, cfg.impliedScopes);
     },
 
     async refresh(refreshToken) {
@@ -88,7 +97,7 @@ export function createGenericOAuthProvider(
           client_secret: cfg.clientSecret,
         }),
       });
-      const creds = await parseTokenResponse(res, cfg.mapScope);
+      const creds = await parseTokenResponse(res, cfg.mapScope, cfg.impliedScopes);
       // Muitos providers não reenviam o refresh_token — preserva o antigo.
       if (!creds.refreshToken) creds.refreshToken = refreshToken;
       return creds;
@@ -112,6 +121,7 @@ export function createGenericOAuthProvider(
 async function parseTokenResponse(
   res: Response,
   mapScope?: (scope: string) => string,
+  impliedScopes?: string[],
 ): Promise<OAuthCredentials> {
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
@@ -129,6 +139,13 @@ async function parseTokenResponse(
       .filter(Boolean)
       .map(mapScope)
       .join(" ");
+  }
+  // Scopes concedidos mas não ecoados (Microsoft: offline_access). Só se vier
+  // refresh_token — que é a prova de que o offline_access foi de facto concedido.
+  if (impliedScopes?.length && typeof json.refresh_token === "string") {
+    const current =
+      typeof json.scope === "string" ? json.scope.split(/[\s,]+/).filter(Boolean) : [];
+    json.scope = Array.from(new Set([...current, ...impliedScopes])).join(" ");
   }
   const expiresIn = Number(json.expires_in ?? 0);
   return {
